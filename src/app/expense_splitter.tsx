@@ -404,7 +404,7 @@ const ExpenseSplitter = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex justify-between items-center">
-                <span>Saved Groups</span>
+                <span>Your Groups</span>
                 <Button onClick={startNewGroup}>Create New Group</Button>
               </CardTitle>
             </CardHeader>
