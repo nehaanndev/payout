@@ -1,11 +1,13 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Edit2, Users, DollarSign, Save } from 'lucide-react';
+import { Plus, Trash2, Users, DollarSign, Save } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Group } from '@/types/group';
+import { Group, Expense } from '@/types/group';
 
 
 
@@ -14,11 +16,16 @@ const ExpenseSplitter = () => {
   const [savedGroups, setSavedGroups] = useState<Group[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [groupName, setGroupName] = useState('');
-  const [members, setMembers] = useState([]);
+  const [members, setMembers] = useState<string[]>([]);
   const [newMember, setNewMember] = useState('');
-  const [expenses, setExpenses] = useState([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const [currentExpense, setCurrentExpense] = useState({
+  const [currentExpense, setCurrentExpense] = useState<{
+    description: string;
+    amount: string;
+    paidBy: string;
+    splits: Record<string, number>;
+  }>({
     description: '',
     amount: '',
     paidBy: '',
@@ -96,11 +103,11 @@ const ExpenseSplitter = () => {
     }
   };
 
-  const removeMember = (memberToRemove) => {
+  const removeMember = (memberToRemove: string) => {
     setMembers(members.filter(member => member !== memberToRemove));
   };
 
-  const handleExpenseSubmit = (e) => {
+  const handleExpenseSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     if (!currentExpense.description || !currentExpense.amount || !currentExpense.paidBy) {
@@ -108,7 +115,7 @@ const ExpenseSplitter = () => {
       return;
     }
     
-    const totalSplit = Object.values(currentExpense.splits).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
+    const totalSplit = Object.values(currentExpense.splits).reduce((sum: number, val: unknown) => sum + (typeof val === "number" ? val : parseFloat(val as string) || 0), 0);
     if (Math.abs(totalSplit - 100) > 0.01) {
       alert('Split percentages must sum to 100%');
       return;
@@ -119,8 +126,8 @@ const ExpenseSplitter = () => {
       id: generateId(),
       amount: parseFloat(currentExpense.amount),
       date: new Date().toISOString(),
-      splits: members.reduce((acc, member) => {
-        acc[member] = parseFloat(currentExpense.splits[member]) || 0;
+      splits: members.reduce<Record<string, number>>((acc, member) => {
+        acc[member] = currentExpense.splits[member] || 0;
         return acc;
       }, {})
     };
@@ -152,7 +159,7 @@ const ExpenseSplitter = () => {
   };
 
   const calculateBalances = () => {
-    const balances = {};
+    const balances: Record<string, number> = {};
     members.forEach(member => {
       balances[member] = 0;
     });
@@ -167,7 +174,7 @@ const ExpenseSplitter = () => {
     return balances;
   };
 
-  const updateSplit = (member, value) => {
+  const updateSplit = (member: string, value: string) => {
     setCurrentExpense(prev => ({
       ...prev,
       splits: {
@@ -179,7 +186,7 @@ const ExpenseSplitter = () => {
 
   const splitEqually = () => {
     const equalSplit = (100 / members.length).toFixed(2);
-    const newSplits = members.reduce((acc, member) => {
+    const newSplits = members.reduce<Record<string, number>>((acc, member) => {
       acc[member] = parseFloat(equalSplit);
       return acc;
     }, {});
