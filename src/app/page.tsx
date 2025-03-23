@@ -51,14 +51,22 @@ export default function Home() {
               <h1 className="text-2xl font-bold">Payout</h1>
               <p className="text-gray-500 text-sm">Manage your expenses with ease</p>
             </div>
-            <Button onClick={() => handleSignOut()} variant="outline" className="text-sm">
-              Sign Out
-            </Button>
-          </div>
-
+            <div className="flex items-center space-x-4">
+              {session.photoURL && (
+                <img
+                  src={session.photoURL}
+                  alt="User Avatar"
+                  className="w-10 h-10 rounded-full border-2 border-gray-300 shadow-sm"
+                />
+              )}
+              <Button onClick={handleSignOut} variant="outline" className="text-sm">
+                Sign Out
+              </Button>
+            </div>
+          </div>              
           {/* Main App Content */}
           <div className="flex-grow p-8">
-            <ExpenseSplitter />
+            <ExpenseSplitter session = {session}/>
           </div>
         </>
       ) : (

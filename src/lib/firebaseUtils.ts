@@ -40,7 +40,7 @@ export const addExpense = async (
   return expenseRef.id;
 };
 
-import { getAuth, onAuthStateChanged , GoogleAuthProvider, signInWithCredential } from "firebase/auth";
+import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 import { getDocs, query, where } from "firebase/firestore";
 import { Group } from "@/types/group";
 

@@ -1,8 +1,7 @@
 "use client";
 
 import React, {useEffect, useState } from 'react';
-import { getUserGroups, signInToFirebase } from "@/lib/firebaseUtils";
-import { useSession } from "next-auth/react";
+import { getUserGroups } from "@/lib/firebaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,10 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Plus, Trash2, Users, DollarSign, Save } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Group, Expense } from '@/types/group';
+import { User } from "firebase/auth";
 
+interface ExpenseSplitterProps {
+  session: User | null;
+}
 
-const ExpenseSplitter = () => {
-  const { data: session } = useSession();
+export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('create');
   const [savedGroups, setSavedGroups] = useState<Group[]>([]);
@@ -39,7 +41,8 @@ const ExpenseSplitter = () => {
     const fetchGroups = async () => {
       if (session) {
         // if the session exists, get the accessToken property
-        const userGroups = await getUserGroups(session.user?.email) as Group[];
+        console.log(session);
+        const userGroups = await getUserGroups(session.email!) as Group[];
         console.log(userGroups);
         const formattedGroups: Group[] = userGroups.map((group: Group) => ({
           ...group,
@@ -90,7 +93,7 @@ const ExpenseSplitter = () => {
         expenses: [...expenses],
         createdAt: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
-        createdBy: session?.user?.email ?? ''
+        createdBy: session?.email ?? ''
       };
       setSavedGroups(prev => [...prev, newGroup]);
       setActiveGroupId(newGroup.id);
@@ -468,5 +471,3 @@ const ExpenseSplitter = () => {
     </div>
   );
 };
-
-export default ExpenseSplitter;
