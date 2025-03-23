@@ -1,13 +1,14 @@
-"use client"; 
-
 import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const session = await getServerSession(authOptions);  // Get session on the server
   return (
     <html lang="en">
       <body>
-        <SessionProvider session={null}>
+        <SessionProvider session={session}>
           {children}
         </SessionProvider>
       </body>

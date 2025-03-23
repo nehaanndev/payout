@@ -1,4 +1,6 @@
-"use client";
+ "use client";
+ 
+export const dynamic = "force-dynamic";  // Prevents static generation
 
 import { useSession, signIn, signOut } from "next-auth/react";
 import ExpenseSplitter from "./expense_splitter";
