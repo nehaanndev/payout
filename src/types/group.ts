@@ -10,6 +10,7 @@ export interface Expense {
   export interface Group {
     id: string;
     name: string;
+    createdBy: string;
     members: string[];
     expenses: Expense[];
     createdAt: string;

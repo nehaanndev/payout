@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, {useEffect, useState } from 'react';
+import { getUserGroups, signInToFirebase } from "@/lib/firebaseUtils";
+import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,8 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Group, Expense } from '@/types/group';
 
 
-
 const ExpenseSplitter = () => {
+  const { data: session } = useSession();
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('create');
   const [savedGroups, setSavedGroups] = useState<Group[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
@@ -31,6 +34,31 @@ const ExpenseSplitter = () => {
     paidBy: '',
     splits: {}
   });
+
+  useEffect(() => {
+    const fetchGroups = async () => {
+      if (session) {
+        // if the session exists, get the accessToken property
+        const userGroups = await getUserGroups(session.user?.email) as Group[];
+        console.log(userGroups);
+        const formattedGroups: Group[] = userGroups.map((group: Group) => ({
+          ...group,
+          name: group.name || '',
+          members: group.members || [],
+          expenses: group.expenses || [],
+          createdAt: group.createdAt,
+          lastUpdated: group.lastUpdated
+        }));
+        setSavedGroups(formattedGroups);
+      }
+      setLoading(false);
+    };
+    fetchGroups();
+  }, [session]);
+  
+  if (loading) {
+    return <p>Loading groups...</p>;
+  }
 
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
@@ -61,7 +89,8 @@ const ExpenseSplitter = () => {
         members: [...members],
         expenses: [...expenses],
         createdAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
+        createdBy: session?.user?.email ?? ''
       };
       setSavedGroups(prev => [...prev, newGroup]);
       setActiveGroupId(newGroup.id);

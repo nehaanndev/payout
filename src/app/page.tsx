@@ -1,14 +1,43 @@
 "use client";
 
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { auth, provider, signInWithPopup, signOut, User, onAuthStateChanged } from "../lib/firebase"; // Import Firebase auth and provider
 import ExpenseSplitter from "./expense_splitter";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function Home() {
-  const { data: session, status } = useSession();
+  const [session, setSession] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (status === "loading") {
+  // Set up an observer on auth state change to track the sign-in state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setSession(user);
+      setLoading(false);
+    });
+
+    // Cleanup on component unmount
+    return () => unsubscribe();
+  }, []);
+
+  const handleSignIn = async () => {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Error signing in to Firebase: ", error);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Error signing out: ", error);
+    }
+  };
+
+  if (loading) {
     return <p>Loading...</p>;
   }
 
@@ -22,7 +51,7 @@ export default function Home() {
               <h1 className="text-2xl font-bold">Payout</h1>
               <p className="text-gray-500 text-sm">Manage your expenses with ease</p>
             </div>
-            <Button onClick={() => signOut()} variant="outline" className="text-sm">
+            <Button onClick={() => handleSignOut()} variant="outline" className="text-sm">
               Sign Out
             </Button>
           </div>
@@ -41,7 +70,7 @@ export default function Home() {
               <p className="text-center text-gray-500 mt-2">Manage your expenses with ease</p>
             </CardHeader>
             <div className="flex flex-col items-center space-y-6 p-4">
-              <Button onClick={() => signIn("google")} className="w-full">
+              <Button onClick={() => handleSignIn()} className="w-full">
                 Sign In with Google
               </Button>
             </div>
