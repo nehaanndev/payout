@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { auth, provider, signInWithPopup, signOut, User, onAuthStateChanged } from "../lib/firebase"; // Import Firebase auth and provider
 import ExpenseSplitter from "./expense_splitter";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 export default function Home() {
   const [session, setSession] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showProfileCard, setShowProfileCard] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   // Set up an observer on auth state change to track the sign-in state
   useEffect(() => {
@@ -21,6 +23,20 @@ export default function Home() {
     return () => unsubscribe();
   }, []);
 
+    // Close the profile card when clicking outside
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+          setShowProfileCard(false);
+        }
+      };
+  
+      if (showProfileCard) {
+        document.addEventListener("mousedown", handleClickOutside);
+      }
+  
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [showProfileCard]);
   const handleSignIn = async () => {
     try {
       await signInWithPopup(auth, provider);
@@ -51,17 +67,51 @@ export default function Home() {
               <h1 className="text-2xl font-bold">Payout</h1>
               <p className="text-gray-500 text-sm">Manage your expenses with ease</p>
             </div>
-            <div className="flex items-center space-x-4">
+
+            {/* Profile image and dropdown */}
+            <div className="relative">
               {session.photoURL && (
                 <img
                   src={session.photoURL}
                   alt="User Avatar"
-                  className="w-10 h-10 rounded-full border-2 border-gray-300 shadow-sm"
+                  width={40}
+                  height={40}
+                  className="rounded-full border cursor-pointer"
+                  onClick={() => setShowProfileCard((prev) => !prev)}
                 />
               )}
-              <Button onClick={handleSignOut} variant="outline" className="text-sm">
-                Sign Out
-              </Button>
+
+              {/* Profile Card */}
+              {showProfileCard && (
+                <div
+                  ref={profileRef}
+                  className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg z-50"
+                >
+                  <Card className="p-6">
+                    <CardHeader className="flex flex-col items-center">
+                      <img
+                        src={session.photoURL || "/default-profile.png"}
+                        alt="User"
+                        width={80}
+                        height={80}
+                        className="rounded-full border"
+                      />
+                      <CardTitle className="text-lg mt-4">
+                        Hi, {session.displayName || "User"}! 👋
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex justify-center mt-4">
+                      <Button
+                        onClick={() => handleSignOut()}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        Sign Out
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </div>
           </div>              
           {/* Main App Content */}

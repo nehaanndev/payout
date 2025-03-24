@@ -20,6 +20,7 @@ export const createGroup = async (
 
 import { doc, setDoc } from "firebase/firestore";
 
+/*
 export const addExpense = async (
   groupId: string,
   description: string,
@@ -39,6 +40,7 @@ export const addExpense = async (
 
   return expenseRef.id;
 };
+*/
 
 import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 import { getDocs, query, where } from "firebase/firestore";
@@ -67,4 +69,49 @@ export const signInToFirebase = async (accessToken: string) => {
   } catch (error) {
     console.error('Error signing in to Firebase:', error);
   }
+};
+
+
+import {  orderBy, Timestamp } from "firebase/firestore";
+
+// ✅ Add expense to Firestore
+export const addExpense = async (
+  groupId: string,
+  description: string,
+  amount: number,
+  paidBy: string,
+  splits: Record<string, number>
+) => {
+  try {
+    const expenseRef = collection(db, "groups", groupId, "expenses");
+
+    const newExpense = {
+      description,
+      amount,
+      paidBy,
+      splits,
+      createdAt: Timestamp.now(),
+    };
+
+    await addDoc(expenseRef, newExpense);
+    console.log("Expense added successfully!");
+  } catch (error) {
+    console.error("Error adding expense:", error);
+    throw new Error("Failed to add expense");
+  }
+};
+
+// ✅ Fetch expenses for a specific group
+export const getExpenses = async (groupId: string) => {
+  const expensesRef = collection(db, "groups", groupId, "expenses");
+  const q = query(expensesRef, orderBy("date", "desc"));
+  
+  const querySnapshot = await getDocs(q);
+  
+  const expenses = querySnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+
+  return expenses;
 };
