@@ -12,10 +12,13 @@ export const createGroup = async (
     firstName: member.firstName || "Unknown"  // Include first name with fallback
   }));
 
+  const formattedMemberEmails = members.map((member) => member.email);
+
   const docRef = await addDoc(collection(db, "groups"), {
     name: groupName,
     createdBy: userId,
     members: formattedMembers,  // Store both email and first names
+    memberEmails:formattedMemberEmails,          // Array of emails for easier querying
     createdAt: serverTimestamp(),
     lastUpdated: serverTimestamp(),
     expenses: [],
@@ -76,18 +79,32 @@ import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 import { getDocs, query, where } from "firebase/firestore";
 import { Expense, Group, Member } from "@/types/group";
 
-// Function to get user groups
-export const getUserGroups =  async (userId: string) => {
-        const q = query(
-          collection(db, "groups"),
-          where("members", "array-contains", userId)
-        );
-        const querySnapshot = await getDocs(q);
+/**
+ * Fetches groups where the user is a member by email
+ * @param userEmail - The email of the logged-in user
+ * @returns Array of Group objects
+ */
+export const getUserGroups = async (userEmail: string) => {
+  if (!userEmail) {
+    return [];
+  }
+  try {
+    const q = query(
+      collection(db, "groups"),
+      where("memberEmails", "array-contains", userEmail)
+    );
+    const querySnapshot = await getDocs(q);
+    console.log(querySnapshot)
+    const groups: Group[] = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Group[];
 
-        return querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Group[];
+    return groups;
+  } catch (error) {
+    console.error("Error fetching user groups:", error);
+    return [];
+  }
 };
 
 export const signInToFirebase = async (accessToken: string) => {

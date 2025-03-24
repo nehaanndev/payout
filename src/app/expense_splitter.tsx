@@ -42,6 +42,7 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
     const fetchGroups = async () => {
       if (session) {
         // if the session exists, get the accessToken property
+        console.log(session.email);
         const userGroups = await getUserGroups(session.email!) as Group[];
         const formattedGroups: Group[] = userGroups.map((group: Group) => ({
           ...group,
