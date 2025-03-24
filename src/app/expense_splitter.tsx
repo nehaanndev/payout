@@ -1,14 +1,14 @@
 "use client";
 
 import React, {useEffect, useState } from 'react';
-import { getUserGroups, addExpense, getExpenses} from "@/lib/firebaseUtils";
+import { getUserGroups, addExpense, getExpenses, createGroup, modifyGroupMembers} from "@/lib/firebaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2, Users, DollarSign, Save } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Group, Expense } from '@/types/group';
+import { Group, Expense, Member } from '@/types/group';
 import { User } from "firebase/auth";
 
 interface ExpenseSplitterProps {
@@ -21,8 +21,9 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
   const [savedGroups, setSavedGroups] = useState<Group[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [groupName, setGroupName] = useState('');
-  const [members, setMembers] = useState<string[]>([]);
-  const [newMember, setNewMember] = useState('');
+  const [members, setMembers] = useState<Member[]>([]);
+  const [newMemberFirstName, setNewMemberFirstName] = useState("");
+  const [newMemberEmail, setNewMemberEmail] = useState("");
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [currentExpense, setCurrentExpense] = useState<{
@@ -41,9 +42,7 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
     const fetchGroups = async () => {
       if (session) {
         // if the session exists, get the accessToken property
-        console.log(session);
         const userGroups = await getUserGroups(session.email!) as Group[];
-        console.log(userGroups);
         const formattedGroups: Group[] = userGroups.map((group: Group) => ({
           ...group,
           name: group.name || '',
@@ -65,20 +64,27 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
 
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
-  const saveGroup = () => {
+  const saveGroup = async () => {
     if (!groupName.trim() || members.length === 0) {
       alert('Please enter a group name and add at least one member');
       return;
     }
 
+    const formattedMembers = members.map((member) => ({
+      email: member.email,
+      firstName: member.firstName || "Unknown"  // Include first name with fallback
+    }));
+
     if (activeGroupId) {
+      // TODO: Save the existing group to Firebase
+      await modifyGroupMembers(activeGroupId, formattedMembers, []);
       setSavedGroups(prevGroups => 
         prevGroups.map(group => 
           group.id === activeGroupId
             ? {
                 ...group,
                 name: groupName,
-                members: [...members],
+                members: [...formattedMembers],
                 expenses: [...expenses],
                 lastUpdated: new Date().toISOString()
               }
@@ -95,6 +101,8 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
         lastUpdated: new Date().toISOString(),
         createdBy: session?.email ?? ''
       };
+      // save new group to Firebase
+      await createGroup(groupName, session?.email ?? '', members);
       setSavedGroups(prev => [...prev, newGroup]);
       setActiveGroupId(newGroup.id);
     }
@@ -131,14 +139,31 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
   };
 
   const addMember = () => {
-    if (newMember.trim() && !members.includes(newMember.trim())) {
-      setMembers([...members, newMember.trim()]);
-      setNewMember('');
+    const trimmedFirstName = newMemberFirstName.trim();
+    const trimmedEmail = newMemberEmail.trim();
+  
+    if (trimmedFirstName && trimmedEmail) {
+      // Check if the email already exists
+      const isDuplicate = members.some((m) => m.email === trimmedEmail);
+  
+      if (!isDuplicate) {
+        // Add the new member as an object with first name and email
+        setMembers([
+          ...members,
+          { firstName: trimmedFirstName, email: trimmedEmail }
+        ]);
+        
+        // Clear the input fields
+        setNewMemberFirstName("");
+        setNewMemberEmail("");
+      } else {
+        alert("This email is already added!");
+      }
     }
   };
 
-  const removeMember = (memberToRemove: string) => {
-    setMembers(members.filter(member => member !== memberToRemove));
+  const removeMember = (memberEmailToRemove: string) => {
+    setMembers(members.filter(member => member.email !== memberEmailToRemove));
   };
 
   const handleExpenseSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -159,9 +184,9 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
       ...currentExpense,
       id: generateId(),
       amount: parseFloat(currentExpense.amount),
-      date: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       splits: members.reduce<Record<string, number>>((acc, member) => {
-        acc[member] = currentExpense.splits[member] || 0;
+        acc[member.email] = currentExpense.splits[member.email] || 0;
         return acc;
       }, {})
     };
@@ -204,7 +229,7 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
   const calculateBalances = () => {
     const balances: Record<string, number> = {};
     members.forEach(member => {
-      balances[member] = 0;
+      balances[member.email] = 0;
     });
 
     expenses.forEach(expense => {
@@ -230,7 +255,7 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
   const splitEqually = () => {
     const equalSplit = (100 / members.length).toFixed(2);
     const newSplits = members.reduce<Record<string, number>>((acc, member) => {
-      acc[member] = parseFloat(equalSplit);
+      acc[member.email] = parseFloat(equalSplit);
       return acc;
     }, {});
     setCurrentExpense(prev => ({
@@ -281,23 +306,32 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
                   />
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <Input
-                    value={newMember}
-                    onChange={(e) => setNewMember(e.target.value)}
-                    placeholder="Add member name"
+                    value={newMemberFirstName}
+                    onChange={(e) => setNewMemberFirstName(e.target.value)}
+                    placeholder="First Name"
                     onKeyPress={(e) => e.key === 'Enter' && addMember()}
+                    className="flex-1"
                   />
-                  <Button onClick={addMember}>
+                  <Input
+                    value={newMemberEmail}
+                    onChange={(e) => setNewMemberEmail(e.target.value)}
+                    placeholder="Email"
+                    onKeyPress={(e) => e.key === 'Enter' && addMember()}
+                    className="flex-1"
+                  />
+                  <Button onClick={addMember} className="p-2">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
 
+
                 <div className="flex flex-wrap gap-2">
                   {members.map(member => (
-                    <div key={member} className="flex items-center gap-2 bg-slate-100 p-2 rounded">
-                      {member}
-                      <button onClick={() => removeMember(member)} className="text-red-500">
+                    <div key={member.email} className="flex items-center gap-2 bg-slate-100 p-2 rounded">
+                      {member.firstName}
+                      <button onClick={() => removeMember(member.firstName)} className="text-red-500">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -357,7 +391,7 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
                     >
                       <option value="">Select person</option>
                       {members.map(member => (
-                        <option key={member} value={member}>{member}</option>
+                        <option key={member.email} value={member.firstName}>{member.firstName}</option>
                       ))}
                     </select>
                   </div>
@@ -376,12 +410,12 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
                     </div>
                     <div className="space-y-2">
                       {members.map(member => (
-                        <div key={member} className="flex items-center gap-2">
-                          <span className="w-24">{member}</span>
+                        <div key={member.firstName} className="flex items-center gap-2">
+                          <span className="w-24">{member.firstName}</span>
                           <Input
                             type="number"
-                            value={currentExpense.splits[member] || ''}
-                            onChange={(e) => updateSplit(member, e.target.value)}
+                            value={currentExpense.splits[member.email] || ''}
+                            onChange={(e) => updateSplit(member.email, e.target.value)}
                             placeholder="0"
                             required
                           />
@@ -412,7 +446,7 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
                       <span className="font-bold">${expense.amount.toFixed(2)}</span>
                     </div>
                     <p className="text-sm text-gray-600">
-                      Paid by: {expense.paidBy} • {new Date(expense.date).toLocaleDateString()}
+                      Paid by: {expense.paidBy} • {new Date(expense.createdAt).toLocaleDateString()}
                     </p>
                     <div className="mt-2">
                       {Object.entries(expense.splits).map(([member, percentage]) => (

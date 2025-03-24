@@ -1,15 +1,21 @@
 import { db, auth } from "./firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, updateDoc, doc, getDoc } from "firebase/firestore";
 
 export const createGroup = async (
   groupName: string,
   userId: string,
-  members: string[]
+  members: Member[]
 ) => {
+  
+  const formattedMembers = members.map((member) => ({
+    email: member.email,
+    firstName: member.firstName || "Unknown"  // Include first name with fallback
+  }));
+
   const docRef = await addDoc(collection(db, "groups"), {
     name: groupName,
     createdBy: userId,
-    members,
+    members: formattedMembers,  // Store both email and first names
     createdAt: serverTimestamp(),
     lastUpdated: serverTimestamp(),
     expenses: [],
@@ -18,31 +24,57 @@ export const createGroup = async (
   return docRef.id;
 };
 
-/*
-export const addExpense = async (
+/**
+ * Updates a group by adding or removing members
+ * @param groupId - ID of the group to update
+ * @param newMembers - Members to add (array of Member objects)
+ * @param removeEmails - Emails of members to remove (array of strings)
+ */
+export const modifyGroupMembers = async (
   groupId: string,
-  description: string,
-  amount: number,
-  paidBy: string,
-  splits: Record<string, number>
+  newMembers: Member[] = [],
+  removeEmails: string[] = []
 ) => {
-  const expenseRef = doc(collection(db, "expenses"));
-  await setDoc(expenseRef, {
-    groupId,
-    description,
-    amount,
-    paidBy,
-    splits,
-    createdAt: serverTimestamp(),
-  });
+  if (!groupId) {
+    console.error("Invalid group ID");
+    return;
+  }
 
-  return expenseRef.id;
+  const groupRef = doc(db, "groups", groupId);
+
+  try {
+    const groupSnapshot = await getDoc(groupRef);
+
+    if (!groupSnapshot.exists()) {
+      console.error(`Group with ID ${groupId} not found`);
+      return;
+    }
+
+    const groupData = groupSnapshot.data();
+
+    // Retrieve the current members
+    const currentMembers: Member[] = groupData.members || [];
+
+    // Filter out the members to be removed
+    const updatedMembers = currentMembers
+      .filter((member) => !removeEmails.includes(member.email))
+      .concat(newMembers);
+
+    // Update the group in Firestore
+    await updateDoc(groupRef, {
+      members: updatedMembers,
+      lastUpdated: serverTimestamp(),
+    });
+
+    console.log(`Group ${groupId} updated successfully`);
+  } catch (error) {
+    console.error("Error updating group:", error);
+  }
 };
-*/
 
 import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 import { getDocs, query, where } from "firebase/firestore";
-import { Expense, Group } from "@/types/group";
+import { Expense, Group, Member } from "@/types/group";
 
 // Function to get user groups
 export const getUserGroups =  async (userId: string) => {
@@ -71,7 +103,6 @@ export const signInToFirebase = async (accessToken: string) => {
 
 
 import {  orderBy, Timestamp } from "firebase/firestore";
-import { group } from "console";
 
 // ✅ Add expense to Firestore
 export const addExpense = async (
