@@ -18,8 +18,6 @@ export const createGroup = async (
   return docRef.id;
 };
 
-import { doc, setDoc } from "firebase/firestore";
-
 /*
 export const addExpense = async (
   groupId: string,
@@ -44,7 +42,7 @@ export const addExpense = async (
 
 import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 import { getDocs, query, where } from "firebase/firestore";
-import { Group } from "@/types/group";
+import { Expense, Group } from "@/types/group";
 
 // Function to get user groups
 export const getUserGroups =  async (userId: string) => {
@@ -73,6 +71,7 @@ export const signInToFirebase = async (accessToken: string) => {
 
 
 import {  orderBy, Timestamp } from "firebase/firestore";
+import { group } from "console";
 
 // ✅ Add expense to Firestore
 export const addExpense = async (
@@ -104,7 +103,8 @@ export const addExpense = async (
 // ✅ Fetch expenses for a specific group
 export const getExpenses = async (groupId: string) => {
   const expensesRef = collection(db, "groups", groupId, "expenses");
-  const q = query(expensesRef, orderBy("date", "desc"));
+  console.log("Fetching expenses for group", groupId);
+  const q = query(expensesRef, orderBy("createdAt", "desc"));
   
   const querySnapshot = await getDocs(q);
   
@@ -112,6 +112,6 @@ export const getExpenses = async (groupId: string) => {
     id: doc.id,
     ...doc.data(),
   }));
-
-  return expenses;
+  console.log(expenses)
+  return expenses as Expense[];
 };

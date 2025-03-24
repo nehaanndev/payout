@@ -1,7 +1,7 @@
 "use client";
 
 import React, {useEffect, useState } from 'react';
-import { getUserGroups } from "@/lib/firebaseUtils";
+import { getUserGroups, addExpense, getExpenses} from "@/lib/firebaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -115,10 +115,12 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
     setActiveGroupId(null);
   };
 
-  const loadGroup = (group : Group) => {
+  const loadGroup = async (group : Group) => {
     setActiveGroupId(group.id);
     setGroupName(group.name);
     setMembers(group.members);
+    // fetch exoenses from Firebase
+    group.expenses = await getExpenses(group.id);
     setExpenses(group.expenses);
     setActiveTab('create');
   };
@@ -139,7 +141,7 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
     setMembers(members.filter(member => member !== memberToRemove));
   };
 
-  const handleExpenseSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleExpenseSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     if (!currentExpense.description || !currentExpense.amount || !currentExpense.paidBy) {
@@ -163,6 +165,15 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
         return acc;
       }, {})
     };
+
+    // save to Firebase
+    await addExpense(
+      activeGroupId ? activeGroupId : generateId(),
+      newExpense.description,
+      newExpense.amount,
+      newExpense.paidBy,
+      newExpense.splits
+    );
 
     const updatedExpenses = [...expenses, newExpense];
     setExpenses(updatedExpenses);
@@ -458,7 +469,7 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
                         </span>
                       </div>
                       <p className="text-sm text-gray-600">
-                        {group.members.length} members • {group.expenses.length} expenses
+                        {group.members.length} members
                       </p>
                     </div>
                   ))}

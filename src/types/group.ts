@@ -3,7 +3,7 @@ export interface Expense {
     description: string;
     amount: number;
     paidBy: string;
-    date: string;
+    createdAt: string;
     splits: Record<string, number>;
   }
   
