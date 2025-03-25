@@ -28,44 +28,27 @@ export const createGroup = async (
 };
 
 /**
- * Updates a group by adding or removing members
+ * Updates a group by replacing the members with the provided list
  * @param groupId - ID of the group to update
- * @param newMembers - Members to add (array of Member objects)
- * @param removeEmails - Emails of members to remove (array of strings)
+ * @param members - Array of updated members (with emails and first names)
  */
-export const modifyGroupMembers = async (
+export const updateGroupMembers = async (
   groupId: string,
-  newMembers: Member[] = [],
-  removeEmails: string[] = []
+  members: Member[]
 ) => {
-  if (!groupId) {
-    console.error("Invalid group ID");
+  if (!groupId || !members) {
+    console.error("Invalid group ID or members");
     return;
   }
 
   const groupRef = doc(db, "groups", groupId);
 
   try {
-    const groupSnapshot = await getDoc(groupRef);
+    const memberEmails = members.map((member) => member.email);
 
-    if (!groupSnapshot.exists()) {
-      console.error(`Group with ID ${groupId} not found`);
-      return;
-    }
-
-    const groupData = groupSnapshot.data();
-
-    // Retrieve the current members
-    const currentMembers: Member[] = groupData.members || [];
-
-    // Filter out the members to be removed
-    const updatedMembers = currentMembers
-      .filter((member) => !removeEmails.includes(member.email))
-      .concat(newMembers);
-
-    // Update the group in Firestore
     await updateDoc(groupRef, {
-      members: updatedMembers,
+      members,                    // Save the updated members array
+      memberEmails,               // Save only emails for easier querying
       lastUpdated: serverTimestamp(),
     });
 

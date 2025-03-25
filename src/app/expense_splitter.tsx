@@ -1,7 +1,7 @@
 "use client";
 
 import React, {useEffect, useState } from 'react';
-import { getUserGroups, addExpense, getExpenses, createGroup, modifyGroupMembers} from "@/lib/firebaseUtils";
+import { getUserGroups, addExpense, getExpenses, createGroup, updateGroupMembers} from "@/lib/firebaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,7 +78,7 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
 
     if (activeGroupId) {
       // TODO: Save the existing group to Firebase
-      await modifyGroupMembers(activeGroupId, formattedMembers, []);
+      await updateGroupMembers(activeGroupId, members);
       setSavedGroups(prevGroups => 
         prevGroups.map(group => 
           group.id === activeGroupId
@@ -332,7 +332,7 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
                   {members.map(member => (
                     <div key={member.email} className="flex items-center gap-2 bg-slate-100 p-2 rounded">
                       {member.firstName}
-                      <button onClick={() => removeMember(member.firstName)} className="text-red-500">
+                      <button onClick={() => removeMember(member.email)} className="text-red-500">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
