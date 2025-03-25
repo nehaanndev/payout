@@ -146,3 +146,28 @@ export const getExpenses = async (groupId: string) => {
   console.log(expenses)
   return expenses as Expense[];
 };
+
+// ✅ Fetch group by id
+export const fetchGroupById = async (groupId: string) => {
+  if (!groupId) {
+    console.error("Invalid group ID");
+    return null;
+  }
+
+  try {
+    const groupRef = doc(db, "groups", groupId);
+    const groupSnapshot = await getDoc(groupRef);
+
+    if (groupSnapshot.exists()) {
+      const groupData = { id: groupSnapshot.id, ...groupSnapshot.data() };
+      console.log("Group data:", groupData);
+      return groupData as Group;
+    } else {
+      console.error(`Group with ID ${groupId} not found`);
+      return null;
+    }
+  } catch (error) {
+    console.error("Error fetching group:", error);
+    return null;
+  }
+};

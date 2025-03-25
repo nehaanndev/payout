@@ -1,27 +1,32 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";  // Import useSearchParams
 import { auth, provider, signInWithPopup, signOut, User, onAuthStateChanged } from "../lib/firebase"; // Import Firebase auth and provider
 import ExpenseSplitter from "./expense_splitter";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 export default function Home() {
+  const searchParams = useSearchParams();  // Use searchParams to get query params
+  const group_id = searchParams.get("group_id");  // Get group_id from query string
   const [session, setSession] = useState<User | null>(null);
+  const [group, setGroup] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showProfileCard, setShowProfileCard] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  // Set up an observer on auth state change to track the sign-in state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setSession(user);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setSession(user); // Set the session as UserWithGroup type
+      setGroup(group_id); // Reset group state
+      console.log("group_id:", group_id);
       setLoading(false);
     });
-
-    // Cleanup on component unmount
+  
     return () => unsubscribe();
-  }, []);
+  }, [group_id]);  // Add `group_id` as a dependency
 
     // Close the profile card when clicking outside
     useEffect(() => {
@@ -37,6 +42,7 @@ export default function Home() {
   
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [showProfileCard]);
+
   const handleSignIn = async () => {
     try {
       await signInWithPopup(auth, provider);
@@ -52,11 +58,13 @@ export default function Home() {
       console.error("Error signing out: ", error);
     }
   };
-
   if (loading) {
-    return <p>Loading...</p>;
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Spinner size="lg" />
+      </div>
+    );
   }
-
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
       {session ? (
@@ -116,8 +124,8 @@ export default function Home() {
           </div>              
           {/* Main App Content */}
           <div className="flex-grow p-8">
-            <ExpenseSplitter session = {session}/>
-          </div>
+            <ExpenseSplitter session = {session} groupid = {group}/>
+          </div>              
         </>
       ) : (
         // Sign-in card (for non-signed-in users)

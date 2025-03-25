@@ -22,3 +22,10 @@ export interface Expense {
     lastUpdated: string;
   }
   
+import { User as FirebaseUser } from "firebase/auth";
+
+// Extend Firebase User type to include group_id and group data
+export interface UserWithGroup extends FirebaseUser {
+  group_id?: string;
+  group?: Group;
+}

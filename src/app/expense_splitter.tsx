@@ -1,21 +1,22 @@
 "use client";
 
 import React, {useEffect, useState } from 'react';
-import { getUserGroups, addExpense, getExpenses, createGroup, updateGroupMembers} from "@/lib/firebaseUtils";
+import { getUserGroups, addExpense, getExpenses, createGroup, updateGroupMembers, fetchGroupById} from "@/lib/firebaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Users, DollarSign, Save } from 'lucide-react';
+import { Plus, Trash2, Users, DollarSign, Save, Share2, Clipboard } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Group, Expense, Member } from '@/types/group';
 import { User } from "firebase/auth";
 
 interface ExpenseSplitterProps {
   session: User | null;
+  groupid: string | null;
 }
 
-export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
+export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterProps) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('create');
   const [savedGroups, setSavedGroups] = useState<Group[]>([]);
@@ -42,7 +43,6 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
     const fetchGroups = async () => {
       if (session) {
         // if the session exists, get the accessToken property
-        console.log(session.email);
         const userGroups = await getUserGroups(session.email!) as Group[];
         const formattedGroups: Group[] = userGroups.map((group: Group) => ({
           ...group,
@@ -53,6 +53,19 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
           lastUpdated: group.lastUpdated
         }));
         setSavedGroups(formattedGroups);
+        if (groupid) {
+          console.log("Group ID:", groupid);
+          const activeGroup = formattedGroups.find(group => group.id === groupid);
+          console.log("Active Group:", activeGroup);
+          if (activeGroup) {
+            setActiveGroupId(groupid);
+            setGroupName(activeGroup.name);
+            setMembers(activeGroup.members);
+            // fetch exoenses from Firebase
+            activeGroup.expenses = await getExpenses(activeGroup.id);
+            setExpenses(activeGroup.expenses);
+          }
+        }
       }
       setLoading(false);
     };
@@ -264,7 +277,18 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
       splits: newSplits
     }));
   };
+  // link sharing
 
+  const getGroupShareLink = (groupId: string) => {
+    return `${window.location.origin}?group_id=${groupId}`;
+  };
+
+  const handleShareGroup = (groupId: string) => {
+    const link = getGroupShareLink(groupId);
+    navigator.clipboard.writeText(link);
+    alert("Group link copied to clipboard!");
+  };
+  
   return (
     <div className="max-w-4xl mx-auto p-4">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -287,9 +311,20 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
                     {activeGroupId ? 'Update Group' : 'Save Group'}
                   </Button>
                   {activeGroupId && (
-                    <Button variant="outline" onClick={startNewGroup}>
-                      Create New Group
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleShareGroup(activeGroupId)}
+                        className="flex items-center gap-2"
+                      >
+                        <Share2 className="h-4 w-4" />
+                        Share Group
+                      </Button>
+
+                      <Button variant="outline" onClick={startNewGroup}>
+                        Create New Group
+                      </Button>
+                    </>
                   )}
                 </div>
               </CardTitle>
@@ -493,10 +528,10 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
                 <div className="space-y-4">
                   {savedGroups.map(group => (
                     <div
-                      key={group.id}
-                      className="p-4 border rounded-lg cursor-pointer hover:bg-slate-50"
-                      onClick={() => loadGroup(group)}
-                    >
+                    key={group.id}
+                    className="p-4 border rounded-lg flex justify-between items-center hover:bg-slate-50"
+                  >
+                    <div onClick={() => loadGroup(group)} className="cursor-pointer flex-1">
                       <div className="flex justify-between items-center">
                         <h3 className="font-medium">{group.name}</h3>
                         <span className="text-sm text-gray-600">
@@ -507,6 +542,18 @@ export default function ExpenseSplitter({ session }: ExpenseSplitterProps) {
                         {group.members.length} members
                       </p>
                     </div>
+                  
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleShareGroup(group.id)}
+                      className="ml-4"
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Share
+                    </Button>
+                  </div>
+                  
                   ))}
                 </div>
               )}
