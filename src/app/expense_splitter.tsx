@@ -1,6 +1,6 @@
 "use client";
 
-import React, {useEffect, useState } from 'react';
+import React, {act, useEffect, useState } from 'react';
 import { getUserGroups, addExpense, getExpenses, createGroup, updateGroupMembers, fetchGroupById} from "@/lib/firebaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
   const [activeTab, setActiveTab] = useState('create');
   const [savedGroups, setSavedGroups] = useState<Group[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [activeGroup, setActiveGroup ] = useState<Group | null>(null);
   const [groupName, setGroupName] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
   const [newMemberFirstName, setNewMemberFirstName] = useState("");
@@ -55,15 +56,16 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
         setSavedGroups(formattedGroups);
         if (groupid) {
           console.log("Group ID:", groupid);
-          const activeGroup = formattedGroups.find(group => group.id === groupid);
-          console.log("Active Group:", activeGroup);
-          if (activeGroup) {
+          const loadedGroup = formattedGroups.find(group => group.id === groupid);
+          console.log("Loaded Group:", loadedGroup);
+          if (loadedGroup) {
             setActiveGroupId(groupid);
-            setGroupName(activeGroup.name);
-            setMembers(activeGroup.members);
+            setActiveGroup(activeGroup);
+            setGroupName(loadedGroup.name);
+            setMembers(loadedGroup.members);
             // fetch exoenses from Firebase
-            activeGroup.expenses = await getExpenses(activeGroup.id);
-            setExpenses(activeGroup.expenses);
+            loadedGroup.expenses = await getExpenses(loadedGroup.id);
+            setExpenses(loadedGroup.expenses);
           }
         }
       }
@@ -119,6 +121,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
       await createGroup(groupName, session?.email ?? '', members);
       setSavedGroups(prev => [...prev, newGroup]);
       setActiveGroupId(newGroup.id);
+      setActiveGroup(newGroup);
     }
     alert(`Group "${groupName}" has been saved!`);
   };
@@ -135,10 +138,12 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
       splits: {}
     });
     setActiveGroupId(null);
+    setActiveGroup(null);
   };
 
   const loadGroup = async (group : Group) => {
     setActiveGroupId(group.id);
+    setActiveGroup(group);
     setGroupName(group.name);
     setMembers(group.members);
     // fetch exoenses from Firebase
@@ -245,14 +250,16 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
     members.forEach(member => {
       balances[member.email] = 0;
     });
-
     expenses.forEach(expense => {
-      balances[expense.paidBy] += expense.amount;
-      Object.entries(expense.splits).forEach(([member, percentage]) => {
-        balances[member] -= (expense.amount * percentage) / 100;
+      const paidByEmail = activeGroup?.members?.find((m) => m.firstName === expense.paidBy)?.email;
+      if (paidByEmail) {
+        balances[paidByEmail] += expense.amount;
+      }
+      Object.entries(expense.splits).forEach(([memberEmail, percentage]) => {
+        balances[memberEmail] -= (expense.amount * percentage) / 100;
       });
     });
-
+    console.log(balances);
     return balances;
   };
 
@@ -485,12 +492,17 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                       Paid by: {expense.paidBy} • {new Date(expense.createdAt).toLocaleDateString()}
                     </p>
                     <div className="mt-2">
-                      {Object.entries(expense.splits).map(([member, percentage]) => (
-                        <div key={member} className="text-sm">
-                          {member}: {percentage}%
+                      {Object.entries(expense.splits).map(([memberEmail, percentage]) => {
+                      // Find the corresponding member in the group by matching the email
+                      const member = activeGroup?.members?.find((m) => m.email === memberEmail);
+                      return (
+                        <div key={memberEmail} className="text-sm">
+                          {member ? member.firstName : memberEmail}: {percentage}%
                         </div>
-                      ))}
+                       );
+                      })}
                     </div>
+
                   </div>
                 ))}
               </div>
@@ -498,15 +510,19 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
               {expenses.length > 0 && (
                 <div className="mt-6">
                   <h3 className="font-medium mb-2">Current Balances</h3>
-                  {Object.entries(calculateBalances()).map(([member, balance]) => {
+                  {Object.entries(calculateBalances()).map(([memberEmail, balance]) => {
                     const numericBalance = balance as number; // Ensure balance is a number
-                    return (<div key={member} className="flex justify-between">
-                      <span>{member}</span>
-                      <span className={numericBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    // Find the corresponding member in the group by matching the email
+                    const member = activeGroup?.members?.find((m) => m.email === memberEmail);
+                    return (
+                      <div key={memberEmail} className="flex justify-between">
+                        <span>{member ? member.firstName : memberEmail}</span>
+                        <span className={numericBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
                         ${numericBalance.toFixed(2)}
-                      </span>
-                    </div>
-                  )})}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
