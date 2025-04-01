@@ -33,6 +33,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
     amount: string;
     paidBy: string;
     splits: Record<string, number>;
+    createdAt?: Date;
   }>({
     description: '',
     amount: '',
@@ -135,7 +136,8 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
       description: '',
       amount: '',
       paidBy: '',
-      splits: {}
+      splits: {},
+      createdAt: undefined
     });
     setActiveGroupId(null);
     setActiveGroup(null);
@@ -188,7 +190,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
   const handleExpenseSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    if (!currentExpense.description || !currentExpense.amount || !currentExpense.paidBy) {
+    if (!currentExpense.description || !currentExpense.amount || !currentExpense.paidBy || !currentExpense.createdAt) {
       alert('Please fill in all expense details');
       return;
     }
@@ -198,12 +200,12 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
       alert('Split percentages must sum to 100%');
       return;
     }
-
+    console.log("Current Expense:", currentExpense);
     const newExpense = {
       ...currentExpense,
       id: generateId(),
       amount: parseFloat(currentExpense.amount),
-      createdAt: new Date().toISOString(),
+      createdAt: currentExpense.createdAt ? currentExpense.createdAt.toISOString() : new Date().toISOString(),
       splits: members.reduce<Record<string, number>>((acc, member) => {
         acc[member.email] = currentExpense.splits[member.email] || 0;
         return acc;
@@ -216,7 +218,8 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
       newExpense.description,
       newExpense.amount,
       newExpense.paidBy,
-      newExpense.splits
+      newExpense.splits,
+      newExpense.createdAt
     );
 
     const updatedExpenses = [...expenses, newExpense];
@@ -240,7 +243,8 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
       description: '',
       amount: '',
       paidBy: '',
-      splits: {}
+      splits: {},
+      createdAt: undefined
     });
     setShowExpenseForm(false);
   };
@@ -259,7 +263,6 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
         balances[memberEmail] -= (expense.amount * percentage) / 100;
       });
     });
-    console.log(balances);
     return balances;
   };
 
@@ -438,7 +441,17 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                       ))}
                     </select>
                   </div>
-
+                  <div>
+                    <Label htmlFor="date">Date</Label>
+                    <Input
+                      id="date"
+                      type="date"
+                      value={currentExpense.createdAt ? new Date(currentExpense.createdAt).toISOString().split('T')[0] : ''}
+                      onChange={(e) => setCurrentExpense({...currentExpense, createdAt: new Date(e.target.value)})}
+                      className="mt-1"
+                      required
+                    />
+                  </div>
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <Label>Split Percentages</Label>
