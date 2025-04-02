@@ -125,11 +125,13 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
     alert(`Group "${groupName}" has been saved!`);
   };
 
-  const clearGroupForm = () => {
-    setGroupName('');
-    setMembers([]);
-    setExpenses([]);
+  const clearcurrentExpenseAndForm = () => {
     setShowExpenseForm(false);
+    clearcurrentExpense();
+    setIsEditingExpense(false);
+  } 
+
+  const clearcurrentExpense = () => {
     setCurrentExpense({
       id: '',
       description: '',
@@ -138,6 +140,14 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
       splits: {},
       createdAt: new Date()
     } as Expense);
+  }
+
+  const clearGroupForm = () => {
+    setGroupName('');
+    setMembers([]);
+    setExpenses([]);
+    setShowExpenseForm(false);
+    clearcurrentExpense();
     setActiveGroupId(null);
     setActiveGroup(null);
   };
@@ -276,15 +286,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
       );
     }
 
-    setCurrentExpense({
-      id: '',
-      description: '',
-      amount: 0,
-      paidBy: '',
-      splits: {},
-      createdAt: new Date()
-    } as Expense);
-    setShowExpenseForm(false);
+    clearcurrentExpenseAndForm();
   };
 
 
@@ -552,7 +554,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setShowExpenseForm(false)}
+                      onClick={() => clearcurrentExpenseAndForm()}
                     >
                       Cancel
                     </Button>
