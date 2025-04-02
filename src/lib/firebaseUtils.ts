@@ -1,5 +1,6 @@
 import { db, auth } from "./firebase";
 import { collection, addDoc, serverTimestamp, updateDoc, doc, getDoc } from "firebase/firestore";
+import { firebaseExpenseConverter } from "./firebaseExpenseConverter";
 
 export const createGroup = async (
   groupName: string,
@@ -134,14 +135,13 @@ export const addExpense = async (
 
 // ✅ Fetch expenses for a specific group
 export const getExpenses = async (groupId: string) => {
-  const expensesRef = collection(db, "groups", groupId, "expenses");
+  const expensesRef = collection(db, "groups", groupId, "expenses").withConverter(firebaseExpenseConverter);
   console.log("Fetching expenses for group", groupId);
   const q = query(expensesRef, orderBy("createdAt", "desc"));
   
   const querySnapshot = await getDocs(q);
   
   const expenses = querySnapshot.docs.map((doc) => ({
-    id: doc.id,
     ...doc.data(),
   }));
   console.log(expenses)

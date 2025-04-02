@@ -186,6 +186,19 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
     setMembers(members.filter(member => member.email !== memberEmailToRemove));
   };
 
+
+  const editExpense = (expenseId : string) => {
+    setIsEditingExpense(true);
+    const expenseToEdit = expenses.find(expense => expense.id === expenseId);
+    if (expenseToEdit) {
+      setCurrentExpense({
+        ...expenseToEdit,
+        amount: expenseToEdit.amount // Convert back to string for form input
+      });
+      setShowExpenseForm(true);
+    }
+  };
+
   const handleExpenseSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
@@ -572,7 +585,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={() => deleteExpense(expense.id)}
+                        onClick={() => editExpense(expense.id)}
                         className="flex items-center gap-1"
                       >
                         <Edit2 className="h-4 w-4" />
