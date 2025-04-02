@@ -111,7 +111,7 @@ export const addExpense = async (
   amount: number,
   paidBy: string,
   splits: Record<string, number>,
-  createdAt: string|undefined
+  createdAt: Date
 ) => {
   try {
     const expenseRef = collection(db, "groups", groupId, "expenses");
@@ -121,7 +121,7 @@ export const addExpense = async (
       amount,
       paidBy,
       splits,
-      createdAt: Timestamp.fromDate(new Date(createdAt)),
+      createdAt: Timestamp.fromDate(createdAt),
     };
 
     await addDoc(expenseRef, newExpense);

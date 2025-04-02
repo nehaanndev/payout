@@ -1,11 +1,15 @@
-export interface Expense {
-    id: string;
-    description: string;
-    amount: number;
-    paidBy: string;
-    createdAt: string;
-    splits: Record<string, number>;
-  }
+// Define two interfaces for clarity
+export interface NewExpense {
+  description: string;
+  amount: number;
+  paidBy: string;
+  createdAt: Date;
+  splits: Record<string, number>;
+}
+
+export interface Expense extends NewExpense {
+  id: string; // ID is required after retrieval from Firebase
+}
 
   export interface Member {
     email: string;

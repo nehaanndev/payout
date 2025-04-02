@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Users, DollarSign, Save, Share2, Clipboard } from 'lucide-react';
+import { Plus, Trash2, Users, Edit2, DollarSign, Save, Share2, Clipboard } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Group, Expense, Member } from '@/types/group';
 import { User } from "firebase/auth";
@@ -28,18 +28,16 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const [currentExpense, setCurrentExpense] = useState<{
-    description: string;
-    amount: string;
-    paidBy: string;
-    splits: Record<string, number>;
-    createdAt?: Date;
-  }>({
+  const [currentExpense, setCurrentExpense] = useState<Expense>({
+    id: '',
     description: '',
-    amount: '',
+    amount: 0,
     paidBy: '',
-    splits: {}
-  });
+    splits: {},
+    createdAt: new Date()
+  } as Expense);
+
+  const [isEditingExpense, setIsEditingExpense] = useState(false);
 
   useEffect(() => {
     const fetchGroups = async () => {
@@ -133,12 +131,13 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
     setExpenses([]);
     setShowExpenseForm(false);
     setCurrentExpense({
+      id: '',
       description: '',
-      amount: '',
+      amount: 0,
       paidBy: '',
       splits: {},
-      createdAt: undefined
-    });
+      createdAt: new Date()
+    } as Expense);
     setActiveGroupId(null);
     setActiveGroup(null);
   };
@@ -200,30 +199,55 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
       alert('Split percentages must sum to 100%');
       return;
     }
-    console.log("Current Expense:", currentExpense);
-    const newExpense = {
-      ...currentExpense,
-      id: generateId(),
-      amount: parseFloat(currentExpense.amount),
-      createdAt: currentExpense.createdAt ? currentExpense.createdAt.toISOString() : new Date().toISOString(),
-      splits: members.reduce<Record<string, number>>((acc, member) => {
-        acc[member.email] = currentExpense.splits[member.email] || 0;
-        return acc;
-      }, {})
-    };
 
-    // save to Firebase
-    await addExpense(
-      activeGroupId ? activeGroupId : generateId(),
-      newExpense.description,
-      newExpense.amount,
-      newExpense.paidBy,
-      newExpense.splits,
-      newExpense.createdAt
-    );
+    let updatedExpenses: Expense[] = [];
+    if (isEditingExpense) {
+      // Update existing expense
+      updatedExpenses = expenses.map(expense => 
+        expense.id === currentExpense.id
+          ? {
+              ...currentExpense,
+              id: currentExpense.id,
+              description: currentExpense.description,
+              paidBy: currentExpense.paidBy,
+              amount: currentExpense.amount,
+              createdAt: currentExpense.createdAt ? currentExpense.createdAt : new Date(),
+              splits: members.reduce<Record<string, number>>((acc, member) => {
+                acc[member.email] = currentExpense.splits[member.email] || 0;
+                return acc;
+              }, {}) 
+            }
+          : expense
+      );
+    } else {
 
-    const updatedExpenses = [...expenses, newExpense];
-    setExpenses(updatedExpenses);
+      console.log("Current Expense:", currentExpense);
+      const newExpense = {
+        ...currentExpense,
+        id: generateId(),
+        amount: currentExpense.amount,
+        createdAt: currentExpense.createdAt ? currentExpense.createdAt : new Date(),
+        splits: members.reduce<Record<string, number>>((acc, member) => {
+          acc[member.email] = currentExpense.splits[member.email] || 0;
+          return acc;
+        }, {})
+      };
+
+      // save to Firebase
+      await addExpense(
+        activeGroupId ? activeGroupId : generateId(),
+        newExpense.description,
+        newExpense.amount,
+        newExpense.paidBy,
+        newExpense.splits,
+        newExpense.createdAt
+      );
+
+       updatedExpenses = [...expenses, newExpense];
+    }
+    if (updatedExpenses) {
+      setExpenses(updatedExpenses);
+    }
 
     if (activeGroupId) {
       setSavedGroups(prevGroups =>
@@ -240,13 +264,36 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
     }
 
     setCurrentExpense({
+      id: '',
       description: '',
-      amount: '',
+      amount: 0,
       paidBy: '',
       splits: {},
-      createdAt: undefined
-    });
+      createdAt: new Date()
+    } as Expense);
     setShowExpenseForm(false);
+  };
+
+
+  const deleteExpense = (expenseId: string) => {
+    if (window.confirm('Are you sure you want to delete this expense?')) {
+      const updatedExpenses = expenses.filter(expense => expense.id !== expenseId);
+      setExpenses(updatedExpenses);
+      
+      if (activeGroupId) {
+        setSavedGroups(prevGroups =>
+          prevGroups.map(group =>
+            group.id === activeGroupId
+              ? {
+                  ...group,
+                  expenses: updatedExpenses,
+                  lastUpdated: new Date().toISOString()
+                }
+              : group
+          )
+        );
+      }
+    }
   };
 
   const calculateBalances = () => {
@@ -419,7 +466,13 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                       id="amount"
                       type="number"
                       value={currentExpense.amount}
-                      onChange={(e) => setCurrentExpense({...currentExpense, amount: e.target.value})}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setCurrentExpense({
+                          ...currentExpense, 
+                          amount: value === '' ? 0 : parseFloat(value) || 0
+                        });
+                      }}
                       placeholder="0.00"
                       className="mt-1"
                       required
@@ -515,7 +568,26 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                        );
                       })}
                     </div>
-
+                    <div className="mt-3 flex gap-2 justify-end">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => deleteExpense(expense.id)}
+                        className="flex items-center gap-1"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                        Edit
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => deleteExpense(expense.id)}
+                        className="flex items-center gap-1 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
