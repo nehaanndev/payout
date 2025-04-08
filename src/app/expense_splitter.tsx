@@ -380,7 +380,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                 <div className="flex gap-2">
                   <Button onClick={saveGroup} className="flex items-center gap-2">
                     <Save className="h-4 w-4" />
-                    {activeGroupId ? 'Update Group' : 'Save Group'}
+                    {activeGroupId ? '':'Create'}
                   </Button>
                   {activeGroupId && (
                     <>
@@ -390,11 +390,11 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                         className="flex items-center gap-2"
                       >
                         <Share2 className="h-4 w-4" />
-                        Share Group
+                        
                       </Button>
 
                       <Button variant="outline" onClick={startNewGroup}>
-                        Create New Group
+                        New Group
                       </Button>
                     </>
                   )}
