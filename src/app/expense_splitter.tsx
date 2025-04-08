@@ -27,6 +27,8 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
   const [newMemberFirstName, setNewMemberFirstName] = useState("");
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [splitMode, setSplitMode] = useState<'percentage' | 'weight'>('percentage');
+  const [weightSplits, setWeightSplits] = useState<Record<string, number>>({});
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [currentExpense, setCurrentExpense] = useState<Expense>({
     id: '',
@@ -217,11 +219,28 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
       return;
     }
     
-    const totalSplit = Object.values(currentExpense.splits).reduce((sum: number, val: unknown) => sum + (typeof val === "number" ? val : parseFloat(val as string) || 0), 0);
-    if (Math.abs(totalSplit - 100) > 0.01) {
-      alert('Split percentages must sum to 100%');
-      return;
+    let computedSplits = { ...currentExpense.splits };
+
+    if (splitMode === 'weight') {
+      const totalWeight = Object.values(weightSplits).reduce((sum, w) => sum + w, 0);
+      if (totalWeight === 0) {
+        alert("Total weight must be greater than 0");
+        return;
+      }
+      computedSplits = Object.fromEntries(
+        Object.entries(weightSplits).map(([email, weight]) => [
+          email,
+          (weight / totalWeight) * 100,
+        ])
+      );
+    } else {
+      const totalSplit = Object.values(computedSplits).reduce((sum: number, val: unknown) => sum + (typeof val === "number" ? val : parseFloat(val as string) || 0), 0);
+      if (Math.abs(totalSplit - 100) > 0.01) {
+        alert('Split percentages must sum to 100%');
+        return;
+      }
     }
+    
 
     let updatedExpenses: Expense[] = [];
     if (isEditingExpense) {
@@ -236,7 +255,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
               amount: currentExpense.amount,
               createdAt: currentExpense.createdAt ? currentExpense.createdAt : new Date(),
               splits: members.reduce<Record<string, number>>((acc, member) => {
-                acc[member.email] = currentExpense.splits[member.email] || 0;
+                acc[member.email] = computedSplits[member.email] || 0;
                 return acc;
               }, {}) 
             }
@@ -251,7 +270,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
         amount: currentExpense.amount,
         createdAt: currentExpense.createdAt ? currentExpense.createdAt : new Date(),
         splits: members.reduce<Record<string, number>>((acc, member) => {
-          acc[member.email] = currentExpense.splits[member.email] || 0;
+          acc[member.email] = computedSplits[member.email] || 0;
           return acc;
         }, {})
       };
@@ -521,31 +540,71 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                     />
                   </div>
                   <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <Label>Split Percentages</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={splitEqually}
-                      >
-                        Split Equally
-                      </Button>
-                    </div>
-                    <div className="space-y-2">
-                      {members.map(member => (
-                        <div key={member.firstName} className="flex items-center gap-2">
-                          <span className="w-24">{member.firstName}</span>
-                          <Input
-                            type="number"
-                            value={currentExpense.splits[member.email] || ''}
-                            onChange={(e) => updateSplit(member.email, e.target.value)}
-                            placeholder="0"
-                            required
-                          />
-                          <span>%</span>
-                        </div>
-                      ))}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label>Split By</Label>
+                        <select
+                          value={splitMode}
+                          onChange={(e) => setSplitMode(e.target.value as 'percentage' | 'weight')}
+                          className="p-1 border rounded"
+                        >
+                          <option value="percentage">Percentage</option>
+                          <option value="weight">Weight</option>
+                        </select>
+                      </div>
+                      {splitMode === 'percentage' && (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <Label>Split Percentages</Label>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={splitEqually}
+                            >
+                              Split Equally
+                            </Button>
+                          </div>
+                          <div className="space-y-2">
+                            {members.map(member => (
+                              <div key={member.firstName} className="flex items-center gap-2">
+                                <span className="w-24">{member.firstName}</span>
+                                <Input
+                                  type="number"
+                                  value={currentExpense.splits[member.email] || ''}
+                                  onChange={(e) => updateSplit(member.email, e.target.value)}
+                                  placeholder="0"
+                                  required
+                                />
+                                <span>%</span>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                      {splitMode === 'weight' && (
+                        <>
+                          <Label>Weights</Label>
+                          <div className="space-y-2">
+                            {members.map(member => (
+                              <div key={member.firstName} className="flex items-center gap-2">
+                                <span className="w-24">{member.firstName}</span>
+                                <Input
+                                  type="number"
+                                  value={weightSplits[member.email] || ''}
+                                  onChange={(e) => {
+                                    const value = parseFloat(e.target.value) || 0;
+                                    setWeightSplits((prev) => ({ ...prev, [member.email]: value }));
+                                  }}
+                                  placeholder="0"
+                                  required
+                                />
+                                <span>pts</span>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 
