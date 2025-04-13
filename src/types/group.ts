@@ -14,6 +14,7 @@ export interface Expense extends NewExpense {
   export interface Member {
     email: string;
     firstName: string;   // Add first name field
+    userId: string; // Unique identifier for the user (to support unauthenticated members)
   }
   
   export interface Group {

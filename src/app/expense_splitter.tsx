@@ -10,6 +10,11 @@ import { Plus, Trash2, Users, Edit2, DollarSign, Save, Share2, Clipboard } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Group, Expense, Member } from '@/types/group';
 import { User } from "firebase/auth";
+import { Switch } from "@/components/ui/switch";
+import { getOrCreateUserId } from "@/lib/userUtils";
+import IdentityPrompt from "@/components/IdentityPrompt";
+
+
 
 interface ExpenseSplitterProps {
   session: User | null;
@@ -79,6 +84,9 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
     return <p>Loading groups...</p>;
   }
 
+  const userId = getOrCreateUserId();
+  const [currentUser, setCurrentUser] = useState<Member | null>(null);
+  const [showIdentityPrompt, setShowIdentityPrompt] = useState(false);
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
   const saveGroup = async () => {
@@ -89,7 +97,8 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
 
     const formattedMembers = members.map((member) => ({
       email: member.email,
-      firstName: member.firstName || "Unknown"  // Include first name with fallback
+      firstName: member.firstName || "Unknown",  // Include first name with fallback
+      userId: member.userId || userId // Use the user's generated id
     }));
 
     if (activeGroupId) {
@@ -116,7 +125,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
         expenses: [...expenses],
         createdAt: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
-        createdBy: session?.email ?? ''
+        createdBy: session?.email ?? userId
       };
       // save new group to Firebase
       await createGroup(groupName, session?.email ?? '', members);
@@ -159,7 +168,19 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
     setActiveGroup(group);
     setGroupName(group.name);
     setMembers(group.members);
-    // fetch exoenses from Firebase
+    // find out who is loading the group and set member
+    // TODO: add email logic if session is defined.
+    const matchedMember = group.members.find(
+      (m) => m.userId === userId
+    );
+    
+    if (matchedMember) {
+      setCurrentUser(matchedMember);
+    } else {
+      setShowIdentityPrompt(true);
+    }
+    
+    // fetch expenses from Firebase
     group.expenses = await getExpenses(group.id);
     setExpenses(group.expenses);
     setActiveTab('create');
@@ -182,7 +203,10 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
         // Add the new member as an object with first name and email
         setMembers([
           ...members,
-          { firstName: trimmedFirstName, email: trimmedEmail }
+          { firstName: trimmedFirstName,
+            email: trimmedEmail,  // might be empty string
+            userId: userId,  // this user's generated id (for aunauthenticated members)
+          }
         ]);
         
         // Clear the input fields
@@ -543,14 +567,42 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <Label>Split By</Label>
-                        <select
-                          value={splitMode}
-                          onChange={(e) => setSplitMode(e.target.value as 'percentage' | 'weight')}
-                          className="p-1 border rounded"
-                        >
-                          <option value="percentage">Percentage</option>
-                          <option value="weight">Weight</option>
-                        </select>
+                        <div className="flex items-center justify-between mb-4">
+                          <Label className="text-base">Split Mode</Label>
+                          <div className="flex items-center gap-2">
+                            <span className={splitMode === 'percentage' ? 'text-sm font-semibold' : 'text-sm text-gray-500'}>%</span>
+                            <Switch
+                              checked={splitMode === 'weight'}
+                              onCheckedChange={(checked) => {
+                                const newMode = checked ? 'weight' : 'percentage';
+
+                                if (newMode === 'weight') {
+                                  // Convert current percentages to weights
+                                  const newWeights = members.reduce<Record<string, number>>((acc, member) => {
+                                    acc[member.email] = currentExpense.splits[member.email] || 0;
+                                    return acc;
+                                  }, {});
+                                  setWeightSplits(newWeights);
+                                } else {
+                                  // Convert weights to percentages
+                                  const totalWeight = Object.values(weightSplits).reduce((sum, w) => sum + w, 0);
+                                  if (totalWeight > 0) {
+                                    const newSplits = members.reduce<Record<string, number>>((acc, member) => {
+                                      const w = weightSplits[member.email] || 0;
+                                      acc[member.email] = (w / totalWeight) * 100;
+                                      return acc;
+                                    }, {});
+                                    setCurrentExpense((prev) => ({ ...prev, splits: newSplits }));
+                                  }
+                                }
+
+                                setSplitMode(newMode);
+                              }}
+                            />
+                            <span className={splitMode === 'weight' ? 'text-sm font-semibold' : 'text-sm text-gray-500'}>w</span>
+                          </div>
+                      </div>
+
                       </div>
                       {splitMode === 'percentage' && (
                         <>
@@ -736,6 +788,16 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
           </Card>
         </TabsContent>
       </Tabs>
+      {showIdentityPrompt && activeGroup && (
+        <IdentityPrompt
+          members={members}
+          onSelect={(member: Member) => {
+            setCurrentUser(member);
+            localStorage.setItem('user_id', member.userId);
+            setShowIdentityPrompt(false);
+          }}
+        />
+     )}
     </div>
   );
 };
