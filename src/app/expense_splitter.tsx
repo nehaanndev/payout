@@ -35,6 +35,8 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
   const [splitMode, setSplitMode] = useState<'percentage' | 'weight'>('percentage');
   const [weightSplits, setWeightSplits] = useState<Record<string, number>>({});
   const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [currentUser, setCurrentUser] = useState<Member | null>(null);
+  const [showIdentityPrompt, setShowIdentityPrompt] = useState(false);
   const [currentExpense, setCurrentExpense] = useState<Expense>({
     id: '',
     description: '',
@@ -85,8 +87,6 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
   }
 
   const userId = getOrCreateUserId();
-  const [currentUser, setCurrentUser] = useState<Member | null>(null);
-  const [showIdentityPrompt, setShowIdentityPrompt] = useState(false);
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
   const saveGroup = async () => {
@@ -163,28 +163,30 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
     setActiveGroup(null);
   };
 
-  const loadGroup = async (group : Group) => {
+  const loadGroup = async (group: Group) => {
     setActiveGroupId(group.id);
     setActiveGroup(group);
     setGroupName(group.name);
     setMembers(group.members);
-    // find out who is loading the group and set member
-    // TODO: add email logic if session is defined.
-    const matchedMember = group.members.find(
-      (m) => m.userId === userId
-    );
-    
+  
+    let matchedMember: Member | undefined;
+  
+    if (session) {
+      matchedMember = group.members.find((m) => m.email === session.email);
+    } else {
+      matchedMember = group.members.find((m) => m.userId === userId);
+    }
+  
     if (matchedMember) {
       setCurrentUser(matchedMember);
     } else {
       setShowIdentityPrompt(true);
     }
-    
-    // fetch expenses from Firebase
+  
     group.expenses = await getExpenses(group.id);
     setExpenses(group.expenses);
-    setActiveTab('create');
-  };
+    setActiveTab("create");
+  }; 
 
   const startNewGroup = () => {
     clearGroupForm();
