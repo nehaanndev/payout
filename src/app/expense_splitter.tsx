@@ -1,7 +1,7 @@
 "use client";
 
 import React, {act, useEffect, useState } from 'react';
-import { getUserGroups, addExpense, getExpenses, createGroup, updateGroupMembers, fetchGroupById} from "@/lib/firebaseUtils";
+import { getUserGroups, addExpense, getExpenses, createGroup, updateGroupMembers, fetchGroupById, getUserGroupsById} from "@/lib/firebaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,17 +11,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Group, Expense, Member } from '@/types/group';
 import { User } from "firebase/auth";
 import { Switch } from "@/components/ui/switch";
-import { getOrCreateUserId } from "@/lib/userUtils";
 import IdentityPrompt from "@/components/IdentityPrompt";
-
-
+import { generateUserId } from '@/lib/userUtils';
 
 interface ExpenseSplitterProps {
   session: User | null;
   groupid: string | null;
+  anonUser: Member | null | undefined;
 }
 
-export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterProps) {
+export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseSplitterProps) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('create');
   const [savedGroups, setSavedGroups] = useState<Group[]>([]);
@@ -50,9 +49,15 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
 
   useEffect(() => {
     const fetchGroups = async () => {
-      if (session) {
+      if (session || anonUser) {
         // if the session exists, get the accessToken property
-        const userGroups = await getUserGroups(session.email!) as Group[];
+        let userGroups: Group[] = [];
+        if (session) {
+          userGroups = await getUserGroups(session.email!) as Group[];
+        }
+        else if (anonUser) {
+          userGroups = await getUserGroupsById(anonUser.id) as Group[];
+        }
         const formattedGroups: Group[] = userGroups.map((group: Group) => ({
           ...group,
           name: group.name || '',
@@ -80,13 +85,18 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
       setLoading(false);
     };
     fetchGroups();
-  }, [session]);
+  }, [session, anonUser]);
   
   if (loading) {
     return <p>Loading groups...</p>;
   }
+  
+  // Early guard for either signed-in user or anonymous user and bail out if neither is present
+  if (!session && !anonUser) {
+    throw new Error("Anonymous user must be provided when not signed in");
+  }
 
-  const userId = getOrCreateUserId();
+  const currentUserId = (session ? session.uid : anonUser!.id) as string
   const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
   const saveGroup = async () => {
@@ -98,7 +108,8 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
     const formattedMembers = members.map((member) => ({
       email: member.email,
       firstName: member.firstName || "Unknown",  // Include first name with fallback
-      userId: member.userId || userId // Use the user's generated id
+      id: member.id,
+      authProvider: member.authProvider || (session ? 'google' : 'anon')
     }));
 
     if (activeGroupId) {
@@ -118,14 +129,14 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
         )
       );
     } else {
-      const newGroup = {
+      const newGroup: Group = {
         id: generateId(),
         name: groupName,
         members: [...members],
         expenses: [...expenses],
         createdAt: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
-        createdBy: session?.email ?? userId
+        createdBy: currentUserId,
       };
       // save new group to Firebase
       await createGroup(groupName, session?.email ?? '', members);
@@ -169,14 +180,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
     setGroupName(group.name);
     setMembers(group.members);
   
-    let matchedMember: Member | undefined;
-  
-    if (session) {
-      matchedMember = group.members.find((m) => m.email === session.email);
-    } else {
-      matchedMember = group.members.find((m) => m.userId === userId);
-    }
-  
+    let matchedMember = group.members.find((m) => m.id === currentUserId);
     if (matchedMember) {
       setCurrentUser(matchedMember);
     } else {
@@ -195,33 +199,49 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
 
   const addMember = () => {
     const trimmedFirstName = newMemberFirstName.trim();
-    const trimmedEmail = newMemberEmail.trim();
+    const trimmedEmail = newMemberEmail?.trim() || undefined;
   
-    if (trimmedFirstName && trimmedEmail) {
-      // Check if the email already exists
-      const isDuplicate = members.some((m) => m.email === trimmedEmail);
+    if (trimmedFirstName) {
+      // Check if the name or email already exists
+      const isDuplicate = (members.some((m) => (m.email && (m.email === trimmedEmail))) || (members.some((m) => m.firstName === trimmedFirstName)));
   
       if (!isDuplicate) {
-        // Add the new member as an object with first name and email
-        setMembers([
-          ...members,
-          { firstName: trimmedFirstName,
-            email: trimmedEmail,  // might be empty string
-            userId: userId,  // this user's generated id (for aunauthenticated members)
-          }
-        ]);
+        // Add logic to set the authProvider based on the session and user name
+        if (session && session?.displayName?.startsWith(trimmedFirstName)){
+          setMembers([
+            ...members,
+            {
+              id: currentUserId,
+              firstName: trimmedFirstName,
+              email: trimmedEmail,
+              authProvider: 'google'
+            }
+          ]);
+        } else {
+          setMembers([
+            ...members,
+            {
+              id: generateUserId(),
+              firstName: trimmedFirstName,
+              email: trimmedEmail,
+              authProvider: 'anon'
+            }
+          ]);
+        }
         
         // Clear the input fields
         setNewMemberFirstName("");
         setNewMemberEmail("");
       } else {
-        alert("This email is already added!");
+        alert("This member is already added!");
       }
+    } else {
+      alert("Please enter a valid first name");
     }
   };
 
-  const removeMember = (memberEmailToRemove: string) => {
-    setMembers(members.filter(member => member.email !== memberEmailToRemove));
+  const removeMember = (memberFirstNameToRemove: string) => {
+    setMembers(members.filter(member => member.firstName !== memberFirstNameToRemove));
   };
 
 
@@ -281,7 +301,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
               amount: currentExpense.amount,
               createdAt: currentExpense.createdAt ? currentExpense.createdAt : new Date(),
               splits: members.reduce<Record<string, number>>((acc, member) => {
-                acc[member.email] = computedSplits[member.email] || 0;
+                acc[member.id] = computedSplits[member.id] || 0;
                 return acc;
               }, {}) 
             }
@@ -296,7 +316,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
         amount: currentExpense.amount,
         createdAt: currentExpense.createdAt ? currentExpense.createdAt : new Date(),
         splits: members.reduce<Record<string, number>>((acc, member) => {
-          acc[member.email] = computedSplits[member.email] || 0;
+          acc[member.id] = computedSplits[member.id] || 0;
           return acc;
         }, {})
       };
@@ -359,15 +379,15 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
   const calculateBalances = () => {
     const balances: Record<string, number> = {};
     members.forEach(member => {
-      balances[member.email] = 0;
+      balances[member.id] = 0;
     });
     expenses.forEach(expense => {
-      const paidByEmail = activeGroup?.members?.find((m) => m.firstName === expense.paidBy)?.email;
-      if (paidByEmail) {
-        balances[paidByEmail] += expense.amount;
+      const paidBy = activeGroup?.members?.find((m) => m.firstName === expense.paidBy)?.id;
+      if (paidBy) {
+        balances[paidBy] += expense.amount;
       }
-      Object.entries(expense.splits).forEach(([memberEmail, percentage]) => {
-        balances[memberEmail] -= (expense.amount * percentage) / 100;
+      Object.entries(expense.splits).forEach(([id, percentage]) => {
+        balances[id] -= (expense.amount * percentage) / 100;
       });
     });
     return balances;
@@ -386,7 +406,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
   const splitEqually = () => {
     const equalSplit = (100 / members.length).toFixed(2);
     const newSplits = members.reduce<Record<string, number>>((acc, member) => {
-      acc[member.email] = parseFloat(equalSplit);
+      acc[member.id] = parseFloat(equalSplit);
       return acc;
     }, {});
     setCurrentExpense(prev => ({
@@ -482,9 +502,9 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
 
                 <div className="flex flex-wrap gap-2">
                   {members.map(member => (
-                    <div key={member.email} className="flex items-center gap-2 bg-slate-100 p-2 rounded">
+                    <div key={member.firstName} className="flex items-center gap-2 bg-slate-100 p-2 rounded">
                       {member.firstName}
-                      <button onClick={() => removeMember(member.email)} className="text-red-500">
+                      <button onClick={() => removeMember(member.firstName)} className="text-red-500">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -550,7 +570,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                     >
                       <option value="">Select person</option>
                       {members.map(member => (
-                        <option key={member.email} value={member.firstName}>{member.firstName}</option>
+                        <option key={member.firstName} value={member.firstName}>{member.firstName}</option>
                       ))}
                     </select>
                   </div>
@@ -581,7 +601,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                                 if (newMode === 'weight') {
                                   // Convert current percentages to weights
                                   const newWeights = members.reduce<Record<string, number>>((acc, member) => {
-                                    acc[member.email] = currentExpense.splits[member.email] || 0;
+                                    acc[member.id] = currentExpense.splits[member.id] || 0;
                                     return acc;
                                   }, {});
                                   setWeightSplits(newWeights);
@@ -590,8 +610,8 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                                   const totalWeight = Object.values(weightSplits).reduce((sum, w) => sum + w, 0);
                                   if (totalWeight > 0) {
                                     const newSplits = members.reduce<Record<string, number>>((acc, member) => {
-                                      const w = weightSplits[member.email] || 0;
-                                      acc[member.email] = (w / totalWeight) * 100;
+                                      const w = weightSplits[member.id] || 0;
+                                      acc[member.id] = (w / totalWeight) * 100;
                                       return acc;
                                     }, {});
                                     setCurrentExpense((prev) => ({ ...prev, splits: newSplits }));
@@ -625,8 +645,8 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                                 <span className="w-24">{member.firstName}</span>
                                 <Input
                                   type="number"
-                                  value={currentExpense.splits[member.email] || ''}
-                                  onChange={(e) => updateSplit(member.email, e.target.value)}
+                                  value={currentExpense.splits[member.id] || ''}
+                                  onChange={(e) => updateSplit(member.id, e.target.value)}
                                   placeholder="0"
                                   required
                                 />
@@ -645,10 +665,10 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                                 <span className="w-24">{member.firstName}</span>
                                 <Input
                                   type="number"
-                                  value={weightSplits[member.email] || ''}
+                                  value={weightSplits[member.id] || ''}
                                   onChange={(e) => {
                                     const value = parseFloat(e.target.value) || 0;
-                                    setWeightSplits((prev) => ({ ...prev, [member.email]: value }));
+                                    setWeightSplits((prev) => ({ ...prev, [member.id]: value }));
                                   }}
                                   placeholder="0"
                                   required
@@ -686,12 +706,12 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
                       Paid by: {expense.paidBy} • {new Date(expense.createdAt).toLocaleDateString()}
                     </p>
                     <div className="mt-2">
-                      {Object.entries(expense.splits).map(([memberEmail, percentage]) => {
+                      {Object.entries(expense.splits).map(([id, percentage]) => {
                       // Find the corresponding member in the group by matching the email
-                      const member = activeGroup?.members?.find((m) => m.email === memberEmail);
+                      const member = activeGroup?.members?.find((m) => m.id === id);
                       return (
-                        <div key={memberEmail} className="text-sm">
-                          {member ? member.firstName : memberEmail}: {percentage}%
+                        <div key={id} className="text-sm">
+                          {member ? member.firstName : id}: {percentage}%
                         </div>
                        );
                       })}
@@ -723,13 +743,13 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
               {expenses.length > 0 && (
                 <div className="mt-6">
                   <h3 className="font-medium mb-2">Current Balances</h3>
-                  {Object.entries(calculateBalances()).map(([memberEmail, balance]) => {
+                  {Object.entries(calculateBalances()).map(([id, balance]) => {
                     const numericBalance = balance as number; // Ensure balance is a number
                     // Find the corresponding member in the group by matching the email
-                    const member = activeGroup?.members?.find((m) => m.email === memberEmail);
+                    const member = activeGroup?.members?.find((m) => m.id === id);
                     return (
-                      <div key={memberEmail} className="flex justify-between">
-                        <span>{member ? member.firstName : memberEmail}</span>
+                      <div key={id} className="flex justify-between">
+                        <span>{member ? member.firstName : id}</span>
                         <span className={numericBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
                         ${numericBalance.toFixed(2)}
                         </span>
@@ -795,7 +815,7 @@ export default function ExpenseSplitter({ session, groupid }: ExpenseSplitterPro
           members={members}
           onSelect={(member: Member) => {
             setCurrentUser(member);
-            localStorage.setItem('user_id', member.userId);
+            localStorage.setItem('user_id', member.id);
             setShowIdentityPrompt(false);
           }}
         />

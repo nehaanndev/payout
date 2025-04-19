@@ -12,15 +12,16 @@ export interface Expense extends NewExpense {
 }
 
   export interface Member {
-    email: string;
+    email?: string;
     firstName: string;   // Add first name field
-    userId: string; // Unique identifier for the user (to support unauthenticated members)
-  }
+    id: string; // Unique identifier for the user (to support unauthenticated members)
+    authProvider?: 'google' | 'anon' | 'manual'; // Optional for clarity
+  };
   
   export interface Group {
     id: string;
     name: string;
-    createdBy: string;
+    createdBy: string;  //userid
     members: Member[]; 
     expenses: Expense[];
     createdAt: string;

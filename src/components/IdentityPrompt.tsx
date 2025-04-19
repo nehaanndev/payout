@@ -14,7 +14,7 @@ export default function IdentityPrompt({ members, onSelect }: IdentityPromptProp
         <div className="space-y-2">
           {members.map((member) => (
             <Button
-              key={member.userId}
+              key={member.id}
               className="w-full"
               onClick={() => onSelect(member)}
             >

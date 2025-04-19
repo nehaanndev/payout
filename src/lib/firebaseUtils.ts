@@ -9,17 +9,21 @@ export const createGroup = async (
 ) => {
   
   const formattedMembers = members.map((member) => ({
-    email: member.email,
-    firstName: member.firstName || "Unknown"  // Include first name with fallback
+    email: member.email || null,
+    firstName: member.firstName, // Include first name with fallback
+    id: member.id, // Ensure id is included
+    authProvider: member.authProvider
   }));
 
-  const formattedMemberEmails = members.map((member) => member.email);
+  const formattedMemberEmails = members.map((member) => member.email || null);
+  const formattedMemberIds = members.map((member) => member.id);
 
   const docRef = await addDoc(collection(db, "groups"), {
     name: groupName,
     createdBy: userId,
     members: formattedMembers,  // Store both email and first names
     memberEmails:formattedMemberEmails,          // Array of emails for easier querying
+    memberIds: formattedMemberIds,              // Array of IDs for easier querying
     createdAt: serverTimestamp(),
     lastUpdated: serverTimestamp(),
     expenses: [],
@@ -46,10 +50,12 @@ export const updateGroupMembers = async (
 
   try {
     const memberEmails = members.map((member) => member.email);
+    const memberIds = members.map((member) => member.id);
 
     await updateDoc(groupRef, {
       members,                    // Save the updated members array
       memberEmails,               // Save only emails for easier querying
+      memberIds,                 // Save only IDs for easier querying
       lastUpdated: serverTimestamp(),
     });
 
@@ -76,6 +82,34 @@ export const getUserGroups = async (userEmail: string) => {
     const q = query(
       collection(db, "groups"),
       where("memberEmails", "array-contains", userEmail)
+    );
+    const querySnapshot = await getDocs(q);
+    console.log(querySnapshot)
+    const groups: Group[] = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Group[];
+
+    return groups;
+  } catch (error) {
+    console.error("Error fetching user groups:", error);
+    return [];
+  }
+};
+
+/**
+ * Fetches groups where the user is a member by email
+ * @param userEmail - The email of the logged-in user
+ * @returns Array of Group objects
+ */
+export const getUserGroupsById = async (id: string) => {
+  if (!id) {
+    return [];
+  }
+  try {
+    const q = query(
+      collection(db, "groups"),
+      where("memberIds", "array-contains", id)
     );
     const querySnapshot = await getDocs(q);
     console.log(querySnapshot)
