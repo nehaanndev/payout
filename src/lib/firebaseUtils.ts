@@ -160,8 +160,9 @@ export const addExpense = async (
     };
     // Help with debugging
     console.log(groupId, newExpense)
-    await addDoc(expenseRef, newExpense);
+    const docRef = await addDoc(expenseRef, newExpense);
     console.log("Expense added successfully!");
+    return docRef.id;
   } catch (error) {
     console.error("Error adding expense:", error);
     throw new Error("Failed to add expense");

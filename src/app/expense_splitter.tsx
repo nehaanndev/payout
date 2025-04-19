@@ -24,7 +24,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('create');
   const [savedGroups, setSavedGroups] = useState<Group[]>([]);
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [activeGroupId, setActiveGroupId] = useState<string>('');
   const [activeGroup, setActiveGroup] = useState<Group | null>(null);
   const [groupName, setGroupName] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
@@ -130,7 +130,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
       );
     } else {
       const newGroup: Group = {
-        id: generateId(),
+        id: "placeholder_group_id",
         name: groupName,
         members: [...members],
         expenses: [...expenses],
@@ -140,7 +140,8 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
       };
       console.log(newGroup)
       // save new group to Firebase
-      await createGroup(groupName, session?.email ?? '', members);
+      let newGroupId = await createGroup(groupName, session?.email ?? '', members);
+      newGroup.id = newGroupId;
       setSavedGroups(prev => [...prev, newGroup]);
       setActiveGroupId(newGroup.id);
       setActiveGroup(newGroup);
@@ -328,7 +329,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
       console.log("Current Expense:", currentExpense);
       const newExpense = {
         ...currentExpense,
-        id: generateId(),
+        id: "placeholder_expense_id",
         amount: currentExpense.amount,
         createdAt: currentExpense.createdAt ? currentExpense.createdAt : new Date(),
         splits: members.reduce<Record<string, number>>((acc, member) => {
@@ -338,7 +339,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
       };
 
       // save to Firebase
-      await addExpense(
+      let newExpenseId = await addExpense(
         activeGroupId,
         newExpense.description,
         newExpense.amount,
@@ -346,7 +347,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
         newExpense.splits,
         newExpense.createdAt
       );
-
+      newExpense.id = newExpenseId;
       updatedExpenses = [...expenses, newExpense];
     }
     if (updatedExpenses) {
