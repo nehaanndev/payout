@@ -1,7 +1,7 @@
 "use client";
 
-import React, {act, useEffect, useState } from 'react';
-import { getUserGroups, addExpense, getExpenses, createGroup, updateGroupMembers, fetchGroupById, getUserGroupsById} from "@/lib/firebaseUtils";
+import React, { act, useEffect, useState } from 'react';
+import { getUserGroups, addExpense, getExpenses, createGroup, updateGroupMembers, fetchGroupById, getUserGroupsById } from "@/lib/firebaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,14 +18,14 @@ interface ExpenseSplitterProps {
   session: User | null;
   groupid: string | null;
   anonUser: Member | null | undefined;
-} 
+}
 
 export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseSplitterProps) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('create');
   const [savedGroups, setSavedGroups] = useState<Group[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const [activeGroup, setActiveGroup ] = useState<Group | null>(null);
+  const [activeGroup, setActiveGroup] = useState<Group | null>(null);
   const [groupName, setGroupName] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
   const [newMemberFirstName, setNewMemberFirstName] = useState("");
@@ -86,11 +86,11 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
     };
     fetchGroups();
   }, [session, anonUser]);
-  
+
   if (loading) {
     return <p>Loading groups...</p>;
   }
-  
+
   // Early guard for either signed-in user or anonymous user and bail out if neither is present
   if (!session && !anonUser) {
     throw new Error("Anonymous user must be provided when not signed in");
@@ -115,16 +115,16 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
     if (activeGroupId) {
       // TODO: Save the existing group to Firebase
       await updateGroupMembers(activeGroupId, members);
-      setSavedGroups(prevGroups => 
-        prevGroups.map(group => 
+      setSavedGroups(prevGroups =>
+        prevGroups.map(group =>
           group.id === activeGroupId
             ? {
-                ...group,
-                name: groupName,
-                members: [...formattedMembers],
-                expenses: [...expenses],
-                lastUpdated: new Date().toISOString()
-              }
+              ...group,
+              name: groupName,
+              members: [...formattedMembers],
+              expenses: [...expenses],
+              lastUpdated: new Date().toISOString()
+            }
             : group
         )
       );
@@ -152,7 +152,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
     setShowExpenseForm(false);
     clearcurrentExpense();
     setIsEditingExpense(false);
-  } 
+  }
 
   const clearcurrentExpense = () => {
     setCurrentExpense({
@@ -180,18 +180,18 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
     setActiveGroup(group);
     setGroupName(group.name);
     setMembers(group.members);
-  
+
     let matchedMember = group.members.find((m) => m.id === currentUserId);
     if (matchedMember) {
       setCurrentUser(matchedMember);
     } else {
       setShowIdentityPrompt(true);
     }
-  
+
     group.expenses = await getExpenses(group.id);
     setExpenses(group.expenses);
     setActiveTab("create");
-  }; 
+  };
 
   const startNewGroup = () => {
     clearGroupForm();
@@ -201,14 +201,14 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
   const addMember = () => {
     const trimmedFirstName = newMemberFirstName.trim();
     const trimmedEmail = newMemberEmail?.trim() || undefined;
-  
+
     if (trimmedFirstName) {
       // Check if the name or email already exists
       const isDuplicate = (members.some((m) => (m.email && (m.email === trimmedEmail))) || (members.some((m) => m.firstName === trimmedFirstName)));
-  
+
       if (!isDuplicate) {
         // Add logic to set the authProvider based on the session and user name
-        if (session && session?.displayName?.startsWith(trimmedFirstName)){
+        if (session && session?.displayName?.startsWith(trimmedFirstName)) {
           setMembers([
             ...members,
             {
@@ -229,7 +229,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
             }
           ]);
         }
-        
+
         // Clear the input fields
         setNewMemberFirstName("");
         setNewMemberEmail("");
@@ -246,7 +246,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
   };
 
 
-  const editExpense = (expenseId : string) => {
+  const editExpense = (expenseId: string) => {
     setIsEditingExpense(true);
     const expenseToEdit = expenses.find(expense => expense.id === expenseId);
     if (expenseToEdit) {
@@ -260,7 +260,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
 
   const handleExpenseSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     if (!currentExpense.description || !currentExpense.amount || !currentExpense.paidBy || !currentExpense.createdAt) {
       alert('Please fill in all expense details');
       return;
@@ -269,7 +269,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
     if (!activeGroupId) {
       alert("Please create a group first to add expenses")
     }
-    
+
     let computedSplits = { ...currentExpense.splits };
 
     if (splitMode === 'weight') {
@@ -291,25 +291,25 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
         return;
       }
     }
-    
+
 
     let updatedExpenses: Expense[] = [];
     if (isEditingExpense) {
       // Update existing expense
-      updatedExpenses = expenses.map(expense => 
+      updatedExpenses = expenses.map(expense =>
         expense.id === currentExpense.id
           ? {
-              ...currentExpense,
-              id: currentExpense.id,
-              description: currentExpense.description,
-              paidBy: currentExpense.paidBy,
-              amount: currentExpense.amount,
-              createdAt: currentExpense.createdAt ? currentExpense.createdAt : new Date(),
-              splits: members.reduce<Record<string, number>>((acc, member) => {
-                acc[member.id] = computedSplits[member.id] || 0;
-                return acc;
-              }, {}) 
-            }
+            ...currentExpense,
+            id: currentExpense.id,
+            description: currentExpense.description,
+            paidBy: currentExpense.paidBy,
+            amount: currentExpense.amount,
+            createdAt: currentExpense.createdAt ? currentExpense.createdAt : new Date(),
+            splits: members.reduce<Record<string, number>>((acc, member) => {
+              acc[member.id] = computedSplits[member.id] || 0;
+              return acc;
+            }, {})
+          }
           : expense
       );
     } else {
@@ -336,7 +336,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
         newExpense.createdAt
       );
 
-       updatedExpenses = [...expenses, newExpense];
+      updatedExpenses = [...expenses, newExpense];
     }
     if (updatedExpenses) {
       setExpenses(updatedExpenses);
@@ -347,10 +347,10 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
         prevGroups.map(group =>
           group.id === activeGroupId
             ? {
-                ...group,
-                expenses: updatedExpenses,
-                lastUpdated: new Date().toISOString()
-              }
+              ...group,
+              expenses: updatedExpenses,
+              lastUpdated: new Date().toISOString()
+            }
             : group
         )
       );
@@ -364,16 +364,16 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
     if (window.confirm('Are you sure you want to delete this expense?')) {
       const updatedExpenses = expenses.filter(expense => expense.id !== expenseId);
       setExpenses(updatedExpenses);
-      
+
       if (activeGroupId) {
         setSavedGroups(prevGroups =>
           prevGroups.map(group =>
             group.id === activeGroupId
               ? {
-                  ...group,
-                  expenses: updatedExpenses,
-                  lastUpdated: new Date().toISOString()
-                }
+                ...group,
+                expenses: updatedExpenses,
+                lastUpdated: new Date().toISOString()
+              }
               : group
           )
         );
@@ -430,7 +430,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
     navigator.clipboard.writeText(link);
     alert("Group link copied to clipboard!");
   };
-  
+
   return (
     <div className="max-w-4xl mx-auto p-4">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -450,7 +450,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                 <div className="flex gap-2">
                   <Button onClick={saveGroup} className="flex items-center gap-2">
                     <Save className="h-4 w-4" />
-                    {activeGroupId ? '':'Create'}
+                    {activeGroupId ? '' : 'Create'}
                   </Button>
                   {activeGroupId && (
                     <>
@@ -460,7 +460,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                         className="flex items-center gap-2"
                       >
                         <Share2 className="h-4 w-4" />
-                        
+
                       </Button>
 
                       <Button variant="outline" onClick={startNewGroup}>
@@ -483,7 +483,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                     className="mt-1"
                   />
                 </div>
-                
+
                 <div className="flex gap-2 items-center">
                   <Input
                     value={newMemberFirstName}
@@ -528,7 +528,12 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
             </CardHeader>
             <CardContent>
               {!showExpenseForm ? (
-                <Button onClick={() => setShowExpenseForm(true)} className="w-full">
+                <Button
+                  className="w-full"
+                  disabled={!activeGroupId}
+                  onClick={() => setShowExpenseForm(true)}
+                  title={!activeGroupId ? "Select or create a group first" : undefined}
+                >
                   Add Expense
                 </Button>
               ) : (
@@ -538,7 +543,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                     <Input
                       id="description"
                       value={currentExpense.description}
-                      onChange={(e) => setCurrentExpense({...currentExpense, description: e.target.value})}
+                      onChange={(e) => setCurrentExpense({ ...currentExpense, description: e.target.value })}
                       placeholder="What's this expense for?"
                       className="mt-1"
                       required
@@ -554,7 +559,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                       onChange={(e) => {
                         const value = e.target.value;
                         setCurrentExpense({
-                          ...currentExpense, 
+                          ...currentExpense,
                           amount: value === '' ? 0 : parseFloat(value) || 0
                         });
                       }}
@@ -569,7 +574,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                     <select
                       id="paidBy"
                       value={currentExpense.paidBy}
-                      onChange={(e) => setCurrentExpense({...currentExpense, paidBy: e.target.value})}
+                      onChange={(e) => setCurrentExpense({ ...currentExpense, paidBy: e.target.value })}
                       className="w-full mt-1 rounded-md border border-gray-300 p-2"
                       required
                     >
@@ -585,7 +590,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                       id="date"
                       type="date"
                       value={currentExpense.createdAt ? new Date(currentExpense.createdAt).toISOString().split('T')[0] : ''}
-                      onChange={(e) => setCurrentExpense({...currentExpense, createdAt: new Date(e.target.value)})}
+                      onChange={(e) => setCurrentExpense({ ...currentExpense, createdAt: new Date(e.target.value) })}
                       className="mt-1"
                       required
                     />
@@ -628,7 +633,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                             />
                             <span className={splitMode === 'weight' ? 'text-sm font-semibold' : 'text-sm text-gray-500'}>w</span>
                           </div>
-                      </div>
+                        </div>
 
                       </div>
                       {splitMode === 'percentage' && (
@@ -712,28 +717,28 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                     </p>
                     <div className="mt-2">
                       {Object.entries(expense.splits).map(([id, percentage]) => {
-                      // Find the corresponding member in the group by matching the email
-                      const member = activeGroup?.members?.find((m) => m.id === id);
-                      return (
-                        <div key={id} className="text-sm">
-                          {member ? member.firstName : id}: {percentage}%
-                        </div>
-                       );
+                        // Find the corresponding member in the group by matching the email
+                        const member = activeGroup?.members?.find((m) => m.id === id);
+                        return (
+                          <div key={id} className="text-sm">
+                            {member ? member.firstName : id}: {percentage}%
+                          </div>
+                        );
                       })}
                     </div>
                     <div className="mt-3 flex gap-2 justify-end">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => editExpense(expense.id)}
                         className="flex items-center gap-1"
                       >
                         <Edit2 className="h-4 w-4" />
                         Edit
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => deleteExpense(expense.id)}
                         className="flex items-center gap-1 text-red-500 hover:text-red-700 hover:bg-red-50"
                       >
@@ -756,7 +761,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                       <div key={id} className="flex justify-between">
                         <span>{member ? member.firstName : id}</span>
                         <span className={numericBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
-                        ${numericBalance.toFixed(2)}
+                          ${numericBalance.toFixed(2)}
                         </span>
                       </div>
                     );
@@ -782,32 +787,32 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                 <div className="space-y-4">
                   {savedGroups.map(group => (
                     <div
-                    key={group.id}
-                    className="p-4 border rounded-lg flex justify-between items-center hover:bg-slate-50"
-                  >
-                    <div onClick={() => loadGroup(group)} className="cursor-pointer flex-1">
-                      <div className="flex justify-between items-center">
-                        <h3 className="font-medium">{group.name}</h3>
-                        <span className="text-sm text-gray-600">
-                          {new Date(group.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        {group.members.length} members
-                      </p>
-                    </div>
-                  
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleShareGroup(group.id)}
-                      className="ml-4"
+                      key={group.id}
+                      className="p-4 border rounded-lg flex justify-between items-center hover:bg-slate-50"
                     >
-                      <Share2 className="h-4 w-4" />
-                      Share
-                    </Button>
-                  </div>
-                  
+                      <div onClick={() => loadGroup(group)} className="cursor-pointer flex-1">
+                        <div className="flex justify-between items-center">
+                          <h3 className="font-medium">{group.name}</h3>
+                          <span className="text-sm text-gray-600">
+                            {new Date(group.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          {group.members.length} members
+                        </p>
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleShareGroup(group.id)}
+                        className="ml-4"
+                      >
+                        <Share2 className="h-4 w-4" />
+                        Share
+                      </Button>
+                    </div>
+
                   ))}
                 </div>
               )}
@@ -824,7 +829,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
             setShowIdentityPrompt(false);
           }}
         />
-     )}
+      )}
     </div>
   );
 };
