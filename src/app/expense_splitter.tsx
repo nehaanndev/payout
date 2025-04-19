@@ -218,7 +218,18 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
               authProvider: 'google'
             }
           ]);
-        } else {
+        } else if(anonUser && anonUser?.firstName ==trimmedFirstName) {
+          setMembers([
+            ...members,
+            {
+              id: currentUserId,
+              firstName: trimmedFirstName,
+              email: trimmedEmail,
+              authProvider: 'anon'
+            }
+          ]);
+        }
+         else {
           setMembers([
             ...members,
             {

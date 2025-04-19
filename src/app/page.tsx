@@ -227,7 +227,7 @@ export default function Home() {
                 className="w-full"
                 onClick={() => handleContinueWithoutSignIn()}
               >
-                Continue without Sign In
+                Continue Without Sign In
               </Button>
             </div>
             {showIdentityChoice && (
