@@ -158,7 +158,8 @@ export const addExpense = async (
       splits,
       createdAt: Timestamp.fromDate(createdAt),
     };
-
+    // Help with debugging
+    console.log(groupId, newExpense)
     await addDoc(expenseRef, newExpense);
     console.log("Expense added successfully!");
   } catch (error) {

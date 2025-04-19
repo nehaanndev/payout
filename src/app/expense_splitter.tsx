@@ -138,6 +138,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
         lastUpdated: new Date().toISOString(),
         createdBy: currentUserId,
       };
+      console.log(newGroup)
       // save new group to Firebase
       await createGroup(groupName, session?.email ?? '', members);
       setSavedGroups(prev => [...prev, newGroup]);
@@ -264,6 +265,10 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
       alert('Please fill in all expense details');
       return;
     }
+
+    if (!activeGroupId) {
+      alert("Please create a group first to add expenses")
+    }
     
     let computedSplits = { ...currentExpense.splits };
 
@@ -323,7 +328,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
 
       // save to Firebase
       await addExpense(
-        activeGroupId ? activeGroupId : generateId(),
+        activeGroupId,
         newExpense.description,
         newExpense.amount,
         newExpense.paidBy,
