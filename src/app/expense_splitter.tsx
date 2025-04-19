@@ -532,6 +532,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                   className="w-full"
                   disabled={!activeGroupId}
                   onClick={() => setShowExpenseForm(true)}
+                  
                 >
                   Add Expense
                 </Button>
