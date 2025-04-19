@@ -18,7 +18,7 @@ interface ExpenseSplitterProps {
   session: User | null;
   groupid: string | null;
   anonUser: Member | null | undefined;
-}
+} 
 
 export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseSplitterProps) {
   const [loading, setLoading] = useState(true);
