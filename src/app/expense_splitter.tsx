@@ -73,7 +73,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
           console.log("Loaded Group:", loadedGroup);
           if (loadedGroup) {
             setActiveGroupId(groupid);
-            setActiveGroup(activeGroup);
+            setActiveGroup(loadedGroup);
             setGroupName(loadedGroup.name);
             setMembers(loadedGroup.members);
             // fetch exoenses from Firebase
@@ -85,7 +85,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
       setLoading(false);
     };
     fetchGroups();
-  }, [session, anonUser]);
+  }, [session, anonUser, groupid]);
 
   if (loading) {
     return <p>Loading groups...</p>;
@@ -97,7 +97,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
   }
 
   const currentUserId = (session ? session.uid : anonUser!.id) as string
-  const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+  //const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
   const saveGroup = async () => {
     if (!groupName.trim() || members.length === 0) {
@@ -544,6 +544,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                   className="w-full"
                   disabled={!activeGroupId}
                   onClick={() => setShowExpenseForm(true)}
+                  title={!activeGroupId ? "Select or create a group first" : undefined}
                 >
                   Add Expense
                 </Button>
