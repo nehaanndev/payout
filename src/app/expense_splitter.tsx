@@ -172,7 +172,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
     setExpenses([]);
     setShowExpenseForm(false);
     clearcurrentExpense();
-    setActiveGroupId(null);
+    setActiveGroupId('');
     setActiveGroup(null);
   };
 
@@ -202,7 +202,6 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
   const addMember = () => {
     const trimmedFirstName = newMemberFirstName.trim();
     const trimmedEmail = newMemberEmail?.trim() || undefined;
-
     if (trimmedFirstName) {
       // Check if the name or email already exists
       const isDuplicate = (members.some((m) => (m.email && (m.email === trimmedEmail))) || (members.some((m) => m.firstName === trimmedFirstName)));
