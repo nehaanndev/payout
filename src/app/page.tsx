@@ -227,7 +227,7 @@ export default function Home() {
                   </CardHeader>
 
                   <div className="flex flex-col items-center space-y-6 p-4">
-                    <Button onClick={handleSignIn} className="w-full">
+                    <Button variant="primaryDark" onClick={handleSignIn} className="w-full">
                       Sign In with Google
                     </Button>
                     <Button
@@ -273,6 +273,7 @@ export default function Home() {
                         className="border p-2 w-full rounded mb-4"
                       />
                       <Button
+                        variant="primaryDark"
                         className="w-full"
                         onClick={() => {
                           if (!tempName.trim()) return;
