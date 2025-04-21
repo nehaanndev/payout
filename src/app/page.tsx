@@ -12,6 +12,8 @@ import { avatarUrls } from "@/lib/avatars";
 import { Member } from "@/types/group"; // assuming Member is defined there
 import { fetchGroupById } from "@/lib/firebaseUtils";
 import IdentityPrompt from "@/components/IdentityPrompt";
+/* --- imports (add these near the top of the file) --- */
+import Image from "next/image";
 
 export default function Home() {
   const searchParams = useSearchParams();  // Use searchParams to get query params
@@ -211,25 +213,29 @@ export default function Home() {
           }}
         />
       ): (
-        // Sign-in card (for non-signed-in users)
-        <div className="flex items-center justify-center min-h-screen">
-          <Card className="p-8 shadow-xl rounded-lg max-w-lg w-full bg-white">
-            <CardHeader>
-              <CardTitle className="text-4xl font-bold text-center">Payout</CardTitle>
-              <p className="text-center text-gray-500 mt-2">Manage your expenses with ease</p>
-            </CardHeader>
-            <div className="flex flex-col items-center space-y-6 p-4">
-              <Button onClick={() => handleSignIn()} className="w-full">
-                Sign In with Google
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => handleContinueWithoutSignIn()}
-              >
-                Continue Without Sign In
-              </Button>
-            </div>
+          /* ⬇️ LANDING HERO + SIGN‑IN SECTION ⬇️ */
+          <div className="min-h-screen flex items-center justify-center bg-[#FEF4D3]">
+            <div className="container mx-auto px-6 py-16 flex flex-col-reverse md:flex-row items-center gap-12">
+              {/* ── left / top column : sign‑in card ─────────────────────────── */}
+              <div className="w-full md:max-w-md">
+                <Card className="p-8 shadow-xl rounded-lg w-full bg-white">
+                  <CardHeader>
+                    <CardTitle className="text-4xl font-extrabold text-center text-[#1F2A37]">Payout</CardTitle>
+                    <p className="text-center text-gray-500 mt-2">Manage your expenses with ease</p>
+                  </CardHeader>
+
+                  <div className="flex flex-col items-center space-y-6 p-4">
+                    <Button onClick={handleSignIn} className="w-full">
+                      Sign In with Google
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={handleContinueWithoutSignIn}
+                    >
+                      Continue Without Sign In
+                    </Button>
+                  </div> 
             {showIdentityChoice && (
               <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
                 <div className="bg-white p-6 rounded shadow-lg max-w-sm w-full">
@@ -293,6 +299,20 @@ export default function Home() {
             )}
 
           </Card>
+            </div>
+            {/* ── right / bottom column : hero illustration ───────────────── */}
+            {/* right / bottom column : hero */}
+            <div className="w-full md:flex-1 flex justify-center">
+              <Image
+                src="/hero-payout.png"
+                alt="Payout Hero Illustration"
+                width={600}         /* <–– sets natural size */
+                height={600}
+                className="w-full max-w-[420px] md:max-w-[500px] lg:max-w-[560px] h-auto object-contain"
+                priority
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
