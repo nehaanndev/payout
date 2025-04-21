@@ -12,13 +12,13 @@ export default {
 		/* ⬇️ 1)  add your custom keyframes  */
 		keyframes: {
 			float: {
-				"0%,100%": { transform: "translateY(0)" },
-				"50%": { transform: "translateY(-3px)" },
+			  "0%,100%": { transform: "translateY(0)" },
+			  "50%":     { transform: "translateY(-10px)" },
 			},
 		},
 		/* ⬇️ 2)  register a friendly animation utility  */
 		animation: {
-			float: "float 6s ease-in-out infinite",
+			float: "float 4s ease-in-out infinite",
 		},
 		/* ⬇️ 3)  add your custom colors  */
   		colors: {
