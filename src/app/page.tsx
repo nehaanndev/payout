@@ -214,11 +214,13 @@ export default function Home() {
         />
       ): (
           /* ⬇️ LANDING HERO + SIGN‑IN SECTION ⬇️ */
-          <div className="min-h-screen flex items-center justify-center bg-[#FEF4D3]">
-            <div className="container mx-auto px-6 py-16 flex flex-col-reverse md:flex-row items-center gap-12">
+          <div className="relative min-h-screen bg-[#FEF4D6] flex items-center">
+            {/* decorative split background for desktop */}
+            <div className="hidden lg:block absolute inset-y-0 right-0 w-1/2 bg-[#FEF4D6]/40 pointer-events-none" />
+            <div className="container max-w-6xl mx-auto px-6 py-16 flex flex-col-reverse md:flex-row md:items-start lg:items-center gap-16 lg:gap-32">
               {/* ── left / top column : sign‑in card ─────────────────────────── */}
-              <div className="w-full md:max-w-md">
-                <Card className="p-8 shadow-xl rounded-lg w-full bg-white">
+              <div className="w-full md:max-w-sm">
+              <Card className="p-8 rounded-xl shadow-lg ring-1 ring-black/5 bg-white">
                   <CardHeader>
                     <CardTitle className="text-4xl font-extrabold text-center text-[#1F2A37]">Payout</CardTitle>
                     <p className="text-center text-gray-500 mt-2">Manage your expenses with ease</p>
@@ -308,7 +310,7 @@ export default function Home() {
                 alt="Payout Hero Illustration"
                 width={600}         /* <–– sets natural size */
                 height={600}
-                className="w-full max-w-[420px] md:max-w-[500px] lg:max-w-[560px] h-auto object-contain"
+                className="w-full max-w-[420px] lg:max-w-[540px] h-auto object-contain animate-float"
                 priority
               />
             </div>
