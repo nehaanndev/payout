@@ -13,6 +13,8 @@ import { User } from "firebase/auth";
 import { Switch } from "@/components/ui/switch";
 import IdentityPrompt from "@/components/IdentityPrompt";
 import { generateUserId } from '@/lib/userUtils';
+import Summary from '@/components/Summary';
+
 
 interface ExpenseSplitterProps {
   session: User | null;
@@ -22,7 +24,7 @@ interface ExpenseSplitterProps {
 
 export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseSplitterProps) {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('create');
+  const [activeTab, setActiveTab] = useState<'summary' | 'groups' | 'create'>('summary');
   const [savedGroups, setSavedGroups] = useState<Group[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string>('');
   const [activeGroup, setActiveGroup] = useState<Group | null>(null);
@@ -46,6 +48,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
   } as Expense);
 
   const [isEditingExpense, setIsEditingExpense] = useState(false);
+  const [showAccessError, setShowAccessError] = useState(false);
 
   useEffect(() => {
     const fetchGroups = async () => {
@@ -79,6 +82,10 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
             // fetch exoenses from Firebase
             loadedGroup.expenses = await getExpenses(loadedGroup.id);
             setExpenses(loadedGroup.expenses);
+          }
+          else {
+            console.log("Group not found");
+            setShowAccessError(true);   // 👉 trigger dialog
           }
         }
       }
@@ -444,11 +451,29 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
 
   return (
     <div className="max-w-4xl mx-auto p-4">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs
+         value={activeTab}
+         onValueChange={(v: string) => setActiveTab(v as 'summary' | 'groups' | 'create')}
+         className="space-y-6"
+      >
+
         <TabsList className="w-full">
-          <TabsTrigger value="create">Create/Edit Group</TabsTrigger>
-          <TabsTrigger value="view">View Groups</TabsTrigger>
+          <TabsTrigger value="summary">Summary</TabsTrigger>
+          <TabsTrigger value="groups">Groups</TabsTrigger>
+          <TabsTrigger value="create">Create / Edit</TabsTrigger>
         </TabsList>
+
+        {/* ⬇️  NEW TAB BODY  */}
+        <TabsContent value="summary">
+          <Summary
+            groups={savedGroups}
+            expensesByGroup={Object.fromEntries(savedGroups.map(g => [g.id, g.expenses]))}
+            onSettleClick={(g) => {
+              setActiveGroupId(g.id);
+              setActiveTab('groups');  // jump to group details if they hit “Settle”
+            }}
+          />
+        </TabsContent>
 
         <TabsContent value="create">
           <Card>
@@ -459,7 +484,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                   {activeGroupId ? 'Edit Group' : 'Create New Group'}
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={saveGroup} className="flex items-center gap-2">
+                  <Button variant="primaryDark" onClick={saveGroup} className="flex items-center gap-2">
                     <Save className="h-4 w-4" />
                     {activeGroupId ? '' : 'Create'}
                   </Button>
@@ -510,7 +535,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                     onKeyPress={(e) => e.key === 'Enter' && addMember()}
                     className="flex-1"
                   />
-                  <Button onClick={addMember} className="p-2">
+                  <Button variant="primaryDark" onClick={addMember} className="p-2">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -540,6 +565,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
             <CardContent>
               {!showExpenseForm ? (
                 <Button
+                  variant="primaryDark"
                   className="w-full"
                   disabled={!activeGroupId}
                   onClick={() => setShowExpenseForm(true)}
@@ -704,7 +730,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
                   </div>
 
                   <div className="flex gap-2">
-                    <Button type="submit">Save Expense</Button>
+                    <Button variant="primaryDark" type="submit">Save Expense</Button>
                     <Button
                       type="button"
                       variant="outline"
@@ -783,12 +809,12 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
           </Card>
         </TabsContent>
 
-        <TabsContent value="view">
+        <TabsContent value="groups">
           <Card>
             <CardHeader>
               <CardTitle className="flex justify-between items-center">
                 <span>Your Groups</span>
-                <Button onClick={startNewGroup}>Create New Group</Button>
+                <Button variant="primaryDark" onClick={startNewGroup}>Create New Group</Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -840,6 +866,40 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
             setShowIdentityPrompt(false);
           }}
         />
+      )}
+      {showAccessError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-xl font-semibold text-gray-900">
+              Group Access Error
+            </h2>
+            <p className="mb-6 text-sm text-gray-700">
+              You’re currently signed in, but it looks like you’re not a member of
+              this group. If you think that’s a mistake, try logging out and opening
+              the link again (you’ll be able to choose the correct identity).
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowAccessError(false)}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+              >
+                Close
+              </button>
+              {/* Optional: sign‑out button for convenience */}
+              {/*
+              <button
+                onClick={() => {
+                  await signOut();   // if you use next-auth
+                  setShowAccessError(false);
+                }}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
+              >
+                Log Out
+              </button>*/
+              }
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

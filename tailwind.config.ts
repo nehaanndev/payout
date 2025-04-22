@@ -26,6 +26,7 @@ export default {
         	secondary: '#E9ECEF',  // light grey pill (inactive)
         	accent: '#FFD54F',     // the yellow badge in your screenshot
         	textPrimary: '#1F2A37',// almost‐black text
+			payoutHover: "#4BA948",
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
