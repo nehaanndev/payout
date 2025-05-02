@@ -14,6 +14,8 @@ import { Switch } from "@/components/ui/switch";
 import IdentityPrompt from "@/components/IdentityPrompt";
 import { generateUserId } from '@/lib/userUtils';
 import Summary from '@/components/Summary';
+import ExpensesPanel from '@/components/ExpensesPanel';
+import GroupDetailsForm from '@/components/GroupDetailsForm';
 
 
 interface ExpenseSplitterProps {
@@ -49,6 +51,9 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
 
   const [isEditingExpense, setIsEditingExpense] = useState(false);
   const [showAccessError, setShowAccessError] = useState(false);
+  // at the top of ExpenseSplitter(), after your other useStates:
+const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
+
 
   useEffect(() => {
     const fetchGroups = async () => {
@@ -262,181 +267,8 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
   const removeMember = (memberFirstNameToRemove: string) => {
     setMembers(members.filter(member => member.firstName !== memberFirstNameToRemove));
   };
+/* ---- */
 
-
-  const editExpense = (expenseId: string) => {
-    setIsEditingExpense(true);
-    const expenseToEdit = expenses.find(expense => expense.id === expenseId);
-    if (expenseToEdit) {
-      setCurrentExpense({
-        ...expenseToEdit,
-        amount: expenseToEdit.amount // Convert back to string for form input
-      });
-      setShowExpenseForm(true);
-    }
-  };
-
-  const handleExpenseSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!currentExpense.description || !currentExpense.amount || !currentExpense.paidBy || !currentExpense.createdAt) {
-      alert('Please fill in all expense details');
-      return;
-    }
-
-    if (!activeGroupId) {
-      alert("Please create a group first to add expenses")
-    }
-
-    let computedSplits = { ...currentExpense.splits };
-
-    if (splitMode === 'weight') {
-      const totalWeight = Object.values(weightSplits).reduce((sum, w) => sum + w, 0);
-      if (totalWeight === 0) {
-        alert("Total weight must be greater than 0");
-        return;
-      }
-      computedSplits = Object.fromEntries(
-        Object.entries(weightSplits).map(([email, weight]) => [
-          email,
-          (weight / totalWeight) * 100,
-        ])
-      );
-    } else {
-      const totalSplit = Object.values(computedSplits).reduce((sum: number, val: unknown) => sum + (typeof val === "number" ? val : parseFloat(val as string) || 0), 0);
-      if (Math.abs(totalSplit - 100) > 0.01) {
-        alert('Split percentages must sum to 100%');
-        return;
-      }
-    }
-
-
-    let updatedExpenses: Expense[] = [];
-    if (isEditingExpense) {
-      // Update existing expense
-      updatedExpenses = expenses.map(expense =>
-        expense.id === currentExpense.id
-          ? {
-            ...currentExpense,
-            id: currentExpense.id,
-            description: currentExpense.description,
-            paidBy: currentExpense.paidBy,
-            amount: currentExpense.amount,
-            createdAt: currentExpense.createdAt ? currentExpense.createdAt : new Date(),
-            splits: members.reduce<Record<string, number>>((acc, member) => {
-              acc[member.id] = computedSplits[member.id] || 0;
-              return acc;
-            }, {})
-          }
-          : expense
-      );
-    } else {
-
-      console.log("Current Expense:", currentExpense);
-      const newExpense = {
-        ...currentExpense,
-        id: "placeholder_expense_id",
-        amount: currentExpense.amount,
-        createdAt: currentExpense.createdAt ? currentExpense.createdAt : new Date(),
-        splits: members.reduce<Record<string, number>>((acc, member) => {
-          acc[member.id] = computedSplits[member.id] || 0;
-          return acc;
-        }, {})
-      };
-
-      // save to Firebase
-      let newExpenseId = await addExpense(
-        activeGroupId,
-        newExpense.description,
-        newExpense.amount,
-        newExpense.paidBy,
-        newExpense.splits,
-        newExpense.createdAt
-      );
-      newExpense.id = newExpenseId;
-      updatedExpenses = [...expenses, newExpense];
-    }
-    if (updatedExpenses) {
-      setExpenses(updatedExpenses);
-    }
-
-    if (activeGroupId) {
-      setSavedGroups(prevGroups =>
-        prevGroups.map(group =>
-          group.id === activeGroupId
-            ? {
-              ...group,
-              expenses: updatedExpenses,
-              lastUpdated: new Date().toISOString()
-            }
-            : group
-        )
-      );
-    }
-
-    clearcurrentExpenseAndForm();
-  };
-
-
-  const deleteExpense = (expenseId: string) => {
-    if (window.confirm('Are you sure you want to delete this expense?')) {
-      const updatedExpenses = expenses.filter(expense => expense.id !== expenseId);
-      setExpenses(updatedExpenses);
-
-      if (activeGroupId) {
-        setSavedGroups(prevGroups =>
-          prevGroups.map(group =>
-            group.id === activeGroupId
-              ? {
-                ...group,
-                expenses: updatedExpenses,
-                lastUpdated: new Date().toISOString()
-              }
-              : group
-          )
-        );
-      }
-    }
-  };
-
-  const calculateBalances = () => {
-    const balances: Record<string, number> = {};
-    members.forEach(member => {
-      balances[member.id] = 0;
-    });
-    expenses.forEach(expense => {
-      const paidBy = activeGroup?.members?.find((m) => m.firstName === expense.paidBy)?.id;
-      if (paidBy) {
-        balances[paidBy] += expense.amount;
-      }
-      Object.entries(expense.splits).forEach(([id, percentage]) => {
-        balances[id] -= (expense.amount * percentage) / 100;
-      });
-    });
-    return balances;
-  };
-
-  const updateSplit = (member: string, value: string) => {
-    setCurrentExpense(prev => ({
-      ...prev,
-      splits: {
-        ...prev.splits,
-        [member]: parseFloat(value) || 0
-      }
-    }));
-  };
-
-  const splitEqually = () => {
-    const equalSplit = (100 / members.length).toFixed(2);
-    const newSplits = members.reduce<Record<string, number>>((acc, member) => {
-      acc[member.id] = parseFloat(equalSplit);
-      return acc;
-    }, {});
-    setCurrentExpense(prev => ({
-      ...prev,
-      splits: newSplits
-    }));
-  };
   // link sharing
 
   const getGroupShareLink = (groupId: string) => {
@@ -476,338 +308,46 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
         </TabsContent>
 
         <TabsContent value="create">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Users className="h-6 w-6" />
-                  {activeGroupId ? 'Edit Group' : 'Create New Group'}
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="primaryDark" onClick={saveGroup} className="flex items-center gap-2">
-                    <Save className="h-4 w-4" />
-                    {activeGroupId ? '' : 'Create'}
-                  </Button>
-                  {activeGroupId && (
-                    <>
-                      <Button
-                        variant="outline"
-                        onClick={() => handleShareGroup(activeGroupId)}
-                        className="flex items-center gap-2"
-                      >
-                        <Share2 className="h-4 w-4" />
-
-                      </Button>
-
-                      <Button variant="outline" onClick={startNewGroup}>
-                        New Group
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="groupName">Group Name</Label>
-                  <Input
-                    id="groupName"
-                    value={groupName}
-                    onChange={(e) => setGroupName(e.target.value)}
-                    placeholder="Enter group name"
-                    className="mt-1"
-                  />
-                </div>
-
-                <div className="flex gap-2 items-center">
-                  <Input
-                    value={newMemberFirstName}
-                    onChange={(e) => setNewMemberFirstName(e.target.value)}
-                    placeholder="First Name"
-                    onKeyPress={(e) => e.key === 'Enter' && addMember()}
-                    className="flex-1"
-                  />
-                  <Input
-                    value={newMemberEmail}
-                    onChange={(e) => setNewMemberEmail(e.target.value)}
-                    placeholder="Email"
-                    onKeyPress={(e) => e.key === 'Enter' && addMember()}
-                    className="flex-1"
-                  />
-                  <Button variant="primaryDark" onClick={addMember} className="p-2">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-
-
-                <div className="flex flex-wrap gap-2">
-                  {members.map(member => (
-                    <div key={member.firstName} className="flex items-center gap-2 bg-slate-100 p-2 rounded">
-                      {member.firstName}
-                      <button onClick={() => removeMember(member.firstName)} className="text-red-500">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-6 w-6" />
-                Expenses
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!showExpenseForm ? (
-                <Button
-                  variant="primaryDark"
-                  className="w-full"
-                  disabled={!activeGroupId}
-                  onClick={() => setShowExpenseForm(true)}
-                  title={!activeGroupId ? "Select or create a group first" : undefined}
-                >
-                  Add Expense
-                </Button>
-              ) : (
-                <form onSubmit={handleExpenseSubmit} className="space-y-4">
-                  <div>
-                    <Label htmlFor="description">Description</Label>
-                    <Input
-                      id="description"
-                      value={currentExpense.description}
-                      onChange={(e) => setCurrentExpense({ ...currentExpense, description: e.target.value })}
-                      placeholder="What's this expense for?"
-                      className="mt-1"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="amount">Amount</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      value={currentExpense.amount}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setCurrentExpense({
-                          ...currentExpense,
-                          amount: value === '' ? 0 : parseFloat(value) || 0
-                        });
-                      }}
-                      placeholder="0.00"
-                      className="mt-1"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="paidBy">Paid By</Label>
-                    <select
-                      id="paidBy"
-                      value={currentExpense.paidBy}
-                      onChange={(e) => setCurrentExpense({ ...currentExpense, paidBy: e.target.value })}
-                      className="w-full mt-1 rounded-md border border-gray-300 p-2"
-                      required
-                    >
-                      <option value="">Select person</option>
-                      {members.map(member => (
-                        <option key={member.firstName} value={member.firstName}>{member.firstName}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="date">Date</Label>
-                    <Input
-                      id="date"
-                      type="date"
-                      value={currentExpense.createdAt ? new Date(currentExpense.createdAt).toISOString().split('T')[0] : ''}
-                      onChange={(e) => setCurrentExpense({ ...currentExpense, createdAt: new Date(e.target.value) })}
-                      className="mt-1"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <Label>Split By</Label>
-                        <div className="flex items-center justify-between mb-4">
-                          <Label className="text-base">Split Mode</Label>
-                          <div className="flex items-center gap-2">
-                            <span className={splitMode === 'percentage' ? 'text-sm font-semibold' : 'text-sm text-gray-500'}>%</span>
-                            <Switch
-                              checked={splitMode === 'weight'}
-                              onCheckedChange={(checked) => {
-                                const newMode = checked ? 'weight' : 'percentage';
-
-                                if (newMode === 'weight') {
-                                  // Convert current percentages to weights
-                                  const newWeights = members.reduce<Record<string, number>>((acc, member) => {
-                                    acc[member.id] = currentExpense.splits[member.id] || 0;
-                                    return acc;
-                                  }, {});
-                                  setWeightSplits(newWeights);
-                                } else {
-                                  // Convert weights to percentages
-                                  const totalWeight = Object.values(weightSplits).reduce((sum, w) => sum + w, 0);
-                                  if (totalWeight > 0) {
-                                    const newSplits = members.reduce<Record<string, number>>((acc, member) => {
-                                      const w = weightSplits[member.id] || 0;
-                                      acc[member.id] = (w / totalWeight) * 100;
-                                      return acc;
-                                    }, {});
-                                    setCurrentExpense((prev) => ({ ...prev, splits: newSplits }));
-                                  }
-                                }
-
-                                setSplitMode(newMode);
-                              }}
-                            />
-                            <span className={splitMode === 'weight' ? 'text-sm font-semibold' : 'text-sm text-gray-500'}>w</span>
-                          </div>
-                        </div>
-
-                      </div>
-                      {splitMode === 'percentage' && (
-                        <>
-                          <div className="flex justify-between items-center">
-                            <Label>Split Percentages</Label>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={splitEqually}
-                            >
-                              Split Equally
-                            </Button>
-                          </div>
-                          <div className="space-y-2">
-                            {members.map(member => (
-                              <div key={member.firstName} className="flex items-center gap-2">
-                                <span className="w-24">{member.firstName}</span>
-                                <Input
-                                  type="number"
-                                  value={currentExpense.splits[member.id] || ''}
-                                  onChange={(e) => updateSplit(member.id, e.target.value)}
-                                  placeholder="0"
-                                  required
-                                />
-                                <span>%</span>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                      {splitMode === 'weight' && (
-                        <>
-                          <Label>Weights</Label>
-                          <div className="space-y-2">
-                            {members.map(member => (
-                              <div key={member.firstName} className="flex items-center gap-2">
-                                <span className="w-24">{member.firstName}</span>
-                                <Input
-                                  type="number"
-                                  value={weightSplits[member.id] || ''}
-                                  onChange={(e) => {
-                                    const value = parseFloat(e.target.value) || 0;
-                                    setWeightSplits((prev) => ({ ...prev, [member.id]: value }));
-                                  }}
-                                  placeholder="0"
-                                  required
-                                />
-                                <span>pts</span>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button variant="primaryDark" type="submit">Save Expense</Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => clearcurrentExpenseAndForm()}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              )}
-
-              <div className="mt-6 space-y-4">
-                {expenses.map(expense => (
-                  <div key={expense.id} className="p-4 border rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-medium">{expense.description}</h3>
-                      <span className="font-bold">${expense.amount.toFixed(2)}</span>
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      Paid by: {expense.paidBy} • {new Date(expense.createdAt).toLocaleDateString()}
-                    </p>
-                    <div className="mt-2">
-                      {Object.entries(expense.splits).map(([id, percentage]) => {
-                        // Find the corresponding member in the group by matching the email
-                        const member = activeGroup?.members?.find((m) => m.id === id);
-                        return (
-                          <div key={id} className="text-sm">
-                            {member ? member.firstName : id}: {percentage}%
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="mt-3 flex gap-2 justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => editExpense(expense.id)}
-                        className="flex items-center gap-1"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => deleteExpense(expense.id)}
-                        className="flex items-center gap-1 text-red-500 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {expenses.length > 0 && (
-                <div className="mt-6">
-                  <h3 className="font-medium mb-2">Current Balances</h3>
-                  {Object.entries(calculateBalances()).map(([id, balance]) => {
-                    const numericBalance = balance as number; // Ensure balance is a number
-                    // Find the corresponding member in the group by matching the email
-                    const member = activeGroup?.members?.find((m) => m.id === id);
-                    return (
-                      <div key={id} className="flex justify-between">
-                        <span>{member ? member.firstName : id}</span>
-                        <span className={numericBalance >= 0 ? 'text-green-600' : 'text-red-600'}>
-                          ${numericBalance.toFixed(2)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {wizardStep === 'details' ? (
+            <GroupDetailsForm
+              groupName={groupName}
+              setGroupName={setGroupName}
+              members={members}
+              addMember={(f, e) => {/* call your existing addMember logic */}}
+              removeMember={removeMember}
+              canContinue={!!groupName.trim() && members.length > 0}
+              onNext={() => setWizardStep('expenses')}
+            />
+          ) : (
+            <ExpensesPanel
+              /* DATA */
+              expenses={expenses}
+              members={members}
+              splitMode={splitMode}
+              currentExpense={currentExpense}
+              weightSplits={weightSplits}
+              isEditingExpense={isEditingExpense}
+              showExpenseForm={showExpenseForm}
+              /* SETTERS */
+              setExpenses={setExpenses}
+              setCurrentExpense={setCurrentExpense}
+              setWeightSplits={setWeightSplits}
+              setSplitMode={setSplitMode}
+              setIsEditingExpense={setIsEditingExpense}
+              setShowExpenseForm={setShowExpenseForm}
+              /* HELPERS */
+              membersMapById={Object.fromEntries(members.map(m => [m.id, m]))}
+              addExpenseToFirebase={(exp) =>
+                addExpense(activeGroupId, exp.description, exp.amount, exp.paidBy, exp.splits, exp.createdAt)
+              }
+              activeGroupId={activeGroupId}
+              /* WIZARD NAV */
+              onBack={() => setWizardStep('details')}
+              onSaveGroup={saveGroup}
+            />
+          )}
         </TabsContent>
+
 
         <TabsContent value="groups">
           <Card>
