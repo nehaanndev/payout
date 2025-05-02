@@ -27,13 +27,13 @@ interface ExpenseSplitterProps {
 export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseSplitterProps) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'summary' | 'groups' | 'create'>('summary');
+  // only show the Create/Edit tab when the user has clicked “New Group” or loaded an existing one
+  const [showCreateTab, setShowCreateTab] = useState(false);
   const [savedGroups, setSavedGroups] = useState<Group[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<string>('');
   const [activeGroup, setActiveGroup] = useState<Group | null>(null);
   const [groupName, setGroupName] = useState('');
   const [members, setMembers] = useState<Member[]>([]);
-  const [newMemberFirstName, setNewMemberFirstName] = useState("");
-  const [newMemberEmail, setNewMemberEmail] = useState("");
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [splitMode, setSplitMode] = useState<'percentage' | 'weight'>('percentage');
   const [weightSplits, setWeightSplits] = useState<Record<string, number>>({});
@@ -159,6 +159,8 @@ const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
       setActiveGroup(newGroup);
     }
     alert(`Group "${groupName}" has been saved!`);
+    setShowCreateTab(false);
+    setActiveTab('summary');
   };
 
   const clearcurrentExpenseAndForm = () => {
@@ -193,6 +195,9 @@ const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
     setActiveGroup(group);
     setGroupName(group.name);
     setMembers(group.members);
+    setShowCreateTab(true);
+    setActiveTab('create');
+    setWizardStep('expenses');
 
     let matchedMember = group.members.find((m) => m.id === currentUserId);
     if (matchedMember) {
@@ -208,60 +213,32 @@ const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
 
   const startNewGroup = () => {
     clearGroupForm();
+    setWizardStep('details');
+    setShowCreateTab(true);
     setActiveTab('create');
   };
 
-  const addMember = () => {
-    const trimmedFirstName = newMemberFirstName.trim();
-    const trimmedEmail = newMemberEmail?.trim() || undefined;
-    if (trimmedFirstName) {
-      // Check if the name or email already exists
-      const isDuplicate = (members.some((m) => (m.email && (m.email === trimmedEmail))) || (members.some((m) => m.firstName === trimmedFirstName)));
-
-      if (!isDuplicate) {
-        // Add logic to set the authProvider based on the session and user name
-        if (session && session?.displayName?.startsWith(trimmedFirstName)) {
-          setMembers([
-            ...members,
-            {
-              id: currentUserId,
-              firstName: trimmedFirstName,
-              email: trimmedEmail,
-              authProvider: 'google'
-            }
-          ]);
-        } else if(anonUser && anonUser?.firstName ==trimmedFirstName) {
-          setMembers([
-            ...members,
-            {
-              id: currentUserId,
-              firstName: trimmedFirstName,
-              email: trimmedEmail,
-              authProvider: 'anon'
-            }
-          ]);
-        }
-         else {
-          setMembers([
-            ...members,
-            {
-              id: generateUserId(),
-              firstName: trimmedFirstName,
-              email: trimmedEmail,
-              authProvider: 'anon'
-            }
-          ]);
-        }
-
-        // Clear the input fields
-        setNewMemberFirstName("");
-        setNewMemberEmail("");
-      } else {
-        alert("This member is already added!");
-      }
-    } else {
+  const handleAddMember = (firstName: string, email?: string) => {
+    const name = firstName.trim();
+    const mail = email?.trim() || undefined;
+    if (!name) {
       alert("Please enter a valid first name");
+      return;
     }
+    // duplicate check
+    if (members.some(m => m.firstName === name || (m.email && m.email === mail))) {
+      alert("This member is already added!");
+      return;
+    }
+    const newMember: Member = {
+      id: session
+        ? currentUserId      // if it’s you, reuse your own id
+        : generateUserId(),  // otherwise random anon
+      firstName: name,
+      email: mail,
+      authProvider: session ? "google" : "anon",
+    };
+    setMembers(prev => [...prev, newMember]);
   };
 
   const removeMember = (memberFirstNameToRemove: string) => {
@@ -281,6 +258,45 @@ const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
     alert("Group link copied to clipboard!");
   };
 
+  const handleDetailsNext = async () => {
+    // 1️⃣ If it’s a brand-new group, call your Firebase helper:
+    if (!activeGroupId) {
+      const newId = await createGroup(
+        groupName,
+        session?.email ?? '',
+        members
+      );
+      setActiveGroupId(newId);
+      // also add the placeholder into savedGroups so the UI can track it
+      setSavedGroups(prev => [
+        ...prev,
+        {
+          id: newId,
+          name: groupName,
+          members,
+          expenses: [],
+          createdAt: new Date().toISOString(),
+          lastUpdated: new Date().toISOString(),
+          createdBy: session ? session.uid : anonUser!.id,
+        },
+      ]);
+    } else {
+      // 2️⃣ If we’re editing an existing group’s details, just push the member/name changes
+      await updateGroupMembers(activeGroupId, members);
+      setSavedGroups(prev =>
+        prev.map(g =>
+          g.id === activeGroupId
+            ? { ...g, name: groupName, members, lastUpdated: new Date().toISOString() }
+            : g
+        )
+      );
+    }
+
+    // 3️⃣ Move the wizard into the Expenses step
+    setWizardStep('expenses');
+  };
+
+
   return (
     <div className="max-w-4xl mx-auto p-4">
       <Tabs
@@ -292,7 +308,9 @@ const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
         <TabsList className="w-full">
           <TabsTrigger value="summary">Summary</TabsTrigger>
           <TabsTrigger value="groups">Groups</TabsTrigger>
-          <TabsTrigger value="create">Create / Edit</TabsTrigger>
+          {showCreateTab && (
+            <TabsTrigger value="create">Create / Edit</TabsTrigger>
+          )}
         </TabsList>
 
         {/* ⬇️  NEW TAB BODY  */}
@@ -313,10 +331,10 @@ const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
               groupName={groupName}
               setGroupName={setGroupName}
               members={members}
-              addMember={(f, e) => {/* call your existing addMember logic */}}
+              addMember={handleAddMember}
               removeMember={removeMember}
               canContinue={!!groupName.trim() && members.length > 0}
-              onNext={() => setWizardStep('expenses')}
+              onNext={handleDetailsNext} 
             />
           ) : (
             <ExpensesPanel
@@ -343,7 +361,6 @@ const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
               activeGroupId={activeGroupId}
               /* WIZARD NAV */
               onBack={() => setWizardStep('details')}
-              onSaveGroup={saveGroup}
             />
           )}
         </TabsContent>

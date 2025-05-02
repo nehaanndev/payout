@@ -10,7 +10,7 @@ import {
   import { Switch } from "@/components/ui/switch";
   import { DollarSign, Edit2, Trash2 } from 'lucide-react';
   import { Expense, Member } from '@/types/group';
-  import { getUserGroups, addExpense, getExpenses, createGroup, updateGroupMembers, fetchGroupById, getUserGroupsById } from "@/lib/firebaseUtils";
+  import { addExpense } from "@/lib/firebaseUtils";
   import { useState } from 'react';
 
   export interface ExpensesPanelProps {
@@ -36,7 +36,6 @@ import {
     addExpenseToFirebase: (exp: Omit<Expense, 'id'>) => Promise<string>; // wrapper around addExpense()
     activeGroupId: string;
     onBack: () => void;      // wizard ←
-    onSaveGroup: () => void; // final “Save Group”
   }
   
 
@@ -461,50 +460,52 @@ import {
             </div>
             </form>
         )}
-
-        <div className="mt-6 space-y-4">
-            {expenses.map(expense => (
-            <div key={expense.id} className="p-4 border rounded-lg">
-                <div className="flex justify-between items-center">
-                <h3 className="font-medium">{expense.description}</h3>
-                <span className="font-bold">${expense.amount.toFixed(2)}</span>
-                </div>
-                <p className="text-sm text-gray-600">
-                Paid by: {expense.paidBy} • {new Date(expense.createdAt).toLocaleDateString()}
-                </p>
-                <div className="mt-2">
-                {Object.entries(expense.splits).map(([id, pct]) => (
-                    <div key={id} className="text-sm">
-                    {membersMapById[id]?.firstName ?? id}: {pct}%
+        {/* 2️⃣ List of existing expenses */}
+        {!showExpenseForm && (
+            <div className="mt-6 space-y-4">
+                {expenses.map(expense => (
+                <div key={expense.id} className="p-4 border rounded-lg">
+                    <div className="flex justify-between items-center">
+                    <h3 className="font-medium">{expense.description}</h3>
+                    <span className="font-bold">${expense.amount.toFixed(2)}</span>
                     </div>
+                    <p className="text-sm text-gray-600">
+                    Paid by: {expense.paidBy} • {new Date(expense.createdAt).toLocaleDateString()}
+                    </p>
+                    <div className="mt-2">
+                    {Object.entries(expense.splits).map(([id, pct]) => (
+                        <div key={id} className="text-sm">
+                        {membersMapById[id]?.firstName ?? id}: {pct}%
+                        </div>
+                    ))}
+                    </div>
+
+                    <div className="mt-3 flex gap-2 justify-end">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => editExpense(expense.id)}
+                        className="flex items-center gap-1"
+                    >
+                        <Edit2 className="h-4 w-4" />
+                        Edit
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteExpense(expense.id)}
+                        className="flex items-center gap-1 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                    </Button>
+                    </div>
+                </div>
                 ))}
-                </div>
-
-                <div className="mt-3 flex gap-2 justify-end">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => editExpense(expense.id)}
-                    className="flex items-center gap-1"
-                >
-                    <Edit2 className="h-4 w-4" />
-                    Edit
-                </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => deleteExpense(expense.id)}
-                    className="flex items-center gap-1 text-red-500 hover:text-red-700 hover:bg-red-50"
-                >
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                </Button>
-                </div>
             </div>
-            ))}
-        </div>
+        )}
 
-        {expenses.length > 0 && (
+        {!showExpenseForm && expenses.length > 0 && (
             <div className="mt-6">
                 <h3 className="font-medium mb-2">Current Balances</h3>
                 {Object.entries(calculateBalances()).map(([id, bal]) => {
@@ -522,14 +523,16 @@ import {
                 })}
             </div>
         )}
-
+        {/* 3️⃣ Back / Save buttons */}
+        {!showExpenseForm && (
+            <div className="flex gap-2 justify-end mt-6">
+                <Button variant="outline" onClick={onBack}>Back To Group Details</Button>
+            </div>
+        )}  
         </CardContent>
         </Card>
   );
 }
 /*
-<div className="flex gap-2 justify-end mt-6">
-  <Button variant="outline" onClick={onBack}>Back</Button>
-  <Button variant="primaryDark" onClick={onSaveGroup}>Save Group</Button>
-</div>
+
 */

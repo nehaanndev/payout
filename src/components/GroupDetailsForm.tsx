@@ -73,8 +73,8 @@ interface GroupDetailsFormProps {
           </div>
   
           <Button variant="primaryDark" disabled={!canContinue} onClick={onNext}>
-            Next
-          </Button>
+           Save Group & Continue
+         </Button>
         </CardContent>
       </Card>
     );
