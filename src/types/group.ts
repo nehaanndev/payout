@@ -12,7 +12,7 @@ export interface Expense extends NewExpense {
 }
 
   export interface Member {
-    email?: string;
+    email: string | null; // Optional email field
     firstName: string;   // Add first name field
     id: string; // Unique identifier for the user (to support unauthenticated members)
     authProvider?: 'google' | 'anon' | 'manual'; // Optional for clarity

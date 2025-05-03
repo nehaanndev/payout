@@ -1,7 +1,7 @@
 "use client";
 
 import React, { act, useEffect, useState } from 'react';
-import { getUserGroups, addExpense, getExpenses, createGroup, updateGroupMembers, fetchGroupById, getUserGroupsById } from "@/lib/firebaseUtils";
+import { getUserGroups, addExpense, getExpenses, createGroup, updateGroupMembers, fetchGroupById, getUserGroupsById, getSettlements, addSettlement } from "@/lib/firebaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,9 @@ import { generateUserId } from '@/lib/userUtils';
 import Summary from '@/components/Summary';
 import ExpensesPanel from '@/components/ExpensesPanel';
 import GroupDetailsForm from '@/components/GroupDetailsForm';
+import SettlementModal from '@/components/SettlementModal';
+import { Settlement } from '@/types/settlement';
+import { calculateRawBalances } from '@/lib/financeUtils';
 
 
 interface ExpenseSplitterProps {
@@ -52,7 +55,33 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
   const [isEditingExpense, setIsEditingExpense] = useState(false);
   const [showAccessError, setShowAccessError] = useState(false);
   // at the top of ExpenseSplitter(), after your other useStates:
-const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
+  const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
+  const [showSettlementModal, setShowSettlementModal] = useState(false);
+  const [settlementGroup, setSettlementGroup] = useState<Group|null>(null);
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
+    // ① map of groupId → settlements[]
+  const [settlementsByGroup, setSettlementsByGroup] = useState<Record<string, Settlement[]>>({});
+
+  // ② whenever savedGroups changes, fetch each group’s settlements
+  useEffect(() => {
+    async function loadAllSettlements() {
+      const result: Record<string, Settlement[]> = {};
+      for (const g of savedGroups) {
+        result[g.id] = await getSettlements(g.id);
+      }
+      setSettlementsByGroup(result);
+    }
+    if (savedGroups.length) {
+      loadAllSettlements();
+    }
+  }, [savedGroups]);
+
+  useEffect(() => {
+    if (settlementGroup) {
+      getSettlements(settlementGroup.id).then(setSettlements);
+    }
+  }, [settlementGroup]);
+  
 
 
   useEffect(() => {
@@ -110,64 +139,24 @@ const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
 
   const currentUserId = (session ? session.uid : anonUser!.id) as string
   //const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
-
-  const saveGroup = async () => {
-    if (!groupName.trim() || members.length === 0) {
-      alert('Please enter a group name and add at least one member');
-      return;
-    }
-
-    const formattedMembers = members.map((member) => ({
-      email: member.email,
-      firstName: member.firstName || "Unknown",  // Include first name with fallback
-      id: member.id,
-      authProvider: member.authProvider || (session ? 'google' : 'anon')
-    }));
-
-    if (activeGroupId) {
-      // TODO: Save the existing group to Firebase
-      await updateGroupMembers(activeGroupId, members);
-      setSavedGroups(prevGroups =>
-        prevGroups.map(group =>
-          group.id === activeGroupId
-            ? {
-              ...group,
-              name: groupName,
-              members: [...formattedMembers],
-              expenses: [...expenses],
-              lastUpdated: new Date().toISOString()
-            }
-            : group
-        )
-      );
-    } else {
-      const newGroup: Group = {
-        id: "placeholder_group_id",
-        name: groupName,
-        members: [...members],
-        expenses: [...expenses],
-        createdAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString(),
-        createdBy: currentUserId,
-      };
-      console.log(newGroup)
-      // save new group to Firebase
-      let newGroupId = await createGroup(groupName, session?.email ?? '', members);
-      newGroup.id = newGroupId;
-      setSavedGroups(prev => [...prev, newGroup]);
-      setActiveGroupId(newGroup.id);
-      setActiveGroup(newGroup);
-    }
-    alert(`Group "${groupName}" has been saved!`);
-    setShowCreateTab(false);
-    setActiveTab('summary');
-  };
-
-  const clearcurrentExpenseAndForm = () => {
-    setShowExpenseForm(false);
-    clearcurrentExpense();
-    setIsEditingExpense(false);
+  
+  // derive a Member object for “me”:
+  let me: Member | null = null;
+  if (session) {
+    // build “me” from the signed-in user
+    me = {
+      id: session.uid,
+      firstName: session.displayName?.split(" ")[0] ?? session.email!.split("@")[0],
+      email: session.email!,
+      authProvider: "google",
+    };
+  } else if (anonUser) {
+    // anonUser is already a Member
+    me = anonUser;
   }
+
+
+
 
   const clearcurrentExpense = () => {
     setCurrentExpense({
@@ -218,25 +207,35 @@ const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
     setActiveTab('create');
   };
 
-  const handleAddMember = (firstName: string, email?: string) => {
-    const name = firstName.trim();
-    const mail = email?.trim() || undefined;
+   // replace handleAddMember from earlier:
+   const handleAddMember = (firstName: string, email?: string | null) => {
+    let name = firstName.trim();
+    let mail = email?.trim() || null;
     if (!name) {
       alert("Please enter a valid first name");
       return;
     }
+    console.log("Trying to add member:", name, mail);
+    // If this matches “me”, force-use my real id/email
+    if (me && (name === me.firstName || mail && mail === me.email)) {
+      mail = me.email;
+      name = me.firstName;
+      // always dedupe below, so we don’t add twice
+    }
+
     // duplicate check
-    if (members.some(m => m.firstName === name || (m.email && m.email === mail))) {
+    if (members.some(m => m.firstName === name || (mail && m.email === mail))) {
       alert("This member is already added!");
       return;
     }
+
     const newMember: Member = {
-      id: session
-        ? currentUserId      // if it’s you, reuse your own id
-        : generateUserId(),  // otherwise random anon
+      id: (me && name === me.firstName && mail === me.email)
+        ? me.id            // map to my real uid
+        : generateUserId(),// otherwise random anon
       firstName: name,
       email: mail,
-      authProvider: session ? "google" : "anon",
+      authProvider: me && mail === me.email ? me.authProvider : "anon",
     };
     setMembers(prev => [...prev, newMember]);
   };
@@ -318,11 +317,25 @@ const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
           <Summary
             groups={savedGroups}
             expensesByGroup={Object.fromEntries(savedGroups.map(g => [g.id, g.expenses]))}
+            settlementsByGroup={settlementsByGroup} // ① pass in settlements
             onSettleClick={(g) => {
-              setActiveGroupId(g.id);
-              setActiveTab('groups');  // jump to group details if they hit “Settle”
+              setSettlementGroup(g);
+              setShowSettlementModal(true);
             }}
           />
+          {showSettlementModal && settlementGroup && (
+            <SettlementModal
+              isOpen={showSettlementModal}
+              group={settlementGroup!}
+              rawBalances={ calculateRawBalances(settlementGroup!.members, settlementGroup!.expenses)}
+              onSave={async (payerId, payeeId, amt, dt) => {
+                await addSettlement(settlementGroup!.id, payerId, payeeId, amt, dt);
+                const newList = await getSettlements(settlementGroup!.id);
+                setSettlements(newList);
+              }}
+              onClose={() => setShowSettlementModal(false)}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="create">
@@ -334,11 +347,13 @@ const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
               addMember={handleAddMember}
               removeMember={removeMember}
               canContinue={!!groupName.trim() && members.length > 0}
-              onNext={handleDetailsNext} 
+              onNext={handleDetailsNext}
+              currentUser={me}
             />
           ) : (
             <ExpensesPanel
               /* DATA */
+              groupName={groupName}
               expenses={expenses}
               members={members}
               splitMode={splitMode}

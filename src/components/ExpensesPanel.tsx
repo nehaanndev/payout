@@ -1,20 +1,28 @@
+
+import { DollarSign, Edit2, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
 import {
     Card,
     CardHeader,
     CardTitle,
     CardContent,
   } from '@/components/ui/card';
-  import { Button } from '@/components/ui/button';
-  import { Input } from '@/components/ui/input';
-  import { Label } from '@/components/ui/label';
-  import { Switch } from "@/components/ui/switch";
-  import { DollarSign, Edit2, Trash2 } from 'lucide-react';
-  import { Expense, Member } from '@/types/group';
-  import { addExpense } from "@/lib/firebaseUtils";
-  import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from "@/components/ui/switch";
+import { Badge } from '@/components/ui/badge';
+import { Expense, Member } from '@/types/group';
+
+import { addExpense, updateExpense, deleteExpense } from "@/lib/firebaseUtils";
+import { calculateRawBalances } from '@/lib/financeUtils';
+
+
 
   export interface ExpensesPanelProps {
     /* Data */
+    groupName: string;
     expenses: Expense[];
     members: Member[];
     splitMode: 'percentage' | 'weight';
@@ -41,6 +49,7 @@ import {
 
   export default function ExpensesPanel({
     /* DATA */
+    groupName,
     expenses,
     members,
     splitMode,
@@ -61,8 +70,10 @@ import {
     activeGroupId,
     /* WIZARD NAV */
     onBack,
-    onSaveGroup,
   }: ExpensesPanelProps) {
+
+  // ① compute balances with the correct args
+  const balances: Record<string, number> = calculateRawBalances(members, expenses);
 
   const editExpense = (expenseId: string) => {
     setIsEditingExpense(true);
@@ -78,18 +89,23 @@ import {
 
   const handleExpenseSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    if (!currentExpense.description || !currentExpense.amount || !currentExpense.paidBy || !currentExpense.createdAt) {
+  
+    // 1. Basic validation
+    if (!currentExpense.description ||
+        !currentExpense.amount ||
+        !currentExpense.paidBy ||
+        !currentExpense.createdAt
+    ) {
       alert('Please fill in all expense details');
       return;
     }
-
     if (!activeGroupId) {
-      alert("Please create a group first to add expenses")
+      alert("Please create a group first to add expenses");
+      return;
     }
-
-    let computedSplits = { ...currentExpense.splits };
-
+  
+    // 2. Compute splits based on mode
+    let computedSplits: Record<string, number> = { ...currentExpense.splits };
     if (splitMode === 'weight') {
       const totalWeight = Object.values(weightSplits).reduce((sum, w) => sum + w, 0);
       if (totalWeight === 0) {
@@ -97,85 +113,70 @@ import {
         return;
       }
       computedSplits = Object.fromEntries(
-        Object.entries(weightSplits).map(([email, weight]) => [
-          email,
+        Object.entries(weightSplits).map(([memberId, weight]) => [
+          memberId,
           (weight / totalWeight) * 100,
         ])
       );
     } else {
-      const totalSplit = Object.values(computedSplits).reduce((sum: number, val: unknown) => sum + (typeof val === "number" ? val : parseFloat(val as string) || 0), 0);
-      if (Math.abs(totalSplit - 100) > 0.01) {
+      const totalPct = Object.values(computedSplits).reduce(
+        (sum, v) => sum + (typeof v === "number" ? v : parseFloat(v as string) || 0),
+        0
+      );
+      if (Math.abs(totalPct - 100) > 0.01) {
         alert('Split percentages must sum to 100%');
         return;
       }
     }
-
-
+  
+    // 3. Persist & update local state
     let updatedExpenses: Expense[] = [];
     if (isEditingExpense) {
-      // Update existing expense
-      updatedExpenses = expenses.map(expense =>
-        expense.id === currentExpense.id
-          ? {
-            ...currentExpense,
-            id: currentExpense.id,
-            description: currentExpense.description,
-            paidBy: currentExpense.paidBy,
-            amount: currentExpense.amount,
-            createdAt: currentExpense.createdAt ? currentExpense.createdAt : new Date(),
-            splits: members.reduce<Record<string, number>>((acc, member) => {
-              acc[member.id] = computedSplits[member.id] || 0;
-              return acc;
-            }, {})
-          }
-          : expense
+      // a) Persist the edit to Firestore
+      await updateExpense(activeGroupId, currentExpense.id, {
+        description: currentExpense.description,
+        amount: currentExpense.amount,
+        paidBy: currentExpense.paidBy,
+        splits: computedSplits,
+        createdAt: currentExpense.createdAt,
+      });
+  
+      // b) Update in-memory list
+      updatedExpenses = expenses.map(exp =>
+        exp.id === currentExpense.id
+          ? { ...currentExpense, splits: computedSplits }
+          : exp
       );
     } else {
-
-      console.log("Current Expense:", currentExpense);
-      const newExpense = {
-        ...currentExpense,
-        id: "placeholder_expense_id",
+      // a) Create new expense in Firestore
+      const newExpensePayload = {
+        description: currentExpense.description,
         amount: currentExpense.amount,
-        createdAt: currentExpense.createdAt ? currentExpense.createdAt : new Date(),
-        splits: members.reduce<Record<string, number>>((acc, member) => {
-          acc[member.id] = computedSplits[member.id] || 0;
-          return acc;
-        }, {})
+        paidBy: currentExpense.paidBy,
+        splits: computedSplits,
+        createdAt: currentExpense.createdAt,
       };
-
-      // save to Firebase
-      let newExpenseId = await addExpense(
+      const newExpenseId = await addExpense(
         activeGroupId,
-        newExpense.description,
-        newExpense.amount,
-        newExpense.paidBy,
-        newExpense.splits,
-        newExpense.createdAt
+        newExpensePayload.description,
+        newExpensePayload.amount,
+        newExpensePayload.paidBy,
+        newExpensePayload.splits,
+        newExpensePayload.createdAt
       );
-      newExpense.id = newExpenseId;
-      updatedExpenses = [...expenses, newExpense];
+  
+      // b) Append to local state
+      updatedExpenses = [
+        ...expenses,
+        { id: newExpenseId, ...newExpensePayload },
+      ];
     }
-    if (updatedExpenses) {
-      setExpenses(updatedExpenses);
-    }
-
-    /* if (activeGroupId) {
-      setSavedGroups(prevGroups =>
-        prevGroups.map(group =>
-          group.id === activeGroupId
-            ? {
-              ...group,
-              expenses: updatedExpenses,
-              lastUpdated: new Date().toISOString()
-            }
-            : group
-        )
-      );
-    } */
-
-      clearExpenseForm();
+  
+    // 4. Commit state and reset form
+    setExpenses(updatedExpenses);
+    clearExpenseForm();
   };
+  
 
 
     // new local helper
@@ -192,7 +193,7 @@ import {
         });
         };
 
-  const deleteExpense = (expenseId: string) => {
+  /*const deleteExpense = (expenseId: string) => {
     if (window.confirm('Are you sure you want to delete this expense?')) {
       const updatedExpenses = expenses.filter(expense => expense.id !== expenseId);
       setExpenses(updatedExpenses);
@@ -209,48 +210,35 @@ import {
               : group
           )
         );
-      }*/
+      }
     }
-  };
+  };*/
 
-  const calculateBalances = () => {
-    // 1. start everyone at zero
-    const balances: Record<string, number> = {};
-    members.forEach(m => {
-      balances[m.id] = 0;
-    });
-  
-    expenses.forEach(exp => {
-      // 2. resolve who paid
-      const payerMember = members.find(m => m.firstName === exp.paidBy);
-      const payerId = payerMember?.id ?? exp.paidBy;
-  
-      // ensure the payerId key exists
-      if (!(payerId in balances)) balances[payerId] = 0;
-  
-      // credit the payer
-      balances[payerId] += exp.amount;
-  
-      // 3. debit each split
-      Object.entries(exp.splits).forEach(([memberId, pct]) => {
-        if (!(memberId in balances)) balances[memberId] = 0;
-        balances[memberId] -= (exp.amount * pct) / 100;
+
+  const updateSplit = (memberId: string, value: string) => {
+    // If the user has cleared the field, keep it blank in state:
+    if (value === '') {
+      // remove that key entirely (so value becomes undefined)
+      const { [memberId]: _, ...rest } = currentExpense.splits;
+      setCurrentExpense({
+        ...currentExpense,
+        splits: rest,
       });
-    });
+      return;
+    }
   
-    return balances;
-  };
-  
-
-  const updateSplit = (member: string, value: string) => {
-    const pct = parseFloat(value) || 0;
-    setCurrentExpense({
-      ...currentExpense,
-      splits: {
-        ...currentExpense.splits,
-        [member]: pct,
-      },
-    });
+    // Otherwise parse the number.  If it’s invalid, you could ignore or set 0,
+    // but at least you let the user finish typing “0” or “10” fully first.
+    const num = parseFloat(value);
+    if (!isNaN(num)) {
+      setCurrentExpense({
+        ...currentExpense,
+        splits: {
+          ...currentExpense.splits,
+          [memberId]: num,
+        },
+      });
+    }
   };
   
 
@@ -273,8 +261,11 @@ import {
         <CardHeader>
         <CardTitle className="flex items-center gap-2">
             <DollarSign className="h-6 w-6" />
-            Expenses
-        </CardTitle>
+            <span>Expenses for group</span>
+            <Badge variant="secondary" className="px-2 py-0.5 text-sm">
+                  {groupName}
+            </Badge>
+          </CardTitle>
         </CardHeader>
         <CardContent>
         {!showExpenseForm ? (
@@ -410,9 +401,9 @@ import {
                             <span className="w-24">{member.firstName}</span>
                             <Input
                             type="number"
-                            value={currentExpense.splits[member.id] || ''}
+                            value={currentExpense.splits[member.id] ?? ''}
                             onChange={(e) => updateSplit(member.id, e.target.value)}
-                            placeholder="0"
+                            placeholder=""
                             required
                             />
                             <span>%</span>
@@ -491,13 +482,19 @@ import {
                         Edit
                     </Button>
                     <Button
-                        variant="outline"
                         size="sm"
-                        onClick={() => deleteExpense(expense.id)}
-                        className="flex items-center gap-1 text-red-500 hover:text-red-700 hover:bg-red-50"
-                    >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
+                        variant="outline"
+                        className="text-red-600"
+                        onClick={async () => {
+                            if (!activeGroupId) return;
+                            if (!confirm('Delete this expense?')) return;
+                            // 1️⃣ Remove from Firestore
+                            await deleteExpense(activeGroupId, expense.id);
+                            // 2️⃣ Update local state
+                            setExpenses(expenses.filter(e => e.id !== expense.id));
+                        }}
+                        >
+                        <Trash2 className="w-4 h-4" /> Delete
                     </Button>
                     </div>
                 </div>
@@ -506,22 +503,24 @@ import {
         )}
 
         {!showExpenseForm && expenses.length > 0 && (
-            <div className="mt-6">
-                <h3 className="font-medium mb-2">Current Balances</h3>
-                {Object.entries(calculateBalances()).map(([id, bal]) => {
-                // lookup via the map
-                const member = membersMapById[id];
-                const displayName = member?.firstName ?? id;
+          <div className="mt-6">
+            <h3 className="font-medium mb-2">Current Balances</h3>
+
+            {/* ← Assert the entry type so TS knows bal is a number: */}
+            {(Object.entries(balances) as [string, number][]).map(
+              ([id, bal]) => {
+                const name = membersMapById[id]?.firstName ?? id;
                 return (
-                    <div key={id} className="flex justify-between">
-                    <span>{displayName}</span>
+                  <div key={id} className="flex justify-between">
+                    <span>{name}</span>
                     <span className={bal >= 0 ? 'text-green-600' : 'text-red-600'}>
-                        ${bal.toFixed(2)}
+                      ${bal.toFixed(2)}
                     </span>
-                    </div>
+                  </div>
                 );
-                })}
-            </div>
+              }
+            )}
+          </div>
         )}
         {/* 3️⃣ Back / Save buttons */}
         {!showExpenseForm && (

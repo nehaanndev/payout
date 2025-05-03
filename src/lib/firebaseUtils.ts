@@ -1,5 +1,5 @@
 import { db, auth } from "./firebase";
-import { collection, addDoc, serverTimestamp, updateDoc, doc, getDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, updateDoc, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { firebaseExpenseConverter } from "./firebaseExpenseConverter";
 
 export const createGroup = async (
@@ -51,7 +51,11 @@ export const updateGroupMembers = async (
   try {
     const memberEmails = members.map((member) => member.email);
     const memberIds = members.map((member) => member.id);
-
+    console.log(memberEmails)
+    console.log(memberIds)
+    console.log(members)
+    console.log(groupId)
+    console.log(groupRef)
     await updateDoc(groupRef, {
       members,                    // Save the updated members array
       memberEmails,               // Save only emails for easier querying
@@ -138,6 +142,7 @@ export const signInToFirebase = async (accessToken: string) => {
 
 
 import {  orderBy, Timestamp } from "firebase/firestore";
+import { Settlement } from "@/types/settlement";
 
 // ✅ Add expense to Firestore
 export const addExpense = async (
@@ -208,3 +213,55 @@ export const fetchGroupById = async (groupId: string) => {
     return null;
   }
 };
+
+
+
+/** Overwrite an existing expense’s fields */
+export async function updateExpense(
+  groupId: string,
+  expenseId: string,
+  data: {
+    description: string;
+    amount: number;
+    paidBy: string;
+    splits: Record<string, number>;
+    createdAt: string | Date;
+  }
+) {
+  const ref = doc(db, 'groups', groupId, 'expenses', expenseId);
+  await setDoc(ref, data, { merge: true });
+}
+
+/** Delete an expense document */
+export async function deleteExpense(
+  groupId: string,
+  expenseId: string
+) {
+  const ref = doc(db, 'groups', groupId, 'expenses', expenseId);
+  await deleteDoc(ref);
+}
+
+/* Settlement functions */
+export async function addSettlement(
+  groupId: string,
+  payerId: string,
+  payeeId: string,
+  amount: number,
+  createdAt: Date = new Date()
+): Promise<string> {
+  const colRef = collection(db, 'groups', groupId, 'settlements');
+  const docRef = await addDoc(colRef, {
+    payerId,
+    payeeId,
+    amount,
+    createdAt: createdAt.toISOString(),
+    createdOn: serverTimestamp()
+  });
+  return docRef.id;
+}
+
+export async function getSettlements(groupId: string): Promise<Settlement[]> {
+  const colRef = collection(db, 'groups', groupId, 'settlements');
+  const snap = await getDocs(colRef);
+  return snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+}

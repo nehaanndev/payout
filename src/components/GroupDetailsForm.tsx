@@ -10,10 +10,11 @@ interface GroupDetailsFormProps {
     groupName: string;
     setGroupName: (v: string) => void;
     members: Member[];
-    addMember: (name: string, email?: string) => void;
+    addMember: (name: string, email?: string | null) => void;
     removeMember: (firstName: string) => void;
     canContinue: boolean;
     onNext: () => void;
+    currentUser: Member | null;
   }
   
   export default function GroupDetailsForm({
@@ -24,6 +25,7 @@ interface GroupDetailsFormProps {
     removeMember,
     canContinue,
     onNext,
+    currentUser,
   }: GroupDetailsFormProps) {
     /* local state for the “Add member” inputs */
     const [first, setFirst] = useState('');
@@ -37,6 +39,20 @@ interface GroupDetailsFormProps {
             <Label>Group name</Label>
             <Input value={groupName} onChange={e => setGroupName(e.target.value)} />
           </div>
+
+          {/* ── NEW: Add Me shortcut ── */}
+            {currentUser && !members.some(m => m.id === currentUser.id) && (
+            <Button
+                variant="primaryDark"
+                size="sm"
+                onClick={() =>
+                addMember(currentUser.firstName, currentUser.email)
+                }
+                className="mb-2"
+            >
+                Add Myself
+            </Button>
+            )}
   
           <div className="flex gap-2">
             <Input
