@@ -134,39 +134,39 @@ export default function Home() {
   return (
     <>
     <Head>
-        <title>Payout: Expense Splitter – Split bills & settle debts easily</title>
+        <title>Toodl: Expense Splitter – Split bills & settle debts easily</title>
         <meta
           name="description"
-          content="Payout Expense Splitter makes it friction-free to share costs with friends: create groups, add expenses, and settle up with one click."
+          content="Toodl Expense Splitter makes it friction-free to share costs with friends: create groups, add expenses, and settle up with one click."
         />
-        <meta name="keywords" content="payout, expense splitter, bill splitting, settle debts, group expenses" />
+        <meta name="keywords" content="toodl, expense splitter, bill splitting, settle debts, group expenses" />
 
         {/* Open Graph / Social */}
-        <meta property="og:title" content="Payout: Expense Splitter" />
+        <meta property="og:title" content="Toodl: Expense Splitter" />
         <meta
           property="og:description"
           content="Create groups, track who owes what, and settle up seamlessly."
         />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://yourdomain.com" />
-        <meta property="og:image" content="https://yourdomain.com/og-image.png" />
+        <meta property="og:url" content="https://toodl.co" />
+        <meta property="og:image" content="https://toodl.co/og-image.png" />
 
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Payout" />
-        <meta name="twitter:description" content="Split bills & settle debts with friends." />
-        <meta name="twitter:image" content="https://yourdomain.com/twitter-image.png" />
+        <meta name="twitter:title" content="Toodl" />
+        <meta name="twitter:description" content="Toodl Split bills & settle debts with friends." />
+        <meta name="twitter:image" content="https://toodl.co/twitter-image.png" />
 
         {/* canonical if you have multiple URLs */}
-        <link rel="canonical" href="https://yourdomain.com" />
+        <link rel="canonical" href="https://toodl.co" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebApplication",
-              "name": "Payout Expense Splitter",
-              "url": "https://yourdomain.com",
+              "name": "Toodl Expense Splitter",
+              "url": "https://toodl.co",
               "applicationCategory": "FinanceApplication",
               "operatingSystem": "All",
               "offers": {
@@ -185,7 +185,7 @@ export default function Home() {
           {/* Top banner */}
           <div className="bg-white shadow-md w-full py-4 px-8 flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold">Payout</h1>
+              <h1 className="text-2xl font-bold">Toodl</h1>
               <p className="text-gray-500 text-sm">Manage your expenses with ease</p>
             </div>
 
@@ -269,7 +269,7 @@ export default function Home() {
               <div className="w-full md:max-w-sm">
               <Card className="p-8 rounded-xl shadow-lg ring-1 ring-black/5 bg-white">
                   <CardHeader>
-                    <CardTitle className="text-4xl font-extrabold text-center text-[#1F2A37]">Payout</CardTitle>
+                    <CardTitle className="text-4xl font-extrabold text-center text-[#1F2A37]">Toodl</CardTitle>
                     <p className="text-center text-gray-500 mt-2">Manage your expenses with ease</p>
                   </CardHeader>
 
@@ -356,7 +356,7 @@ export default function Home() {
             <div className="w-full md:flex-1 flex justify-center">
               <Image
                 src="/hero-payout.png"
-                alt="Payout Hero Illustration"
+                alt="Toodl Hero Illustration"
                 width={600}         /* <–– sets natural size */
                 height={600}
                 className="w-full max-w-[420px] lg:max-w-[540px] h-auto object-contain animate-float"
