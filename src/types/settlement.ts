@@ -5,4 +5,10 @@ export interface Settlement {
     amount: number;
     createdAt: string;
   }
+
+export interface SettlementDefaults {
+    payeeId: string;       // the member you owe money to
+    payeeName: string;     // their display name
+    defaultAmount: number; // how much you owe them
+  }
   

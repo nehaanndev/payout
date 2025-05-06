@@ -12,6 +12,7 @@ import { avatarUrls } from "@/lib/avatars";
 import { Member } from "@/types/group"; // assuming Member is defined there
 import { fetchGroupById } from "@/lib/firebaseUtils";
 import IdentityPrompt from "@/components/IdentityPrompt";
+import Head from 'next/head';
 /* --- imports (add these near the top of the file) --- */
 import Image from "next/image";
 
@@ -131,6 +132,52 @@ export default function Home() {
     );
   }
   return (
+    <>
+    <Head>
+        <title>Payout: Expense Splitter – Split bills & settle debts easily</title>
+        <meta
+          name="description"
+          content="Payout Expense Splitter makes it friction-free to share costs with friends: create groups, add expenses, and settle up with one click."
+        />
+        <meta name="keywords" content="payout, expense splitter, bill splitting, settle debts, group expenses" />
+
+        {/* Open Graph / Social */}
+        <meta property="og:title" content="Payout: Expense Splitter" />
+        <meta
+          property="og:description"
+          content="Create groups, track who owes what, and settle up seamlessly."
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://yourdomain.com" />
+        <meta property="og:image" content="https://yourdomain.com/og-image.png" />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Payout" />
+        <meta name="twitter:description" content="Split bills & settle debts with friends." />
+        <meta name="twitter:image" content="https://yourdomain.com/twitter-image.png" />
+
+        {/* canonical if you have multiple URLs */}
+        <link rel="canonical" href="https://yourdomain.com" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebApplication",
+              "name": "Payout Expense Splitter",
+              "url": "https://yourdomain.com",
+              "applicationCategory": "FinanceApplication",
+              "operatingSystem": "All",
+              "offers": {
+                "@type": "Offer",
+                "price": "0.00",
+                "priceCurrency": "USD"
+              }
+            }),
+          }}
+        />
+      </Head>
     <div className="min-h-screen flex flex-col bg-gray-100">
       { /* Case A: Signed-in or already-identified anon user → show the app */ }
       {session || anonUser ? (
@@ -280,6 +327,7 @@ export default function Home() {
                           const id = getOrCreateUserId();
                           const member: Member = {
                             id,
+                            email: "",
                             firstName: tempName.trim(),
                             authProvider: "anon",
                           };
@@ -319,5 +367,6 @@ export default function Home() {
         </div>
       )}
     </div>
+    </>
   );
 }

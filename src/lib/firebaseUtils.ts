@@ -185,7 +185,7 @@ export const getExpenses = async (groupId: string) => {
   const expenses = querySnapshot.docs.map((doc) => ({
     ...doc.data(),
   }));
-  console.log(expenses)
+  //console.log(expenses)
   return expenses as Expense[];
 };
 

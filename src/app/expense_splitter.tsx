@@ -17,7 +17,7 @@ import Summary from '@/components/Summary';
 import ExpensesPanel from '@/components/ExpensesPanel';
 import GroupDetailsForm from '@/components/GroupDetailsForm';
 import SettlementModal from '@/components/SettlementModal';
-import { Settlement } from '@/types/settlement';
+import { Settlement, SettlementDefaults } from '@/types/settlement';
 import { calculateRawBalances } from '@/lib/financeUtils';
 
 
@@ -28,39 +28,47 @@ interface ExpenseSplitterProps {
 }
 
 export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseSplitterProps) {
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'summary' | 'groups' | 'create'>('summary');
+const [loading, setLoading] = useState(true);
+const [activeTab, setActiveTab] = useState<'summary' | 'groups' | 'create'>('summary');
   // only show the Create/Edit tab when the user has clicked “New Group” or loaded an existing one
-  const [showCreateTab, setShowCreateTab] = useState(false);
-  const [savedGroups, setSavedGroups] = useState<Group[]>([]);
-  const [activeGroupId, setActiveGroupId] = useState<string>('');
-  const [activeGroup, setActiveGroup] = useState<Group | null>(null);
-  const [groupName, setGroupName] = useState('');
-  const [members, setMembers] = useState<Member[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [splitMode, setSplitMode] = useState<'percentage' | 'weight'>('percentage');
-  const [weightSplits, setWeightSplits] = useState<Record<string, number>>({});
-  const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const [currentUser, setCurrentUser] = useState<Member | null>(null);
-  const [showIdentityPrompt, setShowIdentityPrompt] = useState(false);
-  const [currentExpense, setCurrentExpense] = useState<Expense>({
-    id: '',
-    description: '',
-    amount: 0,
-    paidBy: '',
-    splits: {},
-    createdAt: new Date()
-  } as Expense);
+const [showCreateTab, setShowCreateTab] = useState(false);
+const [savedGroups, setSavedGroups] = useState<Group[]>([]);
+const [activeGroupId, setActiveGroupId] = useState<string>('');
+const [activeGroup, setActiveGroup] = useState<Group | null>(null);
+const [groupName, setGroupName] = useState('');
+const [members, setMembers] = useState<Member[]>([]);
+const [expenses, setExpenses] = useState<Expense[]>([]);
+const [splitMode, setSplitMode] = useState<'percentage' | 'weight'>('percentage');
+const [weightSplits, setWeightSplits] = useState<Record<string, number>>({});
+const [showExpenseForm, setShowExpenseForm] = useState(false);
+const [currentUser, setCurrentUser] = useState<Member | null>(null);
+const [showIdentityPrompt, setShowIdentityPrompt] = useState(false);
+const [currentExpense, setCurrentExpense] = useState<Expense>({
+  id: '',
+  description: '',
+  amount: 0,
+  paidBy: '',
+  splits: {},
+  createdAt: new Date()
+} as Expense);
 
-  const [isEditingExpense, setIsEditingExpense] = useState(false);
-  const [showAccessError, setShowAccessError] = useState(false);
-  // at the top of ExpenseSplitter(), after your other useStates:
-  const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
-  const [showSettlementModal, setShowSettlementModal] = useState(false);
-  const [settlementGroup, setSettlementGroup] = useState<Group|null>(null);
-  const [settlements, setSettlements] = useState<Settlement[]>([]);
-    // ① map of groupId → settlements[]
-  const [settlementsByGroup, setSettlementsByGroup] = useState<Record<string, Settlement[]>>({});
+const [isEditingExpense, setIsEditingExpense] = useState(false);
+const [showAccessError, setShowAccessError] = useState(false);
+// at the top of ExpenseSplitter(), after your other useStates:
+const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
+const [showSettlementModal, setShowSettlementModal] = useState(false);
+const [settlementGroup, setSettlementGroup] = useState<Group|null>(null);
+const [settlements, setSettlements] = useState<Settlement[]>([]);
+// ① map of groupId → settlements[]
+const [settlementsByGroup, setSettlementsByGroup] = useState<Record<string, Settlement[]>>({});
+
+  // holds the raw balances for the selected group
+const [settlementRawBalances, setSettlementRawBalances] = useState<Record<string,number>>({});
+
+// just your total debt, for a “Pay All” default
+const [settlementDefaults, setSettlementDefaults] = useState<{ defaultAmount: number }>({
+  defaultAmount: 0
+});
 
   // ② whenever savedGroups changes, fetch each group’s settlements
   useEffect(() => {
@@ -82,8 +90,6 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
     }
   }, [settlementGroup]);
   
-
-
   useEffect(() => {
     const fetchGroups = async () => {
       if (session || anonUser) {
@@ -257,6 +263,7 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
     alert("Group link copied to clipboard!");
   };
 
+  // open detials tab
   const handleDetailsNext = async () => {
     // 1️⃣ If it’s a brand-new group, call your Firebase helper:
     if (!activeGroupId) {
@@ -295,6 +302,22 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
     setWizardStep('expenses');
   };
 
+  // settlement
+// 3. Replace the old handleOpenSettle with this:
+const handleOpenSettle = (group: Group) => {
+  // 1️⃣ compute raw balances so the modal can see who you owe
+  const raw = calculateRawBalances(group.members, group.expenses);
+
+  // 2️⃣ your total debt (sum of all the positives in raw for others)
+  const totalOwe = group.members
+    .filter(m => m.id !== me!.id)
+    .reduce((sum, m) => sum + Math.max(0, raw[m.id] ?? 0), 0);
+
+  setSettlementGroup(group);
+  setSettlementRawBalances(raw);
+  setSettlementDefaults({ defaultAmount: totalOwe });
+  setShowSettlementModal(true);
+};
 
   return (
     <div className="max-w-4xl mx-auto p-4">
@@ -318,22 +341,58 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
             groups={savedGroups}
             expensesByGroup={Object.fromEntries(savedGroups.map(g => [g.id, g.expenses]))}
             settlementsByGroup={settlementsByGroup} // ① pass in settlements
-            onSettleClick={(g) => {
-              setSettlementGroup(g);
-              setShowSettlementModal(true);
+            fullUserId={me?.id ?? ''}
+            fullUserName={me?.firstName ?? 'You'}
+            onSettleClick={handleOpenSettle}
+            onSelectGroup={(g) => {
+              // load that group into the wizard/ExpensesPanel
+                 setActiveGroupId(g.id);
+                 setActiveGroup(g);
+                 setGroupName(g.name);
+                 setMembers(g.members);
+                 setWizardStep('expenses');
+                 setShowCreateTab(true);
+                 setActiveTab('create');
+            }}
+            onShareGroup={group => {
+              const link = getGroupShareLink(group.id);
+              navigator.clipboard.writeText(link);
+              alert('Group link copied to clipboard!');
+            }}
+            onEditGroup={group => {
+              // open the wizard back at Details for editing
+              setActiveGroupId(group.id);
+              setActiveGroup(group);
+              setGroupName(group.name);
+              setMembers(group.members);
+              setWizardStep('details');
+              setShowCreateTab(true);
+              setActiveTab('create');
             }}
           />
-          {showSettlementModal && settlementGroup && (
+            {showSettlementModal && settlementGroup && (
             <SettlementModal
-              isOpen={showSettlementModal}
-              group={settlementGroup!}
-              rawBalances={ calculateRawBalances(settlementGroup!.members, settlementGroup!.expenses)}
-              onSave={async (payerId, payeeId, amt, dt) => {
-                await addSettlement(settlementGroup!.id, payerId, payeeId, amt, dt);
-                const newList = await getSettlements(settlementGroup!.id);
-                setSettlements(newList);
-              }}
+              isOpen
               onClose={() => setShowSettlementModal(false)}
+              groupName={settlementGroup.name}
+              members={settlementGroup.members}
+              expenses={settlementGroup.expenses}
+              settlements={settlementsByGroup[settlementGroup.id] || []}
+              currentUserId={me!.id}
+              onSave={async (payeeId, amt, date) => {
+                await addSettlement(
+                  settlementGroup.id,
+                  payeeId,          // payerId = the person you owe
+                  me!.id,           // payeeId = you
+                  amt,
+                  date
+                );
+                const updated = await getSettlements(settlementGroup.id);
+                setSettlementsByGroup(prev => ({
+                  ...prev,
+                  [settlementGroup.id]: updated,
+                }));
+              }}
             />
           )}
         </TabsContent>
@@ -376,6 +435,12 @@ export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseS
               activeGroupId={activeGroupId}
               /* WIZARD NAV */
               onBack={() => setWizardStep('details')}
+              onExpensesChange={(newExps) => {
+                // patch the parent’s savedGroups
+                setSavedGroups(gs =>
+                  gs.map(g => g.id === activeGroupId ? { ...g, expenses: newExps } : g)
+                );
+              }} 
             />
           )}
         </TabsContent>

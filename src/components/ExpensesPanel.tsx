@@ -44,6 +44,7 @@ import { calculateRawBalances } from '@/lib/financeUtils';
     addExpenseToFirebase: (exp: Omit<Expense, 'id'>) => Promise<string>; // wrapper around addExpense()
     activeGroupId: string;
     onBack: () => void;      // wizard ←
+    onExpensesChange: (newExpenses: Expense[]) => void;
   }
   
 
@@ -70,6 +71,7 @@ import { calculateRawBalances } from '@/lib/financeUtils';
     activeGroupId,
     /* WIZARD NAV */
     onBack,
+    onExpensesChange,
   }: ExpensesPanelProps) {
 
   // ① compute balances with the correct args
@@ -174,6 +176,7 @@ import { calculateRawBalances } from '@/lib/financeUtils';
   
     // 4. Commit state and reset form
     setExpenses(updatedExpenses);
+    onExpensesChange(updatedExpenses);
     clearExpenseForm();
   };
   
@@ -192,27 +195,6 @@ import { calculateRawBalances } from '@/lib/financeUtils';
             createdAt: new Date(),
         });
         };
-
-  /*const deleteExpense = (expenseId: string) => {
-    if (window.confirm('Are you sure you want to delete this expense?')) {
-      const updatedExpenses = expenses.filter(expense => expense.id !== expenseId);
-      setExpenses(updatedExpenses);
-
-      /*if (activeGroupId) {
-        setSavedGroups(prevGroups =>
-          prevGroups.map(group =>
-            group.id === activeGroupId
-              ? {
-                ...group,
-                expenses: updatedExpenses,
-                lastUpdated: new Date().toISOString()
-              }
-              : group
-          )
-        );
-      }
-    }
-  };*/
 
 
   const updateSplit = (memberId: string, value: string) => {
