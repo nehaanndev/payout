@@ -1,9 +1,8 @@
 import React from 'react';
-import { Share2, Edit2 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Share2, Edit2 } from 'lucide-react';
 import {
-  calculateRawBalances,
   calculateOpenBalances,
   getSettlementPlan
 } from '@/lib/financeUtils';
@@ -15,31 +14,69 @@ interface SummaryProps {
   expensesByGroup: Record<string, Expense[]>;
   settlementsByGroup: Record<string, Settlement[]>;
   fullUserId: string;
-  fullUserName: string;
   onSettleClick: (group: Group, totalOwe: number) => void;
   onSelectGroup: (group: Group) => void;
   onShareGroup: (group: Group) => void;
   onEditGroup: (group: Group) => void;
+  onCreateGroup: () => void;
 }
+
+
+
+// ① List your 3–4 background images here:
+const BACKGROUNDS = [
+  '/images/hero1.png',
+  '/images/hero2.png',
+  '/images/hero3.png',
+];
 
 export default function Summary({
   groups,
   expensesByGroup,
   settlementsByGroup,
   fullUserId,
-  fullUserName,
   onSettleClick,
   onSelectGroup,
   onShareGroup,
   onEditGroup,
+  onCreateGroup,
 }: SummaryProps) {
+  // ⬇︎ Empty‐state when no groups exist
+if (groups.length === 0) {
+  return (
+    <Card className="relative h-64 rounded-2xl overflow-hidden shadow-lg">
+      {/* Gradient header */}
+      <CardHeader className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
+        <CardTitle className="text-white text-xl font-semibold">
+          No groups yet!
+        </CardTitle>
+      </CardHeader>
+
+      {/* Translucent overlay */}
+      <CardContent className="bg-white bg-opacity-80 backdrop-blur-sm p-6 flex flex-col items-center space-y-4">
+        <p className="text-black text-lg font-medium">
+          You don’t have any groups yet.
+        </p>
+        <p className="text-gray-600 text-sm text-center">
+          Create a group to start tracking expenses with friends.
+        </p>
+        <Button
+          className="bg-primary hover:bg-primary-dark text-white"
+          onClick={onCreateGroup}
+        >
+          Create Your First Group
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
   return (
     <div className="space-y-8">
-      {groups.map(group => {
+      {groups.map((group, idx) => {
+        const bg = BACKGROUNDS[idx % BACKGROUNDS.length];
         const expenses = expensesByGroup[group.id] ?? [];
         const settlements = settlementsByGroup[group.id] ?? [];
 
-        const rawBalances = calculateRawBalances(group.members, expenses);
         const openBalances = calculateOpenBalances(
           group.members,
           expenses,
@@ -50,129 +87,102 @@ export default function Summary({
             owes: [],
             receives: [],
           };
-        const totalOwe = plan.owes.reduce((sum, o) => sum + o.amount, 0);
-        const totalGotten = plan.receives.reduce((sum, r) => sum + r.amount, 0);
-
-        const yourPayments = settlements.filter(
-          s => s.payeeId === fullUserId
-        );
+        const totalOwe = plan.owes.reduce((s, o) => s + o.amount, 0);
+        const totalGotten = plan.receives.reduce((s, r) => s + r.amount, 0);
 
         return (
           <Card
             key={group.id}
-            className="overflow-hidden rounded-2xl shadow-xl cursor-pointer hover:shadow-2xl transition"
+            // ↑ make the card taller
+            className="relative h-80 rounded-2xl overflow-hidden shadow-lg cursor-pointer"
             onClick={() => onSelectGroup(group)}
           >
-            {/* Gradient Header for group title */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
-              <h3 className="text-lg font-semibold text-white flex items-center justify-between">
-                <span>{group.name}</span>
-                <span className="text-sm text-indigo-200">
-                  {group.members.length} members
-                </span>
+            {/* Background image */}
+            <img
+              src={bg}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+
+            {/* 2️⃣ Purple gradient header */}
+            <div className="absolute top-0 left-0 right-0 flex items-center justify-between
+                            bg-gradient-to-r from-indigo-600 to-purple-600
+                            px-5 py-3">
+              <h3 className="text-white text-xl  font-semibold flex items-center justify-between">
+
+              <span>{group.name}</span>
+              
               </h3>
+              <div className="flex space-x-2">
+              <span className="text-lg text-purple-300 font-sans tracking-tight font-medium">
+  {group.members.length} members
+</span>
+                <Button
+                  variant="ghost" size="sm"
+                  className="text-white hover:bg-white/20"
+                  onClick={e => { e.stopPropagation(); onShareGroup(group); }}
+                  aria-label="Share"
+                >
+                  <Share2 className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="ghost" size="sm"
+                  className="text-white hover:bg-white/20"
+                  onClick={e => { e.stopPropagation(); onEditGroup(group); }}
+                  aria-label="Edit"
+                >
+                  <Edit2 className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
 
-            <CardContent className="bg-white px-6 py-5 space-y-4">
-              <div className="flex justify-between items-center">
-                <p className="text-sm text-gray-600">
-                  Total spent:{' '}
-                  <span className="font-semibold text-gray-900">
-                    ${expenses.reduce((s, e) => s + e.amount, 0).toFixed(2)}
-                  </span>
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-gray-500 hover:text-indigo-600"
-                    onClick={e => {
-                      e.stopPropagation();
-                      onShareGroup(group);
-                    }}
-                    aria-label="Share group"
-                  >
-                    <Share2 className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-gray-500 hover:text-indigo-600"
-                    onClick={e => {
-                      e.stopPropagation();
-                      onEditGroup(group);
-                    }}
-                    aria-label="Edit group"
-                  >
-                    <Edit2 className="h-5 w-5" />
-                  </Button>
-                </div>
-              </div>
+              {/* 3️⃣ Bottom‐aligned translucent panel */}
+              +  <div className="absolute inset-x-0 bottom-0 px-6 pb-8">
+    <div
+      className="bg-white bg-opacity-80 backdrop-blur-sm
+                 rounded-lg px-4 py-3 max-w-sm mx-auto
+                 flex items-center justify-between space-x-4"
+    >
+      {/* Left: text block */}
+      <div>
+        <p className="text-gray-700">
+          <span className="font-medium">Total spent:</span>{" "}
+          <span className="font-semibold">
+            ${expenses.reduce((s, e) => s + e.amount, 0).toFixed(2)}
+          </span>
+        </p>
 
-              {/* Debt Status */}
-              <div className="space-y-2">
-                {totalGotten > 0 ? (
-                  <p className="text-sm text-green-600 font-medium">
-                    You are owed <span className="font-semibold">${totalGotten.toFixed(2)}</span>
-                  </p>
-                ) : totalOwe > 0 ? (
-                  <>
-                    <h4 className="text-sm font-medium text-red-600">You owe:</h4>
-                    {plan.owes.map(({ to, amount }) => {
-                      const otherName =
-                        group.members.find(m => m.id === to)?.firstName ?? to;
-                      return (
-                        <p key={to} className="text-sm text-red-600">
-                          You &rarr; {otherName}:{' '}
-                          <span className="font-semibold">${amount.toFixed(2)}</span>
-                        </p>
-                      );
-                    })}
-                  </>
-                ) : (
-                  <p className="text-sm text-green-700 font-medium">
-                    You are all settled 🎉
-                  </p>
-                )}
-              </div>
+        {totalGotten > 0 ? (
+          <p className="text-green-600 font-medium">
+            You are owed ${totalGotten.toFixed(2)}
+          </p>
+        ) : totalOwe > 0 ? (
+          <p className="text-red-600 font-medium">
+            You owe ${totalOwe.toFixed(2)}
+          </p>
+        ) : (
+          <p className="text-green-700 font-medium">
+            All settled 🎉
+          </p>
+        )}
+      </div>
 
-              {/* Your Payments */}
-              {yourPayments.length > 0 && (
-                <div className="pt-3 border-t border-gray-100 space-y-1">
-                  <h4 className="text-sm font-medium text-gray-700">
-                    Your payments:
-                  </h4>
-                  {yourPayments.map(s => {
-                    const paidTo =
-                      group.members.find(
-                        m => m.id === s.payeeId
-                      )?.firstName ?? s.payeeId;
-                    return (
-                      <p key={s.id} className="text-sm text-gray-600">
-                        You paid <span className="font-semibold">{paidTo}</span>{' '}
-                        <span className="text-gray-900 font-semibold">${s.amount.toFixed(2)}</span> on{' '}
-                        {new Date(s.createdAt).toLocaleDateString()}
-                      </p>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Settle Button */}
-              {totalOwe > 0 && (
-                <div className="pt-4 border-t border-gray-100">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full text-indigo-600 hover:bg-indigo-50"
-                    onClick={() => onSettleClick(group, totalOwe)}
-                  >
-                    Pay Your Debt
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+      {/* Right: slimmer button */}
+      {totalOwe > 0 && (
+        <Button
+          size="sm"
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+          onClick={e => {
+            e.stopPropagation();
+            onSettleClick(group, totalOwe);
+          }}
+        >
+          Pay Debts
+        </Button>
+      )}
+    </div>
+  </div>
+            </Card>
         );
       })}
     </div>

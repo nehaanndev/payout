@@ -1,23 +1,20 @@
 "use client";
 
-import React, { act, useEffect, useState } from 'react';
-import { getUserGroups, addExpense, getExpenses, createGroup, updateGroupMembers, fetchGroupById, getUserGroupsById, getSettlements, addSettlement } from "@/lib/firebaseUtils";
+import React, { useEffect, useState } from 'react';
+import { getUserGroups, addExpense, getExpenses, createGroup, updateGroupMembers, getUserGroupsById, getSettlements, addSettlement } from "@/lib/firebaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Users, Edit2, DollarSign, Save, Share2, Clipboard } from 'lucide-react';
+import {  Share2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Group, Expense, Member } from '@/types/group';
 import { User } from "firebase/auth";
-import { Switch } from "@/components/ui/switch";
 import IdentityPrompt from "@/components/IdentityPrompt";
 import { generateUserId } from '@/lib/userUtils';
 import Summary from '@/components/Summary';
 import ExpensesPanel from '@/components/ExpensesPanel';
 import GroupDetailsForm from '@/components/GroupDetailsForm';
 import SettlementModal from '@/components/SettlementModal';
-import { Settlement, SettlementDefaults } from '@/types/settlement';
+import { Settlement } from '@/types/settlement';
 import { calculateRawBalances } from '@/lib/financeUtils';
 
 
@@ -144,7 +141,6 @@ const [settlementDefaults, setSettlementDefaults] = useState<{ defaultAmount: nu
   }
 
   const currentUserId = (session ? session.uid : anonUser!.id) as string
-  //const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
   
   // derive a Member object for “me”:
   let me: Member | null = null;
@@ -160,9 +156,6 @@ const [settlementDefaults, setSettlementDefaults] = useState<{ defaultAmount: nu
     // anonUser is already a Member
     me = anonUser;
   }
-
-
-
 
   const clearcurrentExpense = () => {
     setCurrentExpense({
@@ -342,23 +335,22 @@ const handleOpenSettle = (group: Group) => {
             expensesByGroup={Object.fromEntries(savedGroups.map(g => [g.id, g.expenses]))}
             settlementsByGroup={settlementsByGroup} // ① pass in settlements
             fullUserId={me?.id ?? ''}
-            fullUserName={me?.firstName ?? 'You'}
             onSettleClick={handleOpenSettle}
             onSelectGroup={(g) => {
               // load that group into the wizard/ExpensesPanel
-                 setActiveGroupId(g.id);
-                 setActiveGroup(g);
-                 setGroupName(g.name);
-                 setMembers(g.members);
-                 setWizardStep('expenses');
-                 setShowCreateTab(true);
-                 setActiveTab('create');
-            }}
+              setActiveGroupId(g.id);
+              setActiveGroup(g);
+              setGroupName(g.name);
+              setMembers(g.members);
+              setWizardStep('expenses');
+              setShowCreateTab(true);
+              setActiveTab('create');
+            } }
             onShareGroup={group => {
               const link = getGroupShareLink(group.id);
               navigator.clipboard.writeText(link);
-              alert('Group link copied to clipboard!');
-            }}
+              alert('Group link copied!');
+            } }
             onEditGroup={group => {
               // open the wizard back at Details for editing
               setActiveGroupId(group.id);
@@ -368,7 +360,7 @@ const handleOpenSettle = (group: Group) => {
               setWizardStep('details');
               setShowCreateTab(true);
               setActiveTab('create');
-            }}
+            } } onCreateGroup={startNewGroup}
           />
             {showSettlementModal && settlementGroup && (
             <SettlementModal
@@ -407,8 +399,11 @@ const handleOpenSettle = (group: Group) => {
               removeMember={removeMember}
               canContinue={!!groupName.trim() && members.length > 0}
               onNext={handleDetailsNext}
-              currentUser={me}
-            />
+              currentUser={me} onCancel={() => {
+                // go to summary tab
+                setActiveTab('summary');
+              } }            
+              />
           ) : (
             <ExpensesPanel
               /* DATA */

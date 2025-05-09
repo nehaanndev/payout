@@ -22,13 +22,19 @@ export default {
 		},
 		/* ⬇️ 3)  add your custom colors  */
   		colors: {
-			primary: '#344955',    // dark blue‑grey pill (active)
-        	secondary: '#E9ECEF',  // light grey pill (inactive)
-        	accent: '#FFD54F',     // the yellow badge in your screenshot
-        	textPrimary: '#1F2A37',// almost‐black text
-			payoutHover: "#4BA948",
-  			background: 'hsl(var(--background))',
-  			foreground: 'hsl(var(--foreground))',
+        // Replace your old “primary” grey-blue
+        primary: {
+			DEFAULT: '#0071E3',   // the main Apple-style blue
+			dark:    '#005BC1',   // hover / active
+			light:   '#338DEF',   // focus / pressed (optional)
+		  },
+		  // leave your other tokens as-is:
+		  secondary: '#E9ECEF',
+		  accent:    '#FFD54F',
+		  textPrimary: '#1F2A37',
+		  payoutHover: "#4BA948",
+		  background:  'hsl(var(--background))',
+		  foreground:  'hsl(var(--foreground))',
   			card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'

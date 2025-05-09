@@ -1,11 +1,10 @@
 
 import { DollarSign, Edit2, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 
 import {
     Card,
     CardHeader,
-    CardTitle,
     CardContent,
   } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,8 +16,6 @@ import { Expense, Member } from '@/types/group';
 
 import { addExpense, updateExpense, deleteExpense } from "@/lib/firebaseUtils";
 import { calculateRawBalances } from '@/lib/financeUtils';
-
-
 
   export interface ExpensesPanelProps {
     /* Data */
@@ -76,6 +73,22 @@ import { calculateRawBalances } from '@/lib/financeUtils';
 
   // ① compute balances with the correct args
   const balances: Record<string, number> = calculateRawBalances(members, expenses);
+
+  // ② per‐member color palette
+  const memberColors = useMemo(() => {
+    const palette = [
+      '#3B82F6', // blue-500
+      '#6366F1', // indigo-500
+      '#8B5CF6', // violet-500
+      '#EC4899', // pink-500
+      '#F59E0B', // amber-500
+      '#10B981', // green-500
+    ];
+    return members.reduce((map, m, i) => {
+      map[m.id] = palette[i % palette.length];
+      return map;
+    }, {} as Record<string,string>);
+  }, [members]);
 
   const editExpense = (expenseId: string) => {
     setIsEditingExpense(true);
@@ -239,21 +252,32 @@ import { calculateRawBalances } from '@/lib/financeUtils';
   };
 
   return (
-        <Card>
-        <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-6 w-6" />
-            <span>Expenses for group</span>
-            <Badge variant="secondary" className="px-2 py-0.5 text-sm">
-                  {groupName}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        <Card className="rounded-2xl shadow-lg overflow-hidden">
+            {/* Gradient Header */}
+            <CardHeader className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-white">
+                <DollarSign className="h-6 w-6" />
+                <span className="text-xl font-semibold">
+                    Expenses for group
+                </span>
+                <Badge className="bg-white text-indigo-600 px-2 py-0.5 text-sm">
+                    {groupName}
+                </Badge>
+                </div>
+                <Button
+                size="sm"
+                className="bg-white text-blue-600 hover:bg-blue-50"
+                onClick={onBack}
+                >
+                Edit Group
+                </Button>
+            </div>
+            </CardHeader>
+            <CardContent className="bg-gray-50 p-6 space-y-6">
         {!showExpenseForm ? (
             <Button
-            variant="primaryDark"
-            className="w-full"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
             disabled={!activeGroupId}
             onClick={() => setShowExpenseForm(true)}
             title={!activeGroupId ? "Select or create a group first" : undefined}
@@ -421,15 +445,20 @@ import { calculateRawBalances } from '@/lib/financeUtils';
                 </div>
             </div>
 
-            <div className="flex gap-2">
-                <Button variant="primaryDark" type="submit">Save Expense</Button>
-                <Button
+            <div className="flex justify-end space-x-3 mt-4">
+              <Button
                 type="button"
-                variant="outline"
+                className="border border-gray-300 text-gray-700 hover:bg-gray-100"
                 onClick={() => clearExpenseForm()}
                 >
                 Cancel
                 </Button>
+                <Button
+                type="submit"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                >
+                Save Expense
+              </Button>
             </div>
             </form>
         )}
@@ -437,7 +466,10 @@ import { calculateRawBalances } from '@/lib/financeUtils';
         {!showExpenseForm && (
             <div className="mt-6 space-y-4">
                 {expenses.map(expense => (
-                <div key={expense.id} className="p-4 border rounded-lg">
+                <div
+                    key={expense.id}
+                    className="bg-white rounded-xl shadow p-4 space-y-2 hover:bg-slate-50"
+                >
                     <div className="flex justify-between items-center">
                     <h3 className="font-medium">{expense.description}</h3>
                     <span className="font-bold">${expense.amount.toFixed(2)}</span>
@@ -446,35 +478,45 @@ import { calculateRawBalances } from '@/lib/financeUtils';
                     Paid by: {expense.paidBy} • {new Date(expense.createdAt).toLocaleDateString()}
                     </p>
                     <div className="mt-2">
-                    {Object.entries(expense.splits).map(([id, pct]) => (
-                        <div key={id} className="text-sm">
-                        {membersMapById[id]?.firstName ?? id}: {pct}%
-                        </div>
-                    ))}
+                        {Object.entries(expense.splits).map(([id, pct]) => 
+                            {
+                                const name = membersMapById[id]?.firstName ?? id;
+                                const color = memberColors[id];
+                                return (
+                                <div key={id} className="text-sm">
+                                    <span className="text-black font-medium">{name}:</span>{' '}
+                                    <span
+                                    className="font-semibold"
+                                    style={{ color }}
+                                    >
+                                    {pct.toFixed(2)}%
+                                    </span>
+                                </div>
+                                );
+                            })
+                        }
                     </div>
 
                     <div className="mt-3 flex gap-2 justify-end">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => editExpense(expense.id)}
-                        className="flex items-center gap-1"
-                    >
-                        <Edit2 className="h-4 w-4" />
-                        Edit
-                    </Button>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600"
-                        onClick={async () => {
-                            if (!activeGroupId) return;
-                            if (!confirm('Delete this expense?')) return;
-                            // 1️⃣ Remove from Firestore
-                            await deleteExpense(activeGroupId, expense.id);
-                            // 2️⃣ Update local state
-                            setExpenses(expenses.filter(e => e.id !== expense.id));
-                        }}
+                        <Button
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1"
+                            onClick={() => editExpense(expense.id)}
+                        >
+                            <Edit2 className="h-4 w-4" />
+                            Edit
+                        </Button>
+                        <Button
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1"
+                            onClick={async () => {
+                                if (!activeGroupId) return;
+                                if (!confirm('Delete this expense?')) return;
+                                // 1️⃣ Remove from Firestore
+                                await deleteExpense(activeGroupId, expense.id);
+                                // 2️⃣ Update local state
+                                setExpenses(expenses.filter(e => e.id !== expense.id));
+                            }}
                         >
                         <Trash2 className="w-4 h-4" /> Delete
                     </Button>
@@ -485,8 +527,8 @@ import { calculateRawBalances } from '@/lib/financeUtils';
         )}
 
         {!showExpenseForm && expenses.length > 0 && (
-          <div className="mt-6">
-            <h3 className="font-medium mb-2">Current Balances</h3>
+           <div className="mt-6 bg-white bg-opacity-80 backdrop-blur-sm rounded-xl shadow p-4 hover:bg-slate-50">
+            <h3 className="text-black font-semibold mb-2">Current Balances</h3>
 
             {/* ← Assert the entry type so TS knows bal is a number: */}
             {(Object.entries(balances) as [string, number][]).map(
@@ -495,7 +537,13 @@ import { calculateRawBalances } from '@/lib/financeUtils';
                 return (
                   <div key={id} className="flex justify-between">
                     <span>{name}</span>
-                    <span className={bal >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    <span
+                      className={
+                        bal >= 0
+                          ? 'text-green-600 font-medium'
+                          : 'text-red-600 font-medium'
+                      }
+                    >
                       ${bal.toFixed(2)}
                     </span>
                   </div>
@@ -506,14 +554,17 @@ import { calculateRawBalances } from '@/lib/financeUtils';
         )}
         {/* 3️⃣ Back / Save buttons */}
         {!showExpenseForm && (
-            <div className="flex gap-2 justify-end mt-6">
-                <Button variant="outline" onClick={onBack}>Back To Group Details</Button>
-            </div>
-        )}  
-        </CardContent>
-        </Card>
+          <div className="flex justify-end mt-6">
+            <Button
+              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={onBack}
+            >
+              Back To Group Details
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
-/*
-
-*/
