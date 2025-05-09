@@ -38,7 +38,6 @@ import { calculateRawBalances } from '@/lib/financeUtils';
   
     /* External helpers from parent */
     membersMapById: Record<string, Member>;      // computed once in parent for easy lookup
-    addExpenseToFirebase: (exp: Omit<Expense, 'id'>) => Promise<string>; // wrapper around addExpense()
     activeGroupId: string;
     onBack: () => void;      // wizard ←
     onExpensesChange: (newExpenses: Expense[]) => void;
@@ -64,7 +63,6 @@ import { calculateRawBalances } from '@/lib/financeUtils';
     setShowExpenseForm,
     /* HELPERS */
     membersMapById,
-    addExpenseToFirebase,
     activeGroupId,
     /* WIZARD NAV */
     onBack,
@@ -214,7 +212,7 @@ import { calculateRawBalances } from '@/lib/financeUtils';
     // If the user has cleared the field, keep it blank in state:
     if (value === '') {
       // remove that key entirely (so value becomes undefined)
-      const { [memberId]: _, ...rest } = currentExpense.splits;
+      const { [memberId]: _, ...rest } = currentExpense.splits; // eslint-disable-line @typescript-eslint/no-unused-vars
       setCurrentExpense({
         ...currentExpense,
         splits: rest,

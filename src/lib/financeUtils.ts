@@ -1,5 +1,5 @@
 // utils/finance.ts (or inside Summary.tsx)
-import { Group, Expense, Member } from '@/types/group';
+import { Expense, Member } from '@/types/group';
 
 /**
  * Compute net balances = (what you paid) − (what you owe by split).

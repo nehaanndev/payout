@@ -263,5 +263,6 @@ export async function addSettlement(
 export async function getSettlements(groupId: string): Promise<Settlement[]> {
   const colRef = collection(db, 'groups', groupId, 'settlements');
   const snap = await getDocs(colRef);
-  return snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })); 
 }

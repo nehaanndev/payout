@@ -110,7 +110,6 @@ export default function Home() {
 
   const handleContinueWithoutSignIn = () => {
     const existing_name = localStorage.getItem('user_name');
-    const existing_id = localStorage.getItem('user_id');
     if (existing_name) {
       setExistingName(existing_name);
       setShowIdentityChoice(true);
@@ -192,14 +191,15 @@ export default function Home() {
             {/* Profile image and dropdown */}
             <div className="relative">
               {avatar && (
-                <img
-                  src={avatar}
-                  alt="User Avatar"
-                  width={40}
-                  height={40}
-                  className="rounded-full border cursor-pointer"
-                  onClick={() => setShowProfileCard((prev) => !prev)}
-                />
+                <Image
+                src={avatar}
+                alt="User Avatar"
+                width={40}         /* <–– sets natural size */
+                height={40}
+                className="rounded-full border cursor-pointer"
+                onClick={() => setShowProfileCard((prev) => !prev)}
+              />
+
               )}
 
               {/* Profile Card */}
@@ -207,7 +207,7 @@ export default function Home() {
                 <div ref={profileRef} className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg z-50">
                   <Card className="p-6">
                     <CardHeader className="flex flex-col items-center">
-                      <img
+                      <Image
                         src={avatar}
                         alt="User"
                         width={80}
@@ -297,7 +297,7 @@ export default function Home() {
                           setAnonUser(member);
                           setShowIdentityChoice(false);
                         }}>
-                          I'm {existingName}
+                          I&apos;m {existingName}
                         </Button>
 
                         <Button
@@ -311,7 +311,7 @@ export default function Home() {
                     </>
                   ) : (
                     <>
-                      <h2 className="font-bold mb-4 text-center text-lg">What's your name?</h2>
+                      <h2 className="font-bold mb-4 text-center text-lg">What&apos;s your name?</h2>
                       <input
                         type="text"
                         value={tempName}

@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Share2, Edit2 } from 'lucide-react';
+import Image from "next/image";
 import {
   calculateOpenBalances,
   getSettlementPlan
@@ -98,7 +99,7 @@ if (groups.length === 0) {
             onClick={() => onSelectGroup(group)}
           >
             {/* Background image */}
-            <img
+            <Image
               src={bg}
               alt=""
               className="absolute inset-0 w-full h-full object-cover"

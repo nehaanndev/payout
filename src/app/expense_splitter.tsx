@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { getUserGroups, addExpense, getExpenses, createGroup, updateGroupMembers, getUserGroupsById, getSettlements, addSettlement } from "@/lib/firebaseUtils";
+import { getUserGroups, getExpenses, createGroup, updateGroupMembers, getUserGroupsById, getSettlements, addSettlement } from "@/lib/firebaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {  Share2 } from 'lucide-react';
@@ -38,7 +38,7 @@ const [expenses, setExpenses] = useState<Expense[]>([]);
 const [splitMode, setSplitMode] = useState<'percentage' | 'weight'>('percentage');
 const [weightSplits, setWeightSplits] = useState<Record<string, number>>({});
 const [showExpenseForm, setShowExpenseForm] = useState(false);
-const [currentUser, setCurrentUser] = useState<Member | null>(null);
+const [, setCurrentUser] = useState<Member | null>(null);
 const [showIdentityPrompt, setShowIdentityPrompt] = useState(false);
 const [currentExpense, setCurrentExpense] = useState<Expense>({
   id: '',
@@ -55,15 +55,15 @@ const [showAccessError, setShowAccessError] = useState(false);
 const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
 const [showSettlementModal, setShowSettlementModal] = useState(false);
 const [settlementGroup, setSettlementGroup] = useState<Group|null>(null);
-const [settlements, setSettlements] = useState<Settlement[]>([]);
+const [, setSettlements] = useState<Settlement[]>([]);
 // ① map of groupId → settlements[]
 const [settlementsByGroup, setSettlementsByGroup] = useState<Record<string, Settlement[]>>({});
 
   // holds the raw balances for the selected group
-const [settlementRawBalances, setSettlementRawBalances] = useState<Record<string,number>>({});
+const [, setSettlementRawBalances] = useState<Record<string,number>>({});
 
 // just your total debt, for a “Pay All” default
-const [settlementDefaults, setSettlementDefaults] = useState<{ defaultAmount: number }>({
+const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
   defaultAmount: 0
 });
 
@@ -187,7 +187,7 @@ const [settlementDefaults, setSettlementDefaults] = useState<{ defaultAmount: nu
     setActiveTab('create');
     setWizardStep('expenses');
 
-    let matchedMember = group.members.find((m) => m.id === currentUserId);
+    const matchedMember = group.members.find((m) => m.id === currentUserId);
     if (matchedMember) {
       setCurrentUser(matchedMember);
     } else {
@@ -424,9 +424,9 @@ const handleOpenSettle = (group: Group) => {
               setShowExpenseForm={setShowExpenseForm}
               /* HELPERS */
               membersMapById={Object.fromEntries(members.map(m => [m.id, m]))}
-              addExpenseToFirebase={(exp) =>
-                addExpense(activeGroupId, exp.description, exp.amount, exp.paidBy, exp.splits, exp.createdAt)
-              }
+              //addExpenseToFirebase={(exp) =>
+              //  addExpense(activeGroupId, exp.description, exp.amount, exp.paidBy, exp.splits, exp.createdAt)
+              //}
               activeGroupId={activeGroupId}
               /* WIZARD NAV */
               onBack={() => setWizardStep('details')}
