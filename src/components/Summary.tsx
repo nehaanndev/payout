@@ -102,7 +102,9 @@ if (groups.length === 0) {
             <Image
               src={bg}
               alt=""
+              fill               // ← enables layout="fill"
               className="absolute inset-0 w-full h-full object-cover"
+              priority           // ← optionally flag as high-priority for LCP
             />
 
             {/* 2️⃣ Purple gradient header */}

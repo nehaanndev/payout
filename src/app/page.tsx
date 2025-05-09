@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";  // Import useSearchParams
+import { Suspense, useState, useEffect, useRef } from "react";
+import SearchParamsClient from '@/components/SearchParamsClient'
 import { auth, provider, signInWithPopup, signOut, User, onAuthStateChanged } from "../lib/firebase"; // Import Firebase auth and provider
 import ExpenseSplitter from "./expense_splitter";
 import { Button } from "@/components/ui/button";
@@ -12,13 +12,10 @@ import { avatarUrls } from "@/lib/avatars";
 import { Member } from "@/types/group"; // assuming Member is defined there
 import { fetchGroupById } from "@/lib/firebaseUtils";
 import IdentityPrompt from "@/components/IdentityPrompt";
-import Head from 'next/head';
 /* --- imports (add these near the top of the file) --- */
 import Image from "next/image";
 
 export default function Home() {
-  const searchParams = useSearchParams();  // Use searchParams to get query params
-  const group_id = searchParams.get("group_id");  // Get group_id from query string
   const [session, setSession] = useState<User | null>(null);
   const [group, setGroup] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,20 +26,21 @@ export default function Home() {
   const [existingName, setExistingName] = useState<string | null>(null);
   const [tempName, setTempName] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
-  const [avatar, setAvatar] = useState("avatars/avatar5.png");
+  const [avatar, setAvatar] = useState("/avatars/avatar5.png");
   const [anonUser, setAnonUser] = useState<Member | null>(null);
+  const [groupId, setGroupId] = useState<string | null>(null)  // Get group_id from query string
     
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setSession(user); // Set the session as UserWithGroup type
-      setGroup(group_id); // Reset group state
-      console.log("group_id:", group_id);
+      setGroup(groupId); // Reset group state
+      console.log("group_id:", groupId);
       setLoading(false);
     });
   
     return () => unsubscribe();
-  }, [group_id]);  // Add `group_id` as a dependency
+  }, [groupId]);  // Add `group_id` as a dependency
 
   // Close the profile card when clicking outside
   useEffect(() => {
@@ -79,8 +77,8 @@ export default function Home() {
   // 1) If there's a group_id but no session or anonUser yet,
   // fetch that group's members so we can prompt "Who are you?"
   useEffect(() => {
-    if (group_id && !session && !anonUser) {
-      fetchGroupById(group_id)
+    if (groupId && !session && !anonUser) {
+      fetchGroupById(groupId)
         .then((g) => {
           if (g) {
             setSharedMembers(g.members ?? []);
@@ -89,7 +87,7 @@ export default function Home() {
         })
         .catch(console.error);
     }
-  }, [group_id, session, anonUser]);
+  }, [groupId, session, anonUser]);
 
   const displayName = session?.displayName || anonUser?.firstName || 'Guest User';
   const handleSignIn = async () => {
@@ -132,51 +130,12 @@ export default function Home() {
   }
   return (
     <>
-    <Head>
-        <title>Toodl: Expense Splitter – Split bills & settle debts easily</title>
-        <meta
-          name="description"
-          content="Toodl Expense Splitter makes it friction-free to share costs with friends: create groups, add expenses, and settle up with one click."
-        />
-        <meta name="keywords" content="toodl, expense splitter, bill splitting, settle debts, group expenses" />
-
-        {/* Open Graph / Social */}
-        <meta property="og:title" content="Toodl: Expense Splitter" />
-        <meta
-          property="og:description"
-          content="Create groups, track who owes what, and settle up seamlessly."
-        />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://toodl.co" />
-        <meta property="og:image" content="https://toodl.co/og-image.png" />
-
-        {/* Twitter Card */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Toodl" />
-        <meta name="twitter:description" content="Toodl Split bills & settle debts with friends." />
-        <meta name="twitter:image" content="https://toodl.co/twitter-image.png" />
-
-        {/* canonical if you have multiple URLs */}
-        <link rel="canonical" href="https://toodl.co" />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebApplication",
-              "name": "Toodl Expense Splitter",
-              "url": "https://toodl.co",
-              "applicationCategory": "FinanceApplication",
-              "operatingSystem": "All",
-              "offers": {
-                "@type": "Offer",
-                "price": "0.00",
-                "priceCurrency": "USD"
-              }
-            }),
-          }}
-        />
-      </Head>
+      {/* 3️⃣ Hydrate the client-only hook via Suspense */}
+      <Suspense fallback={null}>
+        <SearchParamsClient onParams={params => {
+          setGroupId(params.get('group_id'))
+        }} />
+      </Suspense>
     <div className="min-h-screen flex flex-col bg-gray-100">
       { /* Case A: Signed-in or already-identified anon user → show the app */ }
       {session || anonUser ? (
