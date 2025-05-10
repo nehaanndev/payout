@@ -223,7 +223,7 @@ export default function Home() {
           <div className="relative min-h-screen bg-[#FEF4D6] flex items-center">
             {/* decorative split background for desktop */}
             <div className="hidden lg:block absolute inset-y-0 right-0 w-1/2 bg-[#FEF4D6]/40 pointer-events-none" />
-            <div className="container max-w-6xl mx-auto px-6 py-16 flex flex-col-reverse md:flex-row md:items-start lg:items-center gap-16 lg:gap-32">
+            <div className="container max-w-6xl mx-auto px-6 py-16 flex flex-col md:flex-row md:items-start lg:items-center gap-16 lg:gap-32">
               {/* ── left / top column : sign‑in card ─────────────────────────── */}
               <div className="w-full md:max-w-sm">
               <Card className="p-8 rounded-xl shadow-lg ring-1 ring-black/5 bg-white">
