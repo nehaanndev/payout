@@ -314,7 +314,7 @@ export default function Home() {
             {/* right / bottom column : hero */}
             <div className="w-full md:flex-1 flex justify-center">
               <Image
-                src="/hero-payout.png"
+                src="/images/hero-payout.png"
                 alt="Toodl Hero Illustration"
                 width={600}         /* <–– sets natural size */
                 height={600}
