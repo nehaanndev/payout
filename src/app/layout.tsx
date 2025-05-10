@@ -1,4 +1,5 @@
 import "./globals.css";
+import Footer from '@/components/Footer' 
 
 // app/layout.tsx
 export const metadata = {
@@ -28,9 +29,12 @@ export const metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      <body className="flex flex-col min-h-screen">
+        <main className="flex-grow">
           {children}
+        </main>
+        <Footer />
       </body>
-    </html>
+    </html> 
   );
 }
