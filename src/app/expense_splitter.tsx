@@ -463,9 +463,6 @@ const handleOpenSettle = (group: Group) => {
                       <div onClick={() => loadGroup(group)} className="cursor-pointer flex-1">
                         <div className="flex justify-between items-center">
                           <h3 className="font-medium">{group.name}</h3>
-                          <span className="text-sm text-gray-600">
-                            {new Date(group.createdAt).toLocaleDateString()}
-                          </span>
                         </div>
                         <p className="text-sm text-gray-600">
                           {group.members.length} members
