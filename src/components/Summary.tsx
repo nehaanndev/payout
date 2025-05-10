@@ -139,52 +139,52 @@ if (groups.length === 0) {
               </div>
             </div>
 
-              {/* 3️⃣ Bottom‐aligned translucent panel */}
-              +  <div className="absolute inset-x-0 bottom-0 px-6 pb-8">
-    <div
-      className="bg-white bg-opacity-80 backdrop-blur-sm
-                 rounded-lg px-4 py-3 max-w-sm mx-auto
-                 flex items-center justify-between space-x-4"
-    >
-      {/* Left: text block */}
-      <div>
-        <p className="text-gray-700">
-          <span className="font-medium">Total spent:</span>{" "}
-          <span className="font-semibold">
-            ${expenses.reduce((s, e) => s + e.amount, 0).toFixed(2)}
-          </span>
-        </p>
+            {/* 3️⃣ Bottom‐aligned translucent panel */}
+            <div className="absolute inset-x-0 bottom-0 px-6 pb-8">
+              <div
+                className="bg-white bg-opacity-80 backdrop-blur-sm
+                          rounded-lg px-4 py-3 max-w-sm mx-auto
+                          flex items-center justify-between space-x-4"
+              >
+                {/* Left: text block */}
+                <div>
+                  <p className="text-gray-700">
+                    <span className="font-medium">Total spent:</span>{" "}
+                    <span className="font-semibold">
+                      ${expenses.reduce((s, e) => s + e.amount, 0).toFixed(2)}
+                    </span>
+                  </p>
 
-        {totalGotten > 0 ? (
-          <p className="text-green-600 font-medium">
-            You are owed ${totalGotten.toFixed(2)}
-          </p>
-        ) : totalOwe > 0 ? (
-          <p className="text-red-600 font-medium">
-            You owe ${totalOwe.toFixed(2)}
-          </p>
-        ) : (
-          <p className="text-green-700 font-medium">
-            All settled 🎉
-          </p>
-        )}
-      </div>
+                  {totalGotten > 0 ? (
+                    <p className="text-green-600 font-medium">
+                      You are owed ${totalGotten.toFixed(2)}
+                    </p>
+                  ) : totalOwe > 0 ? (
+                    <p className="text-red-600 font-medium">
+                      You owe ${totalOwe.toFixed(2)}
+                    </p>
+                  ) : (
+                    <p className="text-green-700 font-medium">
+                      All settled 🎉
+                    </p>
+                  )}
+                </div>
 
-      {/* Right: slimmer button */}
-      {totalOwe > 0 && (
-        <Button
-          size="sm"
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-          onClick={e => {
-            e.stopPropagation();
-            onSettleClick(group, totalOwe);
-          }}
-        >
-          Pay Debts
-        </Button>
-      )}
-    </div>
-  </div>
+                {/* Right: slimmer button */}
+                {totalOwe > 0 && (
+                  <Button
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={e => {
+                      e.stopPropagation();
+                      onSettleClick(group, totalOwe);
+                    }}
+                  >
+                    Pay Debts
+                  </Button>
+                )}
+              </div>
+            </div>
             </Card>
         );
       })}

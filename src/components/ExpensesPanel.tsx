@@ -13,9 +13,10 @@ import { Label } from '@/components/ui/label';
 import { Switch } from "@/components/ui/switch";
 import { Badge } from '@/components/ui/badge';
 import { Expense, Member } from '@/types/group';
+import { Settlement } from '@/types/settlement';
 
 import { addExpense, updateExpense, deleteExpense } from "@/lib/firebaseUtils";
-import { calculateRawBalances } from '@/lib/financeUtils';
+import { calculateOpenBalances, calculateRawBalances } from '@/lib/financeUtils';
 
   export interface ExpensesPanelProps {
     /* Data */
@@ -23,14 +24,15 @@ import { calculateRawBalances } from '@/lib/financeUtils';
     expenses: Expense[];
     members: Member[];
     splitMode: 'percentage' | 'weight';
-    currentExpense: Expense;
+    currentExpense: Omit<Expense, 'amount'> & { amount: string };
     weightSplits: Record<string, number>;
     isEditingExpense: boolean;
     showExpenseForm: boolean;
+    settlements: Settlement[];
   
     /* Callbacks to mutate parent state */
     setExpenses: (e: Expense[]) => void;
-    setCurrentExpense: (e: Expense) => void;
+    setCurrentExpense: (e: Omit<Expense, 'amount'> & { amount: string }) => void;
     setWeightSplits: (w: Record<string, number>) => void;
     setSplitMode: (m: 'percentage' | 'weight') => void;
     setIsEditingExpense: (b: boolean) => void;
@@ -54,6 +56,7 @@ import { calculateRawBalances } from '@/lib/financeUtils';
     weightSplits,
     isEditingExpense,
     showExpenseForm,
+    settlements,
     /* MUTATORS */
     setExpenses,
     setCurrentExpense,
@@ -71,6 +74,7 @@ import { calculateRawBalances } from '@/lib/financeUtils';
 
   // ① compute balances with the correct args
   const balances: Record<string, number> = calculateRawBalances(members, expenses);
+  const openBalances = calculateOpenBalances(members, expenses, settlements);
 
   // ② per‐member color palette
   const memberColors = useMemo(() => {
@@ -87,6 +91,8 @@ import { calculateRawBalances } from '@/lib/financeUtils';
       return map;
     }, {} as Record<string,string>);
   }, [members]);
+  
+  
 
   const editExpense = (expenseId: string) => {
     setIsEditingExpense(true);
@@ -94,7 +100,7 @@ import { calculateRawBalances } from '@/lib/financeUtils';
     if (expenseToEdit) {
       setCurrentExpense({
         ...expenseToEdit,
-        amount: expenseToEdit.amount // Convert back to string for form input
+        amount: expenseToEdit.amount.toString() // Convert back to string for form input
       });
       setShowExpenseForm(true);
     }
@@ -102,10 +108,15 @@ import { calculateRawBalances } from '@/lib/financeUtils';
 
   const handleExpenseSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-  
+    const parsedAmount = parseFloat(currentExpense.amount.trim());
+
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    alert('Please enter a valid, non-zero amount');
+    return;
+    }
     // 1. Basic validation
     if (!currentExpense.description ||
-        !currentExpense.amount ||
+        !parsedAmount ||
         !currentExpense.paidBy ||
         !currentExpense.createdAt
     ) {
@@ -148,7 +159,7 @@ import { calculateRawBalances } from '@/lib/financeUtils';
       // a) Persist the edit to Firestore
       await updateExpense(activeGroupId, currentExpense.id, {
         description: currentExpense.description,
-        amount: currentExpense.amount,
+        amount: parsedAmount,
         paidBy: currentExpense.paidBy,
         splits: computedSplits,
         createdAt: currentExpense.createdAt,
@@ -157,14 +168,14 @@ import { calculateRawBalances } from '@/lib/financeUtils';
       // b) Update in-memory list
       updatedExpenses = expenses.map(exp =>
         exp.id === currentExpense.id
-          ? { ...currentExpense, splits: computedSplits }
+          ? { ...currentExpense, amount:parsedAmount, splits: computedSplits }
           : exp
       );
     } else {
       // a) Create new expense in Firestore
       const newExpensePayload = {
         description: currentExpense.description,
-        amount: currentExpense.amount,
+        amount: parsedAmount,
         paidBy: currentExpense.paidBy,
         splits: computedSplits,
         createdAt: currentExpense.createdAt,
@@ -172,7 +183,7 @@ import { calculateRawBalances } from '@/lib/financeUtils';
       const newExpenseId = await addExpense(
         activeGroupId,
         newExpensePayload.description,
-        newExpensePayload.amount,
+        parsedAmount,
         newExpensePayload.paidBy,
         newExpensePayload.splits,
         newExpensePayload.createdAt
@@ -200,7 +211,7 @@ import { calculateRawBalances } from '@/lib/financeUtils';
         setCurrentExpense({
             id: '',
             description: '',
-            amount: 0,
+            amount: '',
             paidBy: '',
             splits: {},
             createdAt: new Date(),
@@ -215,6 +226,7 @@ import { calculateRawBalances } from '@/lib/financeUtils';
       const { [memberId]: _, ...rest } = currentExpense.splits; // eslint-disable-line @typescript-eslint/no-unused-vars
       setCurrentExpense({
         ...currentExpense,
+
         splits: rest,
       });
       return;
@@ -236,7 +248,7 @@ import { calculateRawBalances } from '@/lib/financeUtils';
   
 
   const splitEqually = () => {
-    const equalPct = Number((100 / members.length).toFixed(2));
+    const equalPct = Number((100 / members.length).toFixed(4));
     const newSplits: Record<string, number> = members.reduce((acc, m) => {
       acc[m.id] = equalPct;
       return acc;
@@ -299,20 +311,21 @@ import { calculateRawBalances } from '@/lib/financeUtils';
             <div>
                 <Label htmlFor="amount">Amount</Label>
                 <Input
-                id="amount"
-                type="number"
-                value={currentExpense.amount}
-                onChange={(e) => {
-                    const value = e.target.value;
-                    setCurrentExpense({
-                    ...currentExpense,
-                    amount: value === '' ? 0 : parseFloat(value) || 0
-                    });
-                }}
-                placeholder="0.00"
-                className="mt-1"
-                required
+                    id="amount"
+                    type="number"
+                    inputMode="decimal"
+                    step="any"
+                    className="mt-1 no-spinner"
+                    value={currentExpense.amount}
+                    onChange={(e) => {
+                        setCurrentExpense({
+                        ...currentExpense,
+                        amount: e.target.value, // allow user to type blank, float, etc.
+                        });
+                    }}
+                    required
                 />
+
             </div>
 
             <div>
@@ -466,7 +479,7 @@ import { calculateRawBalances } from '@/lib/financeUtils';
                 {expenses.map(expense => (
                 <div
                     key={expense.id}
-                    className="bg-white rounded-xl shadow p-4 space-y-2 hover:bg-slate-50"
+                    className="bg-white rounded-xl shadow p-4 space-y-2 hover:bg-indigo-50"
                 >
                     <div className="flex justify-between items-center">
                     <h3 className="font-medium">{expense.description}</h3>
@@ -524,32 +537,75 @@ import { calculateRawBalances } from '@/lib/financeUtils';
             </div>
         )}
 
-        {!showExpenseForm && expenses.length > 0 && (
-           <div className="mt-6 bg-white bg-opacity-80 backdrop-blur-sm rounded-xl shadow p-4 hover:bg-slate-50">
-            <h3 className="text-black font-semibold mb-2">Current Balances</h3>
+        
 
-            {/* ← Assert the entry type so TS knows bal is a number: */}
-            {(Object.entries(balances) as [string, number][]).map(
-              ([id, bal]) => {
-                const name = membersMapById[id]?.firstName ?? id;
-                return (
-                  <div key={id} className="flex justify-between">
-                    <span>{name}</span>
-                    <span
-                      className={
-                        bal >= 0
-                          ? 'text-green-600 font-medium'
-                          : 'text-red-600 font-medium'
-                      }
-                    >
-                      ${bal.toFixed(2)}
-                    </span>
-                  </div>
-                );
-              }
-            )}
-          </div>
+        {!showExpenseForm && expenses.length > 0 && settlements.length > 0 && (
+           <div className="mt-6 bg-white bg-opacity-60 backdrop-blur-sm rounded-xl shadow p-4 space-y-4 hover:bg-indigo-50">
+           <h3 className="text-black font-semibold">Settlements</h3>
+         
+           {settlements.map((s) => {
+               const payer = membersMapById[s.payerId]?.firstName ?? s.payerId;
+               const payee = membersMapById[s.payeeId]?.firstName ?? s.payeeId;
+               return (
+                 <p key={s.id} className="text-sm text-gray-700">
+                   {payee} paid {payer} ${s.amount.toFixed(2)} on{" "}
+                   {new Date(s.createdAt).toLocaleDateString()}
+                 </p>
+               );
+             })
+           }
+         
+           <hr className="my-2" />
+         
+           <h3 className="text-black font-semibold">Balances after settlements</h3>
+           {(Object.entries(openBalances) as [string, number][]).map(([id, bal]) => {
+             const name = membersMapById[id]?.firstName ?? id;
+             return (
+               <div key={id} className="flex justify-between text-sm">
+                 <span className="text-black">{name}</span>
+                 <span
+                   className={
+                     bal >= 0
+                       ? "text-green-600 font-medium"
+                       : "text-red-600 font-medium"
+                   }
+                 >
+                   ${bal.toFixed(2)}
+                 </span>
+               </div>
+             );
+           })}
+         </div>
+         
         )}
+
+{!showExpenseForm && expenses.length > 0 && (
+           <div className="mt-6 bg-white bg-opacity-80 backdrop-blur-sm rounded-xl shadow p-4 space-y-4  hover:bg-indigo-50">
+                <h3 className="text-black font-semibold mb-2">{settlements.length > 0 ? "Original ":""}Balances</h3>
+
+                {/* ← Assert the entry type so TS knows bal is a number: */}
+                {(Object.entries(balances) as [string, number][]).map(
+                ([id, bal]) => {
+                    const name = membersMapById[id]?.firstName ?? id;
+                    return (
+                    <div key={id} className="text-sm flex justify-between">
+                        <span>{name}</span>
+                        <span
+                        className={
+                            bal >= 0
+                            ? 'text-green-600 font-medium'
+                            : 'text-red-600 font-medium'
+                        }
+                        >
+                        ${bal.toFixed(2)}
+                        </span>
+                    </div>
+                    );
+                }
+                )}
+           </div>
+        )}
+
         {/* 3️⃣ Back / Save buttons */}
         {!showExpenseForm && (
           <div className="flex justify-end mt-6">

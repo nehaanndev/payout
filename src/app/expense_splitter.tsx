@@ -40,14 +40,14 @@ const [weightSplits, setWeightSplits] = useState<Record<string, number>>({});
 const [showExpenseForm, setShowExpenseForm] = useState(false);
 const [, setCurrentUser] = useState<Member | null>(null);
 const [showIdentityPrompt, setShowIdentityPrompt] = useState(false);
-const [currentExpense, setCurrentExpense] = useState<Expense>({
+const [currentExpense, setCurrentExpense] = useState<Omit<Expense, 'amount'> & { amount: string }>({
   id: '',
   description: '',
-  amount: 0,
+  amount: '', // now a string
   paidBy: '',
   splits: {},
   createdAt: new Date()
-} as Expense);
+});
 
 const [isEditingExpense, setIsEditingExpense] = useState(false);
 const [showAccessError, setShowAccessError] = useState(false);
@@ -161,11 +161,11 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
     setCurrentExpense({
       id: '',
       description: '',
-      amount: 0,
+      amount: '',
       paidBy: '',
       splits: {},
       createdAt: new Date()
-    } as Expense);
+    });
   }
 
   const clearGroupForm = () => {
@@ -415,6 +415,7 @@ const handleOpenSettle = (group: Group) => {
               weightSplits={weightSplits}
               isEditingExpense={isEditingExpense}
               showExpenseForm={showExpenseForm}
+              settlements={settlementsByGroup[activeGroupId] ?? []}
               /* SETTERS */
               setExpenses={setExpenses}
               setCurrentExpense={setCurrentExpense}

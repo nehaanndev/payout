@@ -141,6 +141,7 @@ export default function SettlementModal({
             Cancel
           </Button>
           <Button
+            variant="primaryDark"
             disabled={!selectedPayee || !amount}
             onClick={handleSave}
           >

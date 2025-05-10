@@ -237,7 +237,7 @@ export default function Home() {
                       Sign In with Google
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="primaryDark"
                       className="w-full"
                       onClick={handleContinueWithoutSignIn}
                     >
