@@ -17,6 +17,7 @@ import { Settlement } from '@/types/settlement';
 
 import { addExpense, updateExpense, deleteExpense } from "@/lib/firebaseUtils";
 import { calculateOpenBalances, calculateRawBalances } from '@/lib/financeUtils';
+import ExpenseListItem from "@/components/ExpenseListItem";
 
   export interface ExpensesPanelProps {
     /* Data */
@@ -29,6 +30,7 @@ import { calculateOpenBalances, calculateRawBalances } from '@/lib/financeUtils'
     isEditingExpense: boolean;
     showExpenseForm: boolean;
     settlements: Settlement[];
+    youId: string;
   
     /* Callbacks to mutate parent state */
     setExpenses: (e: Expense[]) => void;
@@ -57,6 +59,7 @@ import { calculateOpenBalances, calculateRawBalances } from '@/lib/financeUtils'
     isEditingExpense,
     showExpenseForm,
     settlements,
+    youId,
     /* MUTATORS */
     setExpenses,
     setCurrentExpense,
@@ -475,67 +478,24 @@ import { calculateOpenBalances, calculateRawBalances } from '@/lib/financeUtils'
         )}
         {/* 2️⃣ List of existing expenses */}
         {!showExpenseForm && (
-            <div className="mt-6 space-y-4">
-                {expenses.map(expense => (
-                <div
-                    key={expense.id}
-                    className="bg-white rounded-xl shadow p-4 space-y-2 hover:bg-indigo-50"
-                >
-                    <div className="flex justify-between items-center">
-                    <h3 className="font-medium">{expense.description}</h3>
-                    <span className="font-bold">${expense.amount.toFixed(2)}</span>
-                    </div>
-                    <p className="text-sm text-gray-600">
-                    Paid by: {expense.paidBy} • {new Date(expense.createdAt).toLocaleDateString()}
-                    </p>
-                    <div className="mt-2">
-                        {Object.entries(expense.splits).map(([id, pct]) => 
-                            {
-                                const name = membersMapById[id]?.firstName ?? id;
-                                const color = memberColors[id];
-                                return (
-                                <div key={id} className="text-sm">
-                                    <span className="text-black font-medium">{name}:</span>{' '}
-                                    <span
-                                    className="font-semibold"
-                                    style={{ color }}
-                                    >
-                                    {pct.toFixed(2)}%
-                                    </span>
-                                </div>
-                                );
-                            })
-                        }
-                    </div>
-
-                    <div className="mt-3 flex gap-2 justify-end">
-                        <Button
-                            size="sm"
-                            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1"
-                            onClick={() => editExpense(expense.id)}
-                        >
-                            <Edit2 className="h-4 w-4" />
-                            Edit
-                        </Button>
-                        <Button
-                            size="sm"
-                            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1"
-                            onClick={async () => {
-                                if (!activeGroupId) return;
-                                if (!confirm('Delete this expense?')) return;
-                                // 1️⃣ Remove from Firestore
-                                await deleteExpense(activeGroupId, expense.id);
-                                // 2️⃣ Update local state
-                                setExpenses(expenses.filter(e => e.id !== expense.id));
-                            }}
-                        >
-                        <Trash2 className="w-4 h-4" /> Delete
-                    </Button>
-                    </div>
-                </div>
-                ))}
-            </div>
-        )}
+  <div className="mt-6 space-y-1 rounded-xl overflow-hidden">
+    {expenses.map(exp => (
+      <ExpenseListItem
+        key={exp.id}
+        expense={exp}
+        membersMapById={membersMapById}
+        youId={youId}
+        onEdit={() => editExpense(exp.id)}
+        onDelete={async () => {
+          if (!activeGroupId) return
+          if (!confirm("Delete this expense?")) return
+          await deleteExpense(activeGroupId, exp.id)
+          setExpenses(expenses.filter(e => e.id !== exp.id))
+        }}
+      />
+    ))}
+  </div>
+)}
 
         
 
