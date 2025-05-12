@@ -41,7 +41,7 @@ export default function PrivacyPolicyPage() {
       <p>We use industry-standard encryption and authentication mechanisms to protect your data.</p>
 
       <h2 className="font-semibold mt-6 mb-2">6. Changes to This Policy</h2>
-      <p>We may update this Privacy Policy. We’ll notify you of material changes via the app or email.</p>
+      <p>We may update this Privacy Policy. We&apos;ll notify you of material changes via the app or email.</p>
 
       <p className="mt-6">If you have questions, contact us at <a href="mailto:support@toodl.co" className="text-primary hover:underline">support@toodl.co</a>.</p>
     </main>
