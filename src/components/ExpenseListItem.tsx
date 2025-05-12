@@ -35,16 +35,23 @@ export default function ExpenseListItem({
             {expense.description}
           </div>
         </div>
-        <div className="text-right text-sm">
-          <div className="text-gray-500">{payer} paid</div>
-          <div className="font-bold text-black">${expense.amount.toFixed(2)}</div>
-          {userShare > 0 && (
-            <>
-              <div className="text-gray-500">{payer} lent you</div>
-              <div className="text-orange-500 font-semibold">${lentAmount.toFixed(2)}</div>
-            </>
-          )}
-        </div>
+        <div className="flex items-end gap-8 text-right">
+  <div>
+    <div className="text-xs text-gray-500">{payer} paid</div>
+    <div className="text-lg font-bold text-black">${expense.amount.toFixed(2)}</div>
+  </div>
+
+  {userShare > 0 && (
+    <div>
+      <div className="text-xs text-gray-500">{payer} lent you</div>
+      <div className="text-lg font-semibold text-orange-500">
+        ${((expense.amount * userShare) / 100).toFixed(2)}
+      </div>
+    </div>
+  )}
+</div>
+
+
         <div className="flex gap-1 ml-4">
           <Button size="sm" variant="ghost" onClick={onEdit}><Edit2 className="w-4 h-4" /></Button>
           <Button size="sm" variant="ghost" onClick={onDelete}><Trash2 className="w-4 h-4 text-red-600" /></Button>
