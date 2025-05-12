@@ -416,6 +416,7 @@ const handleOpenSettle = (group: Group) => {
               isEditingExpense={isEditingExpense}
               showExpenseForm={showExpenseForm}
               settlements={settlementsByGroup[activeGroupId] ?? []}
+              youId={session?.uid ?? anonUser?.id ?? ""}
               /* SETTERS */
               setExpenses={setExpenses}
               setCurrentExpense={setCurrentExpense}
@@ -437,6 +438,8 @@ const handleOpenSettle = (group: Group) => {
                   gs.map(g => g.id === activeGroupId ? { ...g, expenses: newExps } : g)
                 );
               }} 
+              
+
             />
           )}
         </TabsContent>
