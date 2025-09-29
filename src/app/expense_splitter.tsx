@@ -416,6 +416,7 @@ const handleOpenSettle = (group: Group) => {
               isEditingExpense={isEditingExpense}
               showExpenseForm={showExpenseForm}
               settlements={settlementsByGroup[activeGroupId] ?? []}
+              youId={session?.uid ?? anonUser?.id ?? ""}
               /* SETTERS */
               setExpenses={setExpenses}
               setCurrentExpense={setCurrentExpense}
