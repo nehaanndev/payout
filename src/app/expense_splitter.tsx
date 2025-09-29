@@ -438,8 +438,6 @@ const handleOpenSettle = (group: Group) => {
                   gs.map(g => g.id === activeGroupId ? { ...g, expenses: newExps } : g)
                 );
               }} 
-              
-
             />
           )}
         </TabsContent>

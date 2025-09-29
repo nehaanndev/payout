@@ -1,7 +1,6 @@
 import { useState } from "react"
-import { Trash2, Edit2, ChevronDown, ChevronUp, ReceiptText } from "lucide-react"
+import { Trash2, Edit2} from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { Expense, Member } from "@/types/group"
 
 export default function ExpenseListItem({
