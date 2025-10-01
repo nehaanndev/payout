@@ -1,6 +1,6 @@
 
-import { DollarSign, Edit2, Trash2 } from 'lucide-react';
-import { useMemo } from 'react';
+import { DollarSign} from 'lucide-react';
+// import { useMemo } from 'react';
 
 import {
     Card,
@@ -80,7 +80,7 @@ import ExpenseListItem from "@/components/ExpenseListItem";
   const openBalances = calculateOpenBalances(members, expenses, settlements);
 
   // ② per‐member color palette
-  const memberColors = useMemo(() => {
+  /*const memberColors = useMemo(() => {
     const palette = [
       '#3B82F6', // blue-500
       '#6366F1', // indigo-500
@@ -93,7 +93,7 @@ import ExpenseListItem from "@/components/ExpenseListItem";
       map[m.id] = palette[i % palette.length];
       return map;
     }, {} as Record<string,string>);
-  }, [members]);
+  }, [members]); */
   
   
 
@@ -332,19 +332,23 @@ import ExpenseListItem from "@/components/ExpenseListItem";
             </div>
 
             <div>
-                <Label htmlFor="paidBy">Paid By</Label>
-                <select
-                id="paidBy"
-                value={currentExpense.paidBy}
-                onChange={(e) => setCurrentExpense({ ...currentExpense, paidBy: e.target.value })}
-                className="w-full mt-1 rounded-md border border-gray-300 p-2"
-                required
-                >
-                <option value="">Select person</option>
-                {members.map(member => (
-                    <option key={member.firstName} value={member.firstName}>{member.firstName}</option>
-                ))}
-                </select>
+            <Label htmlFor="paidBy">Paid By</Label>
+            <select
+              id="paidBy"
+              value={currentExpense.paidBy ?? ""} // this should be the member.id
+              onChange={(e) =>
+                setCurrentExpense({ ...currentExpense, paidBy: e.target.value })
+              }
+              className="w-full mt-1 rounded-md border border-gray-300 p-2"
+              required
+            >
+              <option value="">Select person</option>
+              {members.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.firstName}
+                </option>
+              ))}
+            </select>
             </div>
             <div>
                 <Label htmlFor="date">Date</Label>
