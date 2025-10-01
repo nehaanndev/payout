@@ -1,23 +1,23 @@
-// Define two interfaces for clarity
-export interface NewExpense {
-  description: string;
-  amount: number;
-  paidBy: string;
-  createdAt: Date;
-  splits: Record<string, number>;
-}
+  // Define two interfaces for clarity
+  export interface NewExpense {
+    description: string;
+    amount: number;
+    paidBy: string;
+    createdAt: Date;
+    splits: Record<string, number>;
+  }
 
-export interface Expense extends NewExpense {
-  id: string; // ID is required after retrieval from Firebase
-}
+  export interface Expense extends NewExpense {
+    id: string; // ID is required after retrieval from Firebase
+  }
 
-  export interface Member {
-    email: string | null; // Optional email field
-    firstName: string;   // Add first name field
-    id: string; // Unique identifier for the user (to support unauthenticated members)
-    authProvider?: 'google' | 'anon' | 'manual'; // Optional for clarity
-  };
-  
+    export interface Member {
+      email: string | null; // Optional email field
+      firstName: string;   // Add first name field
+      id: string; // Unique identifier for the user (to support unauthenticated members)
+      authProvider?: 'google' | 'anon' | 'manual'; // Optional for clarity
+    };
+    
   export interface Group {
     id: string;
     name: string;

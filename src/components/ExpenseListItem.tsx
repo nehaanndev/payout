@@ -9,6 +9,7 @@ export default function ExpenseListItem({
   onDelete,
   membersMapById,
   youId
+    
 }: {
   expense: Expense
   onEdit: () => void
@@ -16,11 +17,40 @@ export default function ExpenseListItem({
   membersMapById: Record<string, Member>
   youId: string
 }) {
+  console.log(youId)
+  console.log(expense.paidBy)
   const [expanded, setExpanded] = useState(false)
-  const payer = membersMapById[expense.paidBy]?.firstName ?? expense.paidBy
+
+  const payerName = membersMapById[expense.paidBy]?.firstName ?? expense.paidBy
   const date = new Date(expense.createdAt)
-  const userShare = expense.splits[youId] ?? 0
-  const lentAmount = (expense.amount * userShare) / 100
+
+  const yourSharePct = expense.splits[youId] ?? 0
+  const amount = expense.amount
+
+  const isPayerYou = expense.paidBy === youId
+
+  // --- Helper for currency-safe rounding (2 decimals)
+  const round2 = (n: number) => Math.round(n * 100) / 100
+
+  // When YOU paid, how much you’re owed in total = sum of others’ shares
+  let youAreOwedTotal = 0
+  const owedByMember: Record<string, number> = {}
+
+  if (isPayerYou) {
+    for (const [memberId, pct] of Object.entries(expense.splits)) {
+      if (memberId === youId) continue // skip your own share
+      const owed = round2((amount * pct) / 100)
+      owedByMember[memberId] = owed
+      youAreOwedTotal += owed
+    }
+    youAreOwedTotal = round2(youAreOwedTotal)
+  }
+
+  // You can use payerLabel in the UI
+  const payerLabel = isPayerYou ? "You" : payerName
+  const owedTotal = !isPayerYou ? round2((amount * yourSharePct) / 100) : youAreOwedTotal
+  const lentVsOwed = isPayerYou ? "get back" : "lent you"
+
 
   return (
     <div className="bg-white border-b py-3 px-4 hover:bg-slate-50 transition">
@@ -36,15 +66,15 @@ export default function ExpenseListItem({
         </div>
         <div className="flex items-end gap-8 text-right">
   <div>
-    <div className="text-xs text-gray-500">{payer} paid</div>
+    <div className="text-xs text-gray-500">{payerLabel} paid</div>
     <div className="text-lg font-bold text-black">${expense.amount.toFixed(2)}</div>
   </div>
 
-  {userShare > 0 && (
+  {yourSharePct > 0 && (
     <div>
-      <div className="text-xs text-gray-500">{payer} lent you</div>
+      <div className="text-xs text-gray-500">{payerLabel} {lentVsOwed}</div>
       <div className="text-lg font-semibold text-orange-500">
-        ${((expense.amount * userShare) / 100).toFixed(2)}
+        ${(owedTotal ).toFixed(2)}
       </div>
     </div>
   )}
