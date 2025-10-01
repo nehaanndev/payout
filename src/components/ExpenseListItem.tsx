@@ -17,8 +17,7 @@ export default function ExpenseListItem({
   membersMapById: Record<string, Member>
   youId: string
 }) {
-  console.log(youId)
-  console.log(expense.paidBy)
+
   const [expanded, setExpanded] = useState(false)
 
   const payerName = membersMapById[expense.paidBy]?.firstName ?? expense.paidBy
