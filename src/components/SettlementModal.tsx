@@ -20,6 +20,8 @@ import {
 import { calculateOpenBalances, getSettlementPlan } from "@/lib/financeUtils";
 import { Member, Expense } from "@/types/group";
 import { Settlement } from "@/types/settlement";
+import { formatMoneySafeGivenCurrency } from "@/lib/currency"
+import { CurrencyCode, toMinor } from "@/lib/currency_core";
 
 interface SettlementModalProps {
   isOpen: boolean;
@@ -29,6 +31,7 @@ interface SettlementModalProps {
   expenses: Expense[];
   settlements: Settlement[];
   currentUserId: string;
+  currency: CurrencyCode;
   onSave: (payeeId: string, amount: number, date: Date) => Promise<void>;
 }
 
@@ -40,6 +43,7 @@ export default function SettlementModal({
   expenses,
   settlements,
   currentUserId,
+  currency,
   onSave,
 }: SettlementModalProps) {
   // 1️⃣ Compute open balances including past settlements
@@ -108,7 +112,7 @@ export default function SettlementModal({
               <SelectContent>
                 {payees.map(p => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.name} — ${p.owed.toFixed(2)}
+                    {p.name} — {formatMoneySafeGivenCurrency(toMinor(p.owed, currency), currency)}
                   </SelectItem>
                 ))}
               </SelectContent>

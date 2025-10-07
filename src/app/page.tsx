@@ -14,6 +14,8 @@ import { fetchGroupById } from "@/lib/firebaseUtils";
 import IdentityPrompt from "@/components/IdentityPrompt";
 /* --- imports (add these near the top of the file) --- */
 import Image from "next/image";
+import { CurrencyCode } from "@/lib/currency_core";
+import { getGroupCurrency } from "@/lib/currency";
 
 export default function Home() {
   const [session, setSession] = useState<User | null>(null);
@@ -23,6 +25,7 @@ export default function Home() {
   const profileRef = useRef<HTMLDivElement>(null);
   const [showIdentityChoice, setShowIdentityChoice] = useState(false);
   const [sharedMembers, setSharedMembers] = useState<Member[] | null>(null);
+  const [currency, setCurrency] = useState<CurrencyCode | null>(null);
   const [existingName, setExistingName] = useState<string | null>(null);
   const [tempName, setTempName] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
@@ -82,6 +85,7 @@ export default function Home() {
         .then((g) => {
           if (g) {
             setSharedMembers(g.members ?? []);
+            setCurrency(getGroupCurrency(g));
           }
           setShowIdentityChoice(true);
         })

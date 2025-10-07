@@ -18,6 +18,8 @@ import { Settlement } from '@/types/settlement';
 import { addExpense, updateExpense, deleteExpense } from "@/lib/firebaseUtils";
 import { calculateOpenBalances, calculateRawBalances } from '@/lib/financeUtils';
 import ExpenseListItem from "@/components/ExpenseListItem";
+import { formatMoneySafe, formatMoneySafeGivenCurrency } from '@/lib/currency';
+import { toMinor, splitByWeights, CurrencyCode } from '@/lib/currency_core';
 
   export interface ExpensesPanelProps {
     /* Data */
@@ -31,6 +33,7 @@ import ExpenseListItem from "@/components/ExpenseListItem";
     showExpenseForm: boolean;
     settlements: Settlement[];
     youId: string;
+    currency:CurrencyCode;
   
     /* Callbacks to mutate parent state */
     setExpenses: (e: Expense[]) => void;
@@ -60,6 +63,7 @@ import ExpenseListItem from "@/components/ExpenseListItem";
     showExpenseForm,
     settlements,
     youId,
+    currency,
     /* MUTATORS */
     setExpenses,
     setCurrentExpense,
@@ -158,6 +162,7 @@ import ExpenseListItem from "@/components/ExpenseListItem";
   
     // 3. Persist & update local state
     let updatedExpenses: Expense[] = [];
+    let amountMinor = toMinor(parsedAmount, currency);
     if (isEditingExpense) {
       // a) Persist the edit to Firestore
       await updateExpense(activeGroupId, currentExpense.id, {
@@ -166,6 +171,8 @@ import ExpenseListItem from "@/components/ExpenseListItem";
         paidBy: currentExpense.paidBy,
         splits: computedSplits,
         createdAt: currentExpense.createdAt,
+        amountMinor: amountMinor,
+        splitsMinor: splitByWeights(amountMinor, computedSplits)
       });
   
       // b) Update in-memory list
@@ -182,6 +189,8 @@ import ExpenseListItem from "@/components/ExpenseListItem";
         paidBy: currentExpense.paidBy,
         splits: computedSplits,
         createdAt: currentExpense.createdAt,
+        amountMinor: amountMinor,
+        splitsMinor: splitByWeights(amountMinor, computedSplits)
       };
       const newExpenseId = await addExpense(
         activeGroupId,
@@ -189,7 +198,9 @@ import ExpenseListItem from "@/components/ExpenseListItem";
         parsedAmount,
         newExpensePayload.paidBy,
         newExpensePayload.splits,
-        newExpensePayload.createdAt
+        newExpensePayload.createdAt,
+        amountMinor,
+        splitByWeights(amountMinor, newExpensePayload.splits)
       );
   
       // b) Append to local state
@@ -218,6 +229,8 @@ import ExpenseListItem from "@/components/ExpenseListItem";
             paidBy: '',
             splits: {},
             createdAt: new Date(),
+            amountMinor: 0,
+            splitsMinor: {}
         });
         };
 
@@ -489,6 +502,7 @@ import ExpenseListItem from "@/components/ExpenseListItem";
         expense={exp}
         membersMapById={membersMapById}
         youId={youId}
+        group_currency={currency}
         onEdit={() => editExpense(exp.id)}
         onDelete={async () => {
           if (!activeGroupId) return
@@ -512,7 +526,7 @@ import ExpenseListItem from "@/components/ExpenseListItem";
                const payee = membersMapById[s.payeeId]?.firstName ?? s.payeeId;
                return (
                  <p key={s.id} className="text-sm text-gray-700">
-                   {payee} paid {payer} ${s.amount.toFixed(2)} on{" "}
+                   {payee} paid {payer} {formatMoneySafeGivenCurrency(s.amount, currency)} on{" "}
                    {new Date(s.createdAt).toLocaleDateString()}
                  </p>
                );
@@ -534,7 +548,7 @@ import ExpenseListItem from "@/components/ExpenseListItem";
                        : "text-red-600 font-medium"
                    }
                  >
-                   ${bal.toFixed(2)}
+                   {formatMoneySafeGivenCurrency(bal, currency)}
                  </span>
                </div>
              );
@@ -561,7 +575,7 @@ import ExpenseListItem from "@/components/ExpenseListItem";
                             : 'text-red-600 font-medium'
                         }
                         >
-                        ${bal.toFixed(2)}
+                        {formatMoneySafeGivenCurrency(bal, currency)}
                         </span>
                     </div>
                     );

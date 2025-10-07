@@ -2,13 +2,16 @@ import { useState } from "react"
 import { Trash2, Edit2} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Expense, Member } from "@/types/group"
+import { formatMoneySafe, formatMoneySafeGivenCurrency } from "@/lib/currency"
+import { CurrencyCode } from "@/lib/currency_core"
 
 export default function ExpenseListItem({
   expense,
   onEdit,
   onDelete,
   membersMapById,
-  youId
+  youId,
+  group_currency
     
 }: {
   expense: Expense
@@ -16,6 +19,7 @@ export default function ExpenseListItem({
   onDelete: () => void
   membersMapById: Record<string, Member>
   youId: string
+  group_currency: CurrencyCode
 }) {
 
   const [expanded, setExpanded] = useState(false)
@@ -66,14 +70,14 @@ export default function ExpenseListItem({
         <div className="flex items-end gap-8 text-right">
   <div>
     <div className="text-xs text-gray-500">{payerLabel} paid</div>
-    <div className="text-lg font-bold text-black">${expense.amount.toFixed(2)}</div>
+    <div className="text-lg font-bold text-black">{formatMoneySafeGivenCurrency(expense.amount, group_currency)}</div>
   </div>
 
   {yourSharePct > 0 && (
     <div>
       <div className="text-xs text-gray-500">{payerLabel} {lentVsOwed}</div>
       <div className="text-lg font-semibold text-orange-500">
-        ${(owedTotal ).toFixed(2)}
+      {formatMoneySafeGivenCurrency(owedTotal, group_currency )}
       </div>
     </div>
   )}

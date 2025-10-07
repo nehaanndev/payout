@@ -5,7 +5,8 @@ import { firebaseExpenseConverter } from "./firebaseExpenseConverter";
 export const createGroup = async (
   groupName: string,
   userId: string,
-  members: Member[]
+  members: Member[],
+  currency: CurrencyCode
 ) => {
   
   const formattedMembers = members.map((member) => ({
@@ -20,6 +21,7 @@ export const createGroup = async (
 
   const docRef = await addDoc(collection(db, "groups"), {
     name: groupName,
+    currency: currency,
     createdBy: userId,
     members: formattedMembers,  // Store both email and first names
     memberEmails:formattedMemberEmails,          // Array of emails for easier querying
@@ -143,6 +145,7 @@ export const signInToFirebase = async (accessToken: string) => {
 
 import {  orderBy, Timestamp } from "firebase/firestore";
 import { Settlement } from "@/types/settlement";
+import { CurrencyCode } from "./currency_core";
 
 // ✅ Add expense to Firestore
 export const addExpense = async (
@@ -151,7 +154,9 @@ export const addExpense = async (
   amount: number,
   paidBy: string,
   splits: Record<string, number>,
-  createdAt: Date
+  createdAt: Date,
+  amountMinor: number,
+  splitsMinor: Record<string, number>
 ) => {
   try {
     const expenseRef = collection(db, "groups", groupId, "expenses");
@@ -162,6 +167,8 @@ export const addExpense = async (
       paidBy,
       splits,
       createdAt: Timestamp.fromDate(createdAt),
+      amountMinor,
+      splitsMinor
     };
     // Help with debugging
     console.log(groupId, newExpense)
@@ -226,6 +233,8 @@ export async function updateExpense(
     paidBy: string;
     splits: Record<string, number>;
     createdAt: string | Date;
+    amountMinor: number;
+    splitsMinor: Record<string, number>;
   }
 ) {
   const ref = doc(db, 'groups', groupId, 'expenses', expenseId);

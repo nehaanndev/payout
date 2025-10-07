@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { getUserGroups, getExpenses, createGroup, updateGroupMembers, getUserGroupsById, getSettlements, addSettlement } from "@/lib/firebaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {  Share2 } from 'lucide-react';
+import {  Currency, Share2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Group, Expense, Member } from '@/types/group';
 import { User } from "firebase/auth";
@@ -16,6 +16,8 @@ import GroupDetailsForm from '@/components/GroupDetailsForm';
 import SettlementModal from '@/components/SettlementModal';
 import { Settlement } from '@/types/settlement';
 import { calculateRawBalances } from '@/lib/financeUtils';
+import { CurrencyCode } from '@/lib/currency_core';
+import { DEFAULT_CURRENCY, getGroupCurrency } from '@/lib/currency';
 
 
 interface ExpenseSplitterProps {
@@ -33,6 +35,7 @@ const [savedGroups, setSavedGroups] = useState<Group[]>([]);
 const [activeGroupId, setActiveGroupId] = useState<string>('');
 const [activeGroup, setActiveGroup] = useState<Group | null>(null);
 const [groupName, setGroupName] = useState('');
+const [currency, setCurrency] = useState<CurrencyCode>(DEFAULT_CURRENCY)
 const [members, setMembers] = useState<Member[]>([]);
 const [expenses, setExpenses] = useState<Expense[]>([]);
 const [splitMode, setSplitMode] = useState<'percentage' | 'weight'>('percentage');
@@ -46,7 +49,9 @@ const [currentExpense, setCurrentExpense] = useState<Omit<Expense, 'amount'> & {
   amount: '', // now a string
   paidBy: '',
   splits: {},
-  createdAt: new Date()
+  createdAt: new Date(),
+  amountMinor: 0,
+  splitsMinor: {}
 });
 
 const [isEditingExpense, setIsEditingExpense] = useState(false);
@@ -164,7 +169,9 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
       amount: '',
       paidBy: '',
       splits: {},
-      createdAt: new Date()
+      createdAt: new Date(),
+      amountMinor: 0,
+      splitsMinor: {}
     });
   }
 
@@ -186,6 +193,7 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
     setShowCreateTab(true);
     setActiveTab('create');
     setWizardStep('expenses');
+    setCurrency(getGroupCurrency(group));
 
     const matchedMember = group.members.find((m) => m.id === currentUserId);
     if (matchedMember) {
@@ -263,7 +271,8 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
       const newId = await createGroup(
         groupName,
         session?.email ?? '',
-        members
+        members,
+        currency
       );
       setActiveGroupId(newId);
       // also add the placeholder into savedGroups so the UI can track it
@@ -277,6 +286,7 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
           createdAt: new Date().toISOString(),
           lastUpdated: new Date().toISOString(),
           createdBy: session ? session.uid : anonUser!.id,
+          currency: currency,
         },
       ]);
     } else {
@@ -371,6 +381,7 @@ const handleOpenSettle = (group: Group) => {
               expenses={settlementGroup.expenses}
               settlements={settlementsByGroup[settlementGroup.id] || []}
               currentUserId={me!.id}
+              currency={currency}
               onSave={async (payeeId, amt, date) => {
                 await addSettlement(
                   settlementGroup.id,
@@ -402,7 +413,9 @@ const handleOpenSettle = (group: Group) => {
               currentUser={me} onCancel={() => {
                 // go to summary tab
                 setActiveTab('summary');
-              } }            
+              } }
+              currency={currency} 
+              setCurrency={setCurrency}
               />
           ) : (
             <ExpensesPanel
@@ -417,6 +430,7 @@ const handleOpenSettle = (group: Group) => {
               showExpenseForm={showExpenseForm}
               settlements={settlementsByGroup[activeGroupId] ?? []}
               youId={session?.uid ?? anonUser?.id ?? ""}
+              currency={currency}
               /* SETTERS */
               setExpenses={setExpenses}
               setCurrentExpense={setCurrentExpense}

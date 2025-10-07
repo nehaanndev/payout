@@ -7,6 +7,8 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { CurrencyCode } from "@/lib/currency_core";
+import { SUPPORTED_CURRENCIES } from "@/lib/currency_core";
 
 interface GroupDetailsFormProps {
   groupName: string;
@@ -18,6 +20,9 @@ interface GroupDetailsFormProps {
   onNext: () => void;
   onCancel: () => void;
   currentUser: Member | null;
+    // NEW
+  currency: CurrencyCode | "";                // allow "" while selecting
+  setCurrency: (c: CurrencyCode) => void;
 }
 
 export default function GroupDetailsForm({
@@ -30,6 +35,9 @@ export default function GroupDetailsForm({
   onNext,
   onCancel,
   currentUser,
+  // NEW
+  currency,
+  setCurrency,
 }: GroupDetailsFormProps) {
   const [first, setFirst] = useState("");
   const [email, setEmail] = useState("");
@@ -55,6 +63,32 @@ export default function GroupDetailsForm({
             placeholder="Enter a name"
             className="mt-1"
           />
+        </div>
+
+        {/* NEW: Currency */}
+        <div className="space-y-1">
+          <Label className="text-sm font-medium text-gray-700">
+            Currency
+          </Label>
+          <select
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+            className="w-full mt-1 rounded-md border border-gray-300 p-2"
+            required
+          >
+            <option value="">Select currency</option>
+            {SUPPORTED_CURRENCIES.map(c => (
+              <option key={c.code} value={c.code}>
+                {c.symbol} {c.label} ({c.code})
+              </option>
+            ))}
+          </select>
+          {/* Optional microcopy to prevent $ confusion */}
+          {currency === "MXN" && (
+            <p className="text-xs text-gray-500 mt-1">
+              Heads-up: both USD and MXN use “$”. We’ll display the code alongside the symbol where space is tight.
+            </p>
+          )}
         </div>
 
         {/* Add Myself Shortcut */}

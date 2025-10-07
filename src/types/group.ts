@@ -1,3 +1,4 @@
+  import { CurrencyCode } from "@/lib/currency_core";
   // Define two interfaces for clarity
   export interface NewExpense {
     description: string;
@@ -5,6 +6,8 @@
     paidBy: string;
     createdAt: Date;
     splits: Record<string, number>;
+    amountMinor: number;
+    splitsMinor: Record<string, number>;
   }
 
   export interface Expense extends NewExpense {
@@ -26,6 +29,7 @@
     expenses: Expense[];
     createdAt: string;
     lastUpdated: string;
+    currency: CurrencyCode; 
   }
   
 import { User as FirebaseUser } from "firebase/auth";

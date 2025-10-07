@@ -9,6 +9,7 @@ import {
 } from '@/lib/financeUtils';
 import { Settlement } from '@/types/settlement';
 import { Expense, Group } from '@/types/group';
+import { getGroupCurrency, formatMoneySafeGivenCurrency } from '@/lib/currency';
 
 interface SummaryProps {
   groups: Group[];
@@ -77,6 +78,7 @@ if (groups.length === 0) {
         const bg = BACKGROUNDS[idx % BACKGROUNDS.length];
         const expenses = expensesByGroup[group.id] ?? [];
         const settlements = settlementsByGroup[group.id] ?? [];
+        const group_currency = getGroupCurrency(group);
 
         const openBalances = calculateOpenBalances(
           group.members,
@@ -151,17 +153,17 @@ if (groups.length === 0) {
                   <p className="text-gray-700">
                     <span className="font-medium">Total spent:</span>{" "}
                     <span className="font-semibold">
-                      ${expenses.reduce((s, e) => s + e.amount, 0).toFixed(2)}
+                      {formatMoneySafeGivenCurrency(expenses.reduce((s, e) => s + e.amount, 0), group_currency)}
                     </span>
                   </p>
 
                   {totalGotten > 0 ? (
                     <p className="text-green-600 font-medium">
-                      You are owed ${totalGotten.toFixed(2)}
+                      You are owed {formatMoneySafeGivenCurrency(totalGotten,group_currency)}
                     </p>
                   ) : totalOwe > 0 ? (
                     <p className="text-red-600 font-medium">
-                      You owe ${totalOwe.toFixed(2)}
+                      You owe {formatMoneySafeGivenCurrency(totalOwe, group_currency)}
                     </p>
                   ) : (
                     <p className="text-green-700 font-medium">
