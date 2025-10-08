@@ -10,6 +10,8 @@ export const firebaseExpenseConverter: FirestoreDataConverter<Expense> = {
       createdAt: Timestamp.fromDate(expense.createdAt),
       paidBy: expense.paidBy,
       splits: expense.splits,
+      amountMinor: expense.amountMinor,
+      splitsMinor: expense.splitsMinor
     };
   },
   fromFirestore(snapshot, options): Expense {
@@ -21,6 +23,8 @@ export const firebaseExpenseConverter: FirestoreDataConverter<Expense> = {
       createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt),
       paidBy: data.paidBy,
       splits: data.splits,
+      amountMinor: data.amountMinor,
+      splitsMinor: data.splitsMinor
     };
   },
 };

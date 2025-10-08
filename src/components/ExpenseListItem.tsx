@@ -3,7 +3,7 @@ import { Trash2, Edit2} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Expense, Member } from "@/types/group"
 import { formatMoneySafe, formatMoneySafeGivenCurrency } from "@/lib/currency"
-import { CurrencyCode } from "@/lib/currency_core"
+import { CurrencyCode, fromMinor, formatMoney } from "@/lib/currency_core"
 
 export default function ExpenseListItem({
   expense,
@@ -23,12 +23,13 @@ export default function ExpenseListItem({
 }) {
 
   const [expanded, setExpanded] = useState(false)
-
+  console.log(expense)
   const payerName = membersMapById[expense.paidBy]?.firstName ?? expense.paidBy
   const date = new Date(expense.createdAt)
 
   const yourSharePct = expense.splits[youId] ?? 0
   const amount = expense.amount
+  const amountMinor = expense.amountMinor ?? 0
 
   const isPayerYou = expense.paidBy === youId
 
@@ -40,18 +41,27 @@ export default function ExpenseListItem({
   const owedByMember: Record<string, number> = {}
 
   if (isPayerYou) {
-    for (const [memberId, pct] of Object.entries(expense.splits)) {
-      if (memberId === youId) continue // skip your own share
-      const owed = round2((amount * pct) / 100)
-      owedByMember[memberId] = owed
-      youAreOwedTotal += owed
+    console.log("minor" + amountMinor)
+    if (amountMinor > 0){
+      for (const [memberId, splitMinor] of Object.entries(expense.splitsMinor)) {
+        if (memberId == youId) continue
+        owedByMember[memberId] = splitMinor
+        youAreOwedTotal += splitMinor
+      }
+    } else {
+      for (const [memberId, pct] of Object.entries(expense.splits)) {
+        if (memberId === youId) continue // skip your own share
+        const owed = round2((amount * pct) / 100)
+        owedByMember[memberId] = owed
+        youAreOwedTotal += owed
+      }
+      youAreOwedTotal = round2(youAreOwedTotal)
     }
-    youAreOwedTotal = round2(youAreOwedTotal)
   }
 
   // You can use payerLabel in the UI
   const payerLabel = isPayerYou ? "You" : payerName
-  const owedTotal = !isPayerYou ? round2((amount * yourSharePct) / 100) : youAreOwedTotal
+  const owedTotal = !isPayerYou ? (amountMinor > 0 ? formatMoney(expense.splitsMinor[youId], group_currency) : round2((amount * yourSharePct) / 100)) : (amountMinor > 0 ? formatMoney(youAreOwedTotal, group_currency) : youAreOwedTotal)
   const lentVsOwed = isPayerYou ? "get back" : "lent you"
 
 
@@ -70,14 +80,14 @@ export default function ExpenseListItem({
         <div className="flex items-end gap-8 text-right">
   <div>
     <div className="text-xs text-gray-500">{payerLabel} paid</div>
-    <div className="text-lg font-bold text-black">{formatMoneySafeGivenCurrency(expense.amount, group_currency)}</div>
+    <div className="text-lg font-bold text-black">{amountMinor > 0 ? formatMoney(amountMinor, group_currency) :expense.amount}</div>
   </div>
 
   {yourSharePct > 0 && (
     <div>
       <div className="text-xs text-gray-500">{payerLabel} {lentVsOwed}</div>
       <div className="text-lg font-semibold text-orange-500">
-      {formatMoneySafeGivenCurrency(owedTotal, group_currency )}
+      {owedTotal}
       </div>
     </div>
   )}
