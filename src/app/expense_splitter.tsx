@@ -15,7 +15,7 @@ import ExpensesPanel from '@/components/ExpensesPanel';
 import GroupDetailsForm from '@/components/GroupDetailsForm';
 import SettlementModal from '@/components/SettlementModal';
 import { Settlement } from '@/types/settlement';
-import { calculateRawBalances } from '@/lib/financeUtils';
+import { calculateRawBalances, calculateRawBalancesMinor } from '@/lib/financeUtils';
 import { CurrencyCode } from '@/lib/currency_core';
 import { DEFAULT_CURRENCY, getGroupCurrency } from '@/lib/currency';
 
@@ -308,8 +308,8 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
   // settlement
 // 3. Replace the old handleOpenSettle with this:
 const handleOpenSettle = (group: Group) => {
-  // 1️⃣ compute raw balances so the modal can see who you owe
-  const raw = calculateRawBalances(group.members, group.expenses);
+  // 1️⃣ compute raw balances so the modal can see who you owe using minor units
+  const raw = calculateRawBalancesMinor(group.members, group.expenses, group.currency);
 
   // 2️⃣ your total debt (sum of all the positives in raw for others)
   const totalOwe = group.members

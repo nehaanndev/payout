@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Trash2, Edit2} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Expense, Member } from "@/types/group"
-import { formatMoneySafe, formatMoneySafeGivenCurrency } from "@/lib/currency"
+import { formatMoneySafe, formatMoneySafeGivenCurrency, formatMoneyWithMinor } from "@/lib/currency"
 import { CurrencyCode, fromMinor, formatMoney } from "@/lib/currency_core"
 
 export default function ExpenseListItem({
@@ -61,7 +61,9 @@ export default function ExpenseListItem({
 
   // You can use payerLabel in the UI
   const payerLabel = isPayerYou ? "You" : payerName
-  const owedTotal = !isPayerYou ? (amountMinor > 0 ? formatMoney(expense.splitsMinor[youId], group_currency) : round2((amount * yourSharePct) / 100)) : (amountMinor > 0 ? formatMoney(youAreOwedTotal, group_currency) : youAreOwedTotal)
+  const owedTotal = !isPayerYou ? 
+    (amountMinor > 0 ? formatMoney(expense.splitsMinor[youId], group_currency) : round2((amount * yourSharePct) / 100)) : 
+    (amountMinor > 0 ? formatMoney(youAreOwedTotal, group_currency) : youAreOwedTotal)
   const lentVsOwed = isPayerYou ? "get back" : "lent you"
 
 
@@ -80,7 +82,7 @@ export default function ExpenseListItem({
         <div className="flex items-end gap-8 text-right">
   <div>
     <div className="text-xs text-gray-500">{payerLabel} paid</div>
-    <div className="text-lg font-bold text-black">{amountMinor > 0 ? formatMoney(amountMinor, group_currency) :expense.amount}</div>
+    <div className="text-lg font-bold text-black">{formatMoneyWithMinor(amount, amountMinor, group_currency)}</div>
   </div>
 
   {yourSharePct > 0 && (

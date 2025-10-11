@@ -16,12 +16,12 @@ import { Expense, Member } from '@/types/group';
 import { Settlement } from '@/types/settlement';
 
 import { addExpense, updateExpense, deleteExpense } from "@/lib/firebaseUtils";
-import { calculateOpenBalances, calculateRawBalances } from '@/lib/financeUtils';
+import { calculateOpenBalances, calculateRawBalances, calculateOpenBalancesMinor, calculateRawBalancesMinor } from '@/lib/financeUtils';
 import ExpenseListItem from "@/components/ExpenseListItem";
-import { formatMoneySafe, formatMoneySafeGivenCurrency } from '@/lib/currency';
-import { toMinor, splitByWeights, CurrencyCode } from '@/lib/currency_core';
+import { formatMoneySafe, formatMoneySafeGivenCurrency, formatMoneyWithMinor } from '@/lib/currency';
+import { toMinor, splitByWeights, CurrencyCode, formatMoney } from '@/lib/currency_core';
 
-  export interface ExpensesPanelProps {
+export interface ExpensesPanelProps {
     /* Data */
     groupName: string;
     expenses: Expense[];
@@ -79,9 +79,9 @@ import { toMinor, splitByWeights, CurrencyCode } from '@/lib/currency_core';
     onExpensesChange,
   }: ExpensesPanelProps) {
 
-  // ① compute balances with the correct args
-  const balances: Record<string, number> = calculateRawBalances(members, expenses);
-  const openBalances = calculateOpenBalances(members, expenses, settlements);
+  // ① compute balances with the correct args using minor units
+  const balances: Record<string, number> = calculateRawBalancesMinor(members, expenses, currency);
+  const openBalances = calculateOpenBalancesMinor(members, expenses, settlements, currency);
 
   // ② per‐member color palette
   /*const memberColors = useMemo(() => {
@@ -526,7 +526,7 @@ import { toMinor, splitByWeights, CurrencyCode } from '@/lib/currency_core';
                const payee = membersMapById[s.payeeId]?.firstName ?? s.payeeId;
                return (
                  <p key={s.id} className="text-sm text-gray-700">
-                   {payee} paid {payer} {formatMoneySafeGivenCurrency(s.amount, currency)} on{" "}
+                   {payee} paid {payer} {formatMoneySafeGivenCurrency(toMinor(s.amount, currency), currency)} on{" "}
                    {new Date(s.createdAt).toLocaleDateString()}
                  </p>
                );
@@ -548,7 +548,7 @@ import { toMinor, splitByWeights, CurrencyCode } from '@/lib/currency_core';
                        : "text-red-600 font-medium"
                    }
                  >
-                   {formatMoneySafeGivenCurrency(bal, currency)}
+                   {formatMoney(bal, currency)}
                  </span>
                </div>
              );
@@ -575,7 +575,7 @@ import { toMinor, splitByWeights, CurrencyCode } from '@/lib/currency_core';
                             : 'text-red-600 font-medium'
                         }
                         >
-                        {formatMoneySafeGivenCurrency(bal, currency)}
+                        {formatMoney(bal, currency)}
                         </span>
                     </div>
                     );

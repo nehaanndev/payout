@@ -5,11 +5,14 @@ import { Share2, Edit2 } from 'lucide-react';
 import Image from "next/image";
 import {
   calculateOpenBalances,
-  getSettlementPlan
+  getSettlementPlan,
+  calculateOpenBalancesMinor,
+  getSettlementPlanMinor
 } from '@/lib/financeUtils';
 import { Settlement } from '@/types/settlement';
 import { Expense, Group } from '@/types/group';
-import { getGroupCurrency, formatMoneySafeGivenCurrency } from '@/lib/currency';
+import { getGroupCurrency, formatMoneySafeGivenCurrency, formatMoneyWithMinor } from '@/lib/currency';
+import { CurrencyCode, formatMoney } from '@/lib/currency_core';
 
 interface SummaryProps {
   groups: Group[];
@@ -80,13 +83,14 @@ if (groups.length === 0) {
         const settlements = settlementsByGroup[group.id] ?? [];
         const group_currency = getGroupCurrency(group);
 
-        const openBalances = calculateOpenBalances(
+        const openBalances = calculateOpenBalancesMinor(
           group.members,
           expenses,
-          settlements
+          settlements,
+          group_currency
         );
         const plan =
-          getSettlementPlan(group.members, openBalances)[fullUserId] || {
+          getSettlementPlanMinor(group.members, openBalances, group_currency)[fullUserId] || {
             owes: [],
             receives: [],
           };
@@ -153,17 +157,21 @@ if (groups.length === 0) {
                   <p className="text-gray-700">
                     <span className="font-medium">Total spent:</span>{" "}
                     <span className="font-semibold">
-                      {formatMoneySafeGivenCurrency(expenses.reduce((s, e) => s + e.amount, 0), group_currency)}
+                      {formatMoneyWithMinor(
+                        expenses.reduce((s, e) => s + e.amount, 0),
+                        expenses.reduce((s, e) => s + (e.amountMinor ?? 0), 0),
+                        group_currency
+                      )}
                     </span>
                   </p>
 
                   {totalGotten > 0 ? (
                     <p className="text-green-600 font-medium">
-                      You are owed {formatMoneySafeGivenCurrency(totalGotten,group_currency)}
+                      You are owed {formatMoney(totalGotten, group_currency)}
                     </p>
                   ) : totalOwe > 0 ? (
                     <p className="text-red-600 font-medium">
-                      You owe {formatMoneySafeGivenCurrency(totalOwe, group_currency)}
+                      You owe {formatMoney(totalOwe, group_currency)}
                     </p>
                   ) : (
                     <p className="text-green-700 font-medium">

@@ -17,11 +17,11 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { calculateOpenBalances, getSettlementPlan } from "@/lib/financeUtils";
+import { calculateOpenBalances, getSettlementPlan, calculateOpenBalancesMinor, getSettlementPlanMinor } from "@/lib/financeUtils";
 import { Member, Expense } from "@/types/group";
 import { Settlement } from "@/types/settlement";
-import { formatMoneySafeGivenCurrency } from "@/lib/currency"
-import { CurrencyCode, toMinor } from "@/lib/currency_core";
+import { formatMoneySafeGivenCurrency, formatMoneyWithMinor } from "@/lib/currency"
+import { CurrencyCode, toMinor, formatMoney, fromMinor } from "@/lib/currency_core";
 
 interface SettlementModalProps {
   isOpen: boolean;
@@ -46,12 +46,12 @@ export default function SettlementModal({
   currency,
   onSave,
 }: SettlementModalProps) {
-  // 1️⃣ Compute open balances including past settlements
-  const openBalances = calculateOpenBalances(members, expenses, settlements);
+  // 1️⃣ Compute open balances including past settlements using minor units
+  const openBalances = calculateOpenBalancesMinor(members, expenses, settlements, currency);
 
-  // 2️⃣ Get the minimal‐transfer plan for each user, then pick currentUser’s slice
+  // 2️⃣ Get the minimal‐transfer plan for each user, then pick currentUser's slice
   const plan =
-    getSettlementPlan(members, openBalances)[currentUserId] || {
+    getSettlementPlanMinor(members, openBalances, currency)[currentUserId] || {
       owes: [],
       receives: [],
     };
@@ -68,7 +68,7 @@ export default function SettlementModal({
     payees[0]?.id || ""
   );
   const [amount, setAmount] = useState<string>(
-    payees[0]?.owed.toFixed(2) || ""
+    payees[0] ? fromMinor(payees[0].owed, currency).toFixed(2) : ""
   );
   const [date, setDate] = useState<string>(
     new Date().toISOString().split("T")[0]
@@ -78,12 +78,12 @@ export default function SettlementModal({
   useEffect(() => {
     if (payees.length) {
       setSelectedPayee(payees[0].id);
-      setAmount(payees[0].owed.toFixed(2));
+      setAmount(fromMinor(payees[0].owed, currency).toFixed(2));
     } else {
       setSelectedPayee("");
       setAmount("");
     }
-  }, [payees]);
+  }, [payees, currency]);
 
   // 6️⃣ Save handler
   const handleSave = async () => {
@@ -112,7 +112,7 @@ export default function SettlementModal({
               <SelectContent>
                 {payees.map(p => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.name} — {formatMoneySafeGivenCurrency(toMinor(p.owed, currency), currency)}
+                    {p.name} — {formatMoney(p.owed, currency)}
                   </SelectItem>
                 ))}
               </SelectContent>

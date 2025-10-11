@@ -1,5 +1,5 @@
 // currency.ts (add this)
-import { type CurrencyCode, FRACTION_DIGITS } from './currency_core'
+import { type CurrencyCode, FRACTION_DIGITS, formatMoney } from './currency_core'
 
 export const DEFAULT_CURRENCY: CurrencyCode = 'USD';
 
@@ -39,3 +39,14 @@ export function formatMoneySafeGivenCurrency(
       minimumFractionDigits: d,
     }).format(major);
   }
+
+// Helper function to format money using amountMinor when available
+export function formatMoneyWithMinor(amount: number, amountMinor: number | undefined, currency: CurrencyCode): string {
+  if (amountMinor !== undefined && amountMinor > 0) {
+    return formatMoney(amountMinor, currency);
+  }
+  // For legacy groups, amount is in major units, so convert to minor units
+  const d = FRACTION_DIGITS[currency];
+  const amountInMinor = amount * 10 ** d;
+  return formatMoneySafeGivenCurrency(amountInMinor, currency);
+}
