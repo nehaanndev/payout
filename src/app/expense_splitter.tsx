@@ -103,14 +103,22 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
         else if (anonUser) {
           userGroups = await getUserGroupsById(anonUser.id) as Group[];
         }
-        const formattedGroups: Group[] = userGroups.map((group: Group) => ({
-          ...group,
-          name: group.name || '',
-          members: group.members || [],
-          expenses: group.expenses || [],
-          createdAt: group.createdAt,
-          lastUpdated: group.lastUpdated
-        }));
+        
+        // Fetch expenses for all groups to populate the Summary tab correctly
+        const formattedGroups: Group[] = await Promise.all(
+          userGroups.map(async (group: Group) => {
+            const expenses = await getExpenses(group.id);
+            return {
+              ...group,
+              name: group.name || '',
+              members: group.members || [],
+              expenses: expenses || [],
+              createdAt: group.createdAt,
+              lastUpdated: group.lastUpdated
+            };
+          })
+        );
+        
         setSavedGroups(formattedGroups);
         if (groupid) {
           console.log("Group ID:", groupid);
@@ -121,8 +129,6 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
             setActiveGroup(loadedGroup);
             setGroupName(loadedGroup.name);
             setMembers(loadedGroup.members);
-            // fetch exoenses from Firebase
-            loadedGroup.expenses = await getExpenses(loadedGroup.id);
             setExpenses(loadedGroup.expenses);
           }
           else {
@@ -202,7 +208,7 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
       setShowIdentityPrompt(true);
     }
 
-    group.expenses = await getExpenses(group.id);
+    // Expenses are already loaded in the group object from fetchGroups
     setExpenses(group.expenses);
     setActiveTab("create");
   };
