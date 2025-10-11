@@ -350,7 +350,7 @@ const handleMarkSettled = (group: Group, totalOwe: number, totalGotten: number) 
           <TabsTrigger value="summary">Summary</TabsTrigger>
           <TabsTrigger value="groups">Groups</TabsTrigger>
           {showCreateTab && (
-            <TabsTrigger value="create">Create / Edit</TabsTrigger>
+            <TabsTrigger value="create">Expenses</TabsTrigger>
           )}
         </TabsList>
 
