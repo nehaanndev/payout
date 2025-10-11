@@ -20,6 +20,7 @@ interface SummaryProps {
   settlementsByGroup: Record<string, Settlement[]>;
   fullUserId: string;
   onSettleClick: (group: Group, totalOwe: number) => void;
+  onMarkSettledClick: (group: Group, totalOwe: number, totalGotten: number) => void;
   onSelectGroup: (group: Group) => void;
   onShareGroup: (group: Group) => void;
   onEditGroup: (group: Group) => void;
@@ -41,6 +42,7 @@ export default function Summary({
   settlementsByGroup,
   fullUserId,
   onSettleClick,
+  onMarkSettledClick,
   onSelectGroup,
   onShareGroup,
   onEditGroup,
@@ -180,7 +182,7 @@ if (groups.length === 0) {
                   )}
                 </div>
 
-                {/* Right: slimmer button */}
+                {/* Right: single button based on situation */}
                 {totalOwe > 0 && (
                   <Button
                     size="sm"
@@ -191,6 +193,19 @@ if (groups.length === 0) {
                     }}
                   >
                     Pay Debts
+                  </Button>
+                )}
+                {totalGotten > 0 && totalOwe === 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                    onClick={e => {
+                      e.stopPropagation();
+                      onMarkSettledClick(group, totalOwe, totalGotten);
+                    }}
+                  >
+                    Mark as Paid
                   </Button>
                 )}
               </div>

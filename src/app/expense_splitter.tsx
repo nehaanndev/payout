@@ -59,6 +59,7 @@ const [showAccessError, setShowAccessError] = useState(false);
 // at the top of ExpenseSplitter(), after your other useStates:
 const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
 const [showSettlementModal, setShowSettlementModal] = useState(false);
+const [isMarkSettledMode, setIsMarkSettledMode] = useState(false);
 const [settlementGroup, setSettlementGroup] = useState<Group|null>(null);
 const [, setSettlements] = useState<Settlement[]>([]);
 // ① map of groupId → settlements[]
@@ -325,6 +326,15 @@ const handleOpenSettle = (group: Group) => {
   setSettlementGroup(group);
   setSettlementRawBalances(raw);
   setSettlementDefaults({ defaultAmount: totalOwe });
+  setIsMarkSettledMode(false);
+  setShowSettlementModal(true);
+};
+
+const handleMarkSettled = (group: Group, totalOwe: number, totalGotten: number) => {
+  setSettlementGroup(group);
+  setSettlementRawBalances({});
+  setSettlementDefaults({ defaultAmount: 0 });
+  setIsMarkSettledMode(true);
   setShowSettlementModal(true);
 };
 
@@ -352,6 +362,7 @@ const handleOpenSettle = (group: Group) => {
             settlementsByGroup={settlementsByGroup} // ① pass in settlements
             fullUserId={me?.id ?? ''}
             onSettleClick={handleOpenSettle}
+            onMarkSettledClick={handleMarkSettled}
             onSelectGroup={(g) => {
               // load that group into the wizard/ExpensesPanel
               setActiveGroupId(g.id);
@@ -388,11 +399,12 @@ const handleOpenSettle = (group: Group) => {
               settlements={settlementsByGroup[settlementGroup.id] || []}
               currentUserId={me!.id}
               currency={currency}
-              onSave={async (payeeId, amt, date) => {
+              isMarkSettledMode={isMarkSettledMode}
+              onSave={async (payerId, payeeId, amt, date) => {
                 await addSettlement(
                   settlementGroup.id,
-                  payeeId,          // payerId = the person you owe
-                  me!.id,           // payeeId = you
+                  payerId,
+                  payeeId,
                   amt,
                   date
                 );

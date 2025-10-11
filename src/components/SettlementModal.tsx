@@ -32,7 +32,8 @@ interface SettlementModalProps {
   settlements: Settlement[];
   currentUserId: string;
   currency: CurrencyCode;
-  onSave: (payeeId: string, amount: number, date: Date) => Promise<void>;
+  onSave: (payerId: string, payeeId: string, amount: number, date: Date) => Promise<void>;
+  isMarkSettledMode?: boolean;
 }
 
 export default function SettlementModal({
@@ -45,6 +46,7 @@ export default function SettlementModal({
   currentUserId,
   currency,
   onSave,
+  isMarkSettledMode = false,
 }: SettlementModalProps) {
   // 1️⃣ Compute open balances including past settlements using minor units
   const openBalances = calculateOpenBalancesMinor(members, expenses, settlements, currency);
@@ -56,12 +58,20 @@ export default function SettlementModal({
       receives: [],
     };
 
-  // 3️⃣ Build the payee list from plan.owes
-  const payees = plan.owes.map(({ to, amount }) => ({
-    id: to,
-    name: members.find(m => m.id === to)?.firstName ?? to,
-    owed: amount,
-  }));
+  // 3️⃣ Build the payee list based on mode
+  const payees = isMarkSettledMode 
+    ? plan.receives.map(({ from, amount }) => ({
+        id: from,
+        name: members.find(m => m.id === from)?.firstName ?? from,
+        owed: amount,
+        type: 'owed' as const,
+      }))
+    : plan.owes.map(({ to, amount }) => ({
+        id: to,
+        name: members.find(m => m.id === to)?.firstName ?? to,
+        owed: amount,
+        type: 'owe' as const,
+      }));
 
   // 4️⃣ Local state
   const [selectedPayee, setSelectedPayee] = useState<string>(
@@ -87,7 +97,16 @@ export default function SettlementModal({
 
   // 6️⃣ Save handler
   const handleSave = async () => {
-    await onSave(selectedPayee, parseFloat(amount), new Date(date));
+    const selectedPayeeData = payees.find(p => p.id === selectedPayee);
+    if (!selectedPayeeData) return;
+    
+    if (isMarkSettledMode) {
+      // Mark as settled mode: they owe you money, so they're the payer
+      await onSave(currentUserId, selectedPayee, parseFloat(amount), new Date(date));
+    } else {
+      // Normal mode: you owe them money, so you're the payer
+      await onSave(selectedPayee, currentUserId, parseFloat(amount), new Date(date));
+    }
     onClose();
   };
 
@@ -96,7 +115,7 @@ export default function SettlementModal({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <span>Pay up in</span>
+            <span>{isMarkSettledMode ? 'Mark as settled in' : 'Pay up in'}</span>
             <Badge variant="secondary">{groupName}</Badge>
           </DialogTitle>
         </DialogHeader>
@@ -104,10 +123,10 @@ export default function SettlementModal({
         <div className="space-y-4">
           {/* Payee dropdown */}
           <div>
-            <Label>Who do you owe?</Label>
+            <Label>{isMarkSettledMode ? 'Who did you settle with?' : 'Who do you owe?'}</Label>
             <Select value={selectedPayee} onValueChange={setSelectedPayee}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a payee" />
+                <SelectValue placeholder="Select a person" />
               </SelectTrigger>
               <SelectContent>
                 {payees.map(p => (
