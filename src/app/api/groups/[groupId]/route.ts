@@ -3,10 +3,10 @@ import { fetchGroupById, getExpenses } from '@/lib/firebaseUtils';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
-    const { groupId } = params;
+    const { groupId } = await params;
 
     if (!groupId) {
       return NextResponse.json(

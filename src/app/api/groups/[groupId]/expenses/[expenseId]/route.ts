@@ -3,10 +3,10 @@ import { updateExpense, deleteExpense, fetchGroupById } from '@/lib/firebaseUtil
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { groupId: string; expenseId: string } }
+  { params }: { params: Promise<{ groupId: string; expenseId: string }> }
 ) {
   try {
-    const { groupId, expenseId } = params;
+    const { groupId, expenseId } = await params;
     const body = await request.json();
     const { description, amount, paidBy, splits, createdAt } = body;
 
@@ -93,10 +93,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { groupId: string; expenseId: string } }
+  { params }: { params: Promise<{ groupId: string; expenseId: string }> }
 ) {
   try {
-    const { groupId, expenseId } = params;
+    const { groupId, expenseId } = await params;
 
     // Fetch group to validate it exists
     const group = await fetchGroupById(groupId);

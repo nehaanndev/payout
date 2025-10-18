@@ -3,10 +3,10 @@ import { addExpense, fetchGroupById } from '@/lib/firebaseUtils';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
-    const { groupId } = params;
+    const { groupId } = await params;
     const body = await request.json();
     const { description, amount, paidBy, splits, createdAt } = body;
 

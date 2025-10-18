@@ -5,10 +5,10 @@ import { generateUserId } from '@/lib/userUtils';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { groupId: string } }
+  { params }: { params: Promise<{ groupId: string }> }
 ) {
   try {
-    const { groupId } = params;
+    const { groupId } = await params;
     const body = await request.json();
     const { firstName, email } = body;
 

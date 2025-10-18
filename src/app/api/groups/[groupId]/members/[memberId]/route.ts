@@ -3,10 +3,10 @@ import { updateGroupMembers, fetchGroupById } from '@/lib/firebaseUtils';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { groupId: string; memberId: string } }
+  { params }: { params: Promise<{ groupId: string; memberId: string }> }
 ) {
   try {
-    const { groupId, memberId } = params;
+    const { groupId, memberId } = await params;
 
     // Fetch existing group
     const group = await fetchGroupById(groupId);
