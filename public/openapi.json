@@ -1,0 +1,646 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Toodl Expense Splitter API",
+    "description": "API for managing expense groups, splitting bills, and tracking who owes what. Perfect for shared expenses like trips, dinners, rent, and more.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Toodl Support",
+      "url": "https://toodl.co"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://toodl.co/api",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:3000/api",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/groups": {
+      "post": {
+        "summary": "Create a new expense group",
+        "description": "Create a new group for splitting expenses. The creator becomes the first member automatically.",
+        "operationId": "createGroup",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "creatorName"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Name of the expense group (e.g., 'Weekend Trip', 'Apartment Rent')",
+                    "example": "Weekend Trip"
+                  },
+                  "creatorName": {
+                    "type": "string",
+                    "description": "Name of the person creating the group",
+                    "example": "Alice"
+                  },
+                  "members": {
+                    "type": "array",
+                    "description": "Additional members to add to the group",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "firstName": {
+                          "type": "string",
+                          "description": "First name of the member",
+                          "example": "Bob"
+                        },
+                        "email": {
+                          "type": "string",
+                          "description": "Email address of the member (optional)",
+                          "example": "bob@example.com"
+                        }
+                      },
+                      "required": ["firstName"]
+                    }
+                  },
+                  "currency": {
+                    "type": "string",
+                    "description": "Currency code for the group",
+                    "enum": ["USD", "EUR", "INR", "GBP", "CAD", "AUD"],
+                    "default": "USD",
+                    "example": "USD"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Group created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "groupId": { "type": "string" },
+                    "groupName": { "type": "string" },
+                    "members": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "firstName": { "type": "string" },
+                          "email": { "type": "string" },
+                          "authProvider": { "type": "string" }
+                        }
+                      }
+                    },
+                    "currency": { "type": "string" },
+                    "shareLink": { "type": "string" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{groupId}": {
+      "get": {
+        "summary": "Get group details",
+        "description": "Retrieve all information about a specific group including members, expenses, and summary statistics.",
+        "operationId": "getGroup",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Unique identifier of the group"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Group details retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "group": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "name": { "type": "string" },
+                        "members": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": { "type": "string" },
+                              "firstName": { "type": "string" },
+                              "email": { "type": "string" },
+                              "authProvider": { "type": "string" }
+                            }
+                          }
+                        },
+                        "expenses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": { "type": "string" },
+                              "description": { "type": "string" },
+                              "amount": { "type": "number" },
+                              "paidBy": { "type": "string" },
+                              "splits": { "type": "object" },
+                              "createdAt": { "type": "string" }
+                            }
+                          }
+                        },
+                        "currency": { "type": "string" },
+                        "createdAt": { "type": "string" },
+                        "lastUpdated": { "type": "string" }
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "totalExpenses": { "type": "number" },
+                        "totalExpensesFormatted": { "type": "string" },
+                        "memberCount": { "type": "number" },
+                        "expenseCount": { "type": "number" }
+                      }
+                    },
+                    "shareLink": { "type": "string" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{groupId}/expenses": {
+      "post": {
+        "summary": "Add an expense to a group",
+        "description": "Add a new expense to the group. Specify who paid and how the expense should be split among members.",
+        "operationId": "addExpense",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Unique identifier of the group"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["description", "amount", "paidBy", "splits"],
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "description": "Description of the expense",
+                    "example": "Dinner at restaurant"
+                  },
+                  "amount": {
+                    "type": "number",
+                    "description": "Total amount of the expense",
+                    "example": 75.50
+                  },
+                  "paidBy": {
+                    "type": "string",
+                    "description": "Name of the person who paid for this expense",
+                    "example": "Alice"
+                  },
+                  "splits": {
+                    "type": "object",
+                    "description": "How to split the expense among members (percentages must add up to 100)",
+                    "example": {
+                      "member1": 50,
+                      "member2": 30,
+                      "member3": 20
+                    }
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "When the expense occurred (optional, defaults to now)",
+                    "example": "2024-01-15T19:30:00Z"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Expense added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "expenseId": { "type": "string" },
+                    "expense": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "description": { "type": "string" },
+                        "amount": { "type": "number" },
+                        "paidBy": { "type": "string" },
+                        "splits": { "type": "object" },
+                        "createdAt": { "type": "string" },
+                        "currency": { "type": "string" }
+                      }
+                    },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{groupId}/expenses/{expenseId}": {
+      "put": {
+        "summary": "Update an existing expense",
+        "description": "Modify an existing expense in the group. You can change the description, amount, who paid, or how it's split.",
+        "operationId": "updateExpense",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Unique identifier of the group"
+          },
+          {
+            "name": "expenseId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Unique identifier of the expense"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["description", "amount", "paidBy", "splits"],
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "description": "Description of the expense",
+                    "example": "Dinner at restaurant"
+                  },
+                  "amount": {
+                    "type": "number",
+                    "description": "Total amount of the expense",
+                    "example": 75.50
+                  },
+                  "paidBy": {
+                    "type": "string",
+                    "description": "Name of the person who paid for this expense",
+                    "example": "Alice"
+                  },
+                  "splits": {
+                    "type": "object",
+                    "description": "How to split the expense among members (percentages must add up to 100)",
+                    "example": {
+                      "member1": 50,
+                      "member2": 30,
+                      "member3": 20
+                    }
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "When the expense occurred",
+                    "example": "2024-01-15T19:30:00Z"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Expense updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "expenseId": { "type": "string" },
+                    "expense": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "description": { "type": "string" },
+                        "amount": { "type": "number" },
+                        "paidBy": { "type": "string" },
+                        "splits": { "type": "object" },
+                        "createdAt": { "type": "string" },
+                        "currency": { "type": "string" }
+                      }
+                    },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete an expense",
+        "description": "Remove an expense from the group permanently.",
+        "operationId": "deleteExpense",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Unique identifier of the group"
+          },
+          {
+            "name": "expenseId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Unique identifier of the expense"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Expense deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "expenseId": { "type": "string" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{groupId}/balances": {
+      "get": {
+        "summary": "Get group balances",
+        "description": "Calculate who owes whom money in the group. Shows net balances for each member.",
+        "operationId": "getBalances",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Unique identifier of the group"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Balances calculated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "groupId": { "type": "string" },
+                    "groupName": { "type": "string" },
+                    "currency": { "type": "string" },
+                    "balances": {
+                      "type": "object",
+                      "description": "Net balance for each member (positive = owed money, negative = owes money)"
+                    },
+                    "balanceSummary": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "description": "Human-readable summary of who owes whom"
+                    },
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "totalOwed": { "type": "string" },
+                        "totalToReceive": { "type": "string" },
+                        "netBalance": { "type": "string" }
+                      }
+                    },
+                    "members": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "balance": { "type": "number" },
+                          "balanceFormatted": { "type": "string" }
+                        }
+                      }
+                    },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{groupId}/members": {
+      "post": {
+        "summary": "Add a member to the group",
+        "description": "Add a new member to an existing group.",
+        "operationId": "addMember",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Unique identifier of the group"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["firstName"],
+                "properties": {
+                  "firstName": {
+                    "type": "string",
+                    "description": "First name of the new member",
+                    "example": "Charlie"
+                  },
+                  "email": {
+                    "type": "string",
+                    "description": "Email address of the new member (optional)",
+                    "example": "charlie@example.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Member added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "member": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "firstName": { "type": "string" },
+                        "email": { "type": "string" },
+                        "authProvider": { "type": "string" }
+                      }
+                    },
+                    "groupId": { "type": "string" },
+                    "groupName": { "type": "string" },
+                    "totalMembers": { "type": "number" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups/{groupId}/members/{memberId}": {
+      "delete": {
+        "summary": "Remove a member from the group",
+        "description": "Remove a member from the group. Cannot remove the last member.",
+        "operationId": "removeMember",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Unique identifier of the group"
+          },
+          {
+            "name": "memberId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Unique identifier of the member to remove"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Member removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "removedMember": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "firstName": { "type": "string" },
+                        "email": { "type": "string" },
+                        "authProvider": { "type": "string" }
+                      }
+                    },
+                    "groupId": { "type": "string" },
+                    "groupName": { "type": "string" },
+                    "remainingMembers": { "type": "number" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message describing what went wrong"
+          }
+        }
+      }
+    }
+  }
+}
