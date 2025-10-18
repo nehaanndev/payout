@@ -17,11 +17,10 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { calculateOpenBalances, getSettlementPlan, calculateOpenBalancesMinor, getSettlementPlanMinor } from "@/lib/financeUtils";
+import { calculateOpenBalancesMinor, getSettlementPlanMinor } from "@/lib/financeUtils";
 import { Member, Expense } from "@/types/group";
 import { Settlement } from "@/types/settlement";
-import { formatMoneySafeGivenCurrency, formatMoneyWithMinor } from "@/lib/currency"
-import { CurrencyCode, toMinor, formatMoney, fromMinor } from "@/lib/currency_core";
+import { CurrencyCode, formatMoney, fromMinor } from "@/lib/currency_core";
 
 interface SettlementModalProps {
   isOpen: boolean;
@@ -53,7 +52,7 @@ export default function SettlementModal({
 
   // 2️⃣ Get the minimal‐transfer plan for each user, then pick currentUser's slice
   const plan =
-    getSettlementPlanMinor(members, openBalances, currency)[currentUserId] || {
+    getSettlementPlanMinor(members, openBalances)[currentUserId] || {
       owes: [],
       receives: [],
     };

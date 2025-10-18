@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchGroupById, getExpenses } from '@/lib/firebaseUtils';
-import { Group } from '@/types/group';
 
 export async function GET(
   request: NextRequest,

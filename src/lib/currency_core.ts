@@ -84,8 +84,8 @@ export function splitByWeights(amountMinor: number, weights: Record<string, numb
     exact: (amountMinor * weights[id]) / totalW,
   }));
   const floored = raw.map(r => ({ id: r.id, val: Math.floor(r.exact) }));
-  let allocated = floored.reduce((s, r) => s + r.val, 0);
-  let remainder = amountMinor - allocated;
+  const allocated = floored.reduce((s, r) => s + r.val, 0);
+  const remainder = amountMinor - allocated;
 
   // Largest Remainder Method: give the leftover 1-unit chunks to the biggest fractional parts
   raw.sort((a, b) => (b.exact - Math.floor(b.exact)) - (a.exact - Math.floor(a.exact)));

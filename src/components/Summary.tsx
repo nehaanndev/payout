@@ -4,15 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Share2, Edit2 } from 'lucide-react';
 import Image from "next/image";
 import {
-  calculateOpenBalances,
-  getSettlementPlan,
   calculateOpenBalancesMinor,
   getSettlementPlanMinor
 } from '@/lib/financeUtils';
 import { Settlement } from '@/types/settlement';
 import { Expense, Group } from '@/types/group';
-import { getGroupCurrency, formatMoneySafeGivenCurrency, formatMoneyWithMinor } from '@/lib/currency';
-import { CurrencyCode, formatMoney } from '@/lib/currency_core';
+import { getGroupCurrency, formatMoneyWithMinor } from '@/lib/currency';
+import { formatMoney } from '@/lib/currency_core';
 
 interface SummaryProps {
   groups: Group[];
@@ -20,7 +18,7 @@ interface SummaryProps {
   settlementsByGroup: Record<string, Settlement[]>;
   fullUserId: string;
   onSettleClick: (group: Group, totalOwe: number) => void;
-  onMarkSettledClick: (group: Group, totalOwe: number, totalGotten: number) => void;
+  onMarkSettledClick: (group: Group) => void;
   onSelectGroup: (group: Group) => void;
   onShareGroup: (group: Group) => void;
   onEditGroup: (group: Group) => void;
@@ -92,7 +90,7 @@ if (groups.length === 0) {
           group_currency
         );
         const plan =
-          getSettlementPlanMinor(group.members, openBalances, group_currency)[fullUserId] || {
+          getSettlementPlanMinor(group.members, openBalances)[fullUserId] || {
             owes: [],
             receives: [],
           };
@@ -202,7 +200,7 @@ if (groups.length === 0) {
                     className="border-gray-300 text-gray-700 hover:bg-gray-50"
                     onClick={e => {
                       e.stopPropagation();
-                      onMarkSettledClick(group, totalOwe, totalGotten);
+                      onMarkSettledClick(group);
                     }}
                   >
                     Mark as Paid

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { getUserGroups, getExpenses, createGroup, updateGroupMembers, getUserGroupsById, getSettlements, addSettlement } from "@/lib/firebaseUtils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {  Currency, Share2 } from 'lucide-react';
+import { Share2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Group, Expense, Member } from '@/types/group';
 import { User } from "firebase/auth";
@@ -15,7 +15,7 @@ import ExpensesPanel from '@/components/ExpensesPanel';
 import GroupDetailsForm from '@/components/GroupDetailsForm';
 import SettlementModal from '@/components/SettlementModal';
 import { Settlement } from '@/types/settlement';
-import { calculateRawBalances, calculateRawBalancesMinor } from '@/lib/financeUtils';
+import { calculateRawBalancesMinor } from '@/lib/financeUtils';
 import { CurrencyCode } from '@/lib/currency_core';
 import { DEFAULT_CURRENCY, getGroupCurrency } from '@/lib/currency';
 
@@ -24,9 +24,10 @@ interface ExpenseSplitterProps {
   session: User | null;
   groupid: string | null;
   anonUser: Member | null | undefined;
+  currency?: CurrencyCode;
 }
 
-export default function ExpenseSplitter({ session, groupid, anonUser }: ExpenseSplitterProps) {
+export default function ExpenseSplitter({ session, groupid, anonUser, currency: initialCurrency }: ExpenseSplitterProps) {
 const [loading, setLoading] = useState(true);
 const [activeTab, setActiveTab] = useState<'summary' | 'groups' | 'create'>('summary');
   // only show the Create/Edit tab when the user has clicked “New Group” or loaded an existing one
@@ -35,7 +36,7 @@ const [savedGroups, setSavedGroups] = useState<Group[]>([]);
 const [activeGroupId, setActiveGroupId] = useState<string>('');
 const [activeGroup, setActiveGroup] = useState<Group | null>(null);
 const [groupName, setGroupName] = useState('');
-const [currency, setCurrency] = useState<CurrencyCode>(DEFAULT_CURRENCY)
+const [currency, setCurrency] = useState<CurrencyCode>(initialCurrency || DEFAULT_CURRENCY)
 const [members, setMembers] = useState<Member[]>([]);
 const [expenses, setExpenses] = useState<Expense[]>([]);
 const [splitMode, setSplitMode] = useState<'percentage' | 'weight'>('percentage');
@@ -330,7 +331,7 @@ const handleOpenSettle = (group: Group) => {
   setShowSettlementModal(true);
 };
 
-const handleMarkSettled = (group: Group, totalOwe: number, totalGotten: number) => {
+const handleMarkSettled = (group: Group) => {
   setSettlementGroup(group);
   setSettlementRawBalances({});
   setSettlementDefaults({ defaultAmount: 0 });

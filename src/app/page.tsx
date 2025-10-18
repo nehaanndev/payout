@@ -15,7 +15,7 @@ import IdentityPrompt from "@/components/IdentityPrompt";
 /* --- imports (add these near the top of the file) --- */
 import Image from "next/image";
 import { CurrencyCode } from "@/lib/currency_core";
-import { getGroupCurrency } from "@/lib/currency";
+import { DEFAULT_CURRENCY, getGroupCurrency } from "@/lib/currency";
 
 export default function Home() {
   const [session, setSession] = useState<User | null>(null);
@@ -25,7 +25,7 @@ export default function Home() {
   const profileRef = useRef<HTMLDivElement>(null);
   const [showIdentityChoice, setShowIdentityChoice] = useState(false);
   const [sharedMembers, setSharedMembers] = useState<Member[] | null>(null);
-  const [currency, setCurrency] = useState<CurrencyCode | null>(null);
+  const [currency, setCurrency] = useState<CurrencyCode>(DEFAULT_CURRENCY);
   const [existingName, setExistingName] = useState<string | null>(null);
   const [tempName, setTempName] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
@@ -206,7 +206,7 @@ export default function Home() {
           </div>              
           {/* Main App Content */}
           <div className="flex-grow p-8">
-          <ExpenseSplitter session={session} groupid={group} anonUser={anonUser} />
+          <ExpenseSplitter session={session} groupid={group} anonUser={anonUser} currency={currency} />
           </div>              
         </>
       )     

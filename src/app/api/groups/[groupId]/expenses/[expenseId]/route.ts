@@ -28,7 +28,7 @@ export async function PUT(
     }
 
     // Validate splits add up to 100%
-    const totalSplit = Object.values(splits).reduce((sum: number, split: any) => sum + parseFloat(split), 0);
+    const totalSplit = Object.values(splits).reduce((sum: number, split: unknown) => sum + (split as number), 0);
     if (Math.abs(totalSplit - 100) > 0.01) {
       return NextResponse.json(
         { error: 'Splits must add up to 100%' },

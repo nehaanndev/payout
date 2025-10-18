@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addExpense, fetchGroupById } from '@/lib/firebaseUtils';
-import { CurrencyCode } from '@/lib/currency_core';
 
 export async function POST(
   request: NextRequest,
@@ -38,7 +37,7 @@ export async function POST(
     }
 
     // Validate splits add up to 100%
-    const totalSplit = Object.values(splits).reduce((sum: number, split: any) => sum + parseFloat(split), 0);
+    const totalSplit = Object.values(splits).reduce((sum: number, split: unknown) => sum + (split as number), 0);
     if (Math.abs(totalSplit - 100) > 0.01) {
       return NextResponse.json(
         { error: 'Splits must add up to 100%' },

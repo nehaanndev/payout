@@ -1,6 +1,6 @@
 // utils/finance.ts (or inside Summary.tsx)
 import { Expense, Member } from '@/types/group';
-import { CurrencyCode, FRACTION_DIGITS, toMinor } from '@/lib/currency_core';
+import { CurrencyCode, toMinor } from '@/lib/currency_core';
 
 /**
  * Compute net balances = (what you paid) − (what you owe by split).
@@ -182,7 +182,6 @@ export function calculateOpenBalancesMinor(
 export function getSettlementPlanMinor(
   members: Member[],
   balancesMinor: Record<string, number>,
-  currency: CurrencyCode
 ): Record<string, {
   owes: { to: string; amount: number }[];
   receives: { from: string; amount: number }[];

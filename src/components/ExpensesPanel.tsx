@@ -16,9 +16,9 @@ import { Expense, Member } from '@/types/group';
 import { Settlement } from '@/types/settlement';
 
 import { addExpense, updateExpense, deleteExpense } from "@/lib/firebaseUtils";
-import { calculateOpenBalances, calculateRawBalances, calculateOpenBalancesMinor, calculateRawBalancesMinor } from '@/lib/financeUtils';
+import { calculateOpenBalancesMinor, calculateRawBalancesMinor } from '@/lib/financeUtils';
 import ExpenseListItem from "@/components/ExpenseListItem";
-import { formatMoneySafe, formatMoneySafeGivenCurrency, formatMoneyWithMinor } from '@/lib/currency';
+import { formatMoneySafeGivenCurrency } from '@/lib/currency';
 import { toMinor, splitByWeights, CurrencyCode, formatMoney } from '@/lib/currency_core';
 
 export interface ExpensesPanelProps {
@@ -162,7 +162,7 @@ export interface ExpensesPanelProps {
   
     // 3. Persist & update local state
     let updatedExpenses: Expense[] = [];
-    let amountMinor = toMinor(parsedAmount, currency);
+    const amountMinor = toMinor(parsedAmount, currency);
     if (isEditingExpense) {
       // a) Persist the edit to Firestore
       await updateExpense(activeGroupId, currentExpense.id, {

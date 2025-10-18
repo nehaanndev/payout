@@ -2,8 +2,8 @@ import { useState } from "react"
 import { Trash2, Edit2} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Expense, Member } from "@/types/group"
-import { formatMoneySafe, formatMoneySafeGivenCurrency, formatMoneyWithMinor } from "@/lib/currency"
-import { CurrencyCode, fromMinor, formatMoney } from "@/lib/currency_core"
+import { formatMoneyWithMinor } from "@/lib/currency"
+import { CurrencyCode, formatMoney } from "@/lib/currency_core"
 
 export default function ExpenseListItem({
   expense,
