@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchGroupById, getExpenses } from '@/lib/firebaseUtils';
+import { FRACTION_DIGITS, fromMinor, toMinor } from '@/lib/currency_core';
+import type { CurrencyCode } from '@/lib/currency_core';
 
 export async function GET(
   request: NextRequest,
@@ -27,8 +29,17 @@ export async function GET(
     // Fetch expenses for the group
     const expenses = await getExpenses(groupId);
 
-    // Calculate total expenses
-    const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+    const currency = (group.currency ?? 'USD') as CurrencyCode;
+    const fractionDigits = FRACTION_DIGITS[currency] ?? 2;
+
+    // Calculate total expenses using minor units when available
+    const totalExpensesMinor = expenses.reduce((sum, expense) => {
+      if (typeof expense.amountMinor === 'number') {
+        return sum + expense.amountMinor;
+      }
+      return sum + toMinor(expense.amount, currency);
+    }, 0);
+    const totalExpenses = fromMinor(totalExpensesMinor, currency);
 
     // Return comprehensive group information
     return NextResponse.json({
@@ -43,13 +54,15 @@ export async function GET(
         lastUpdated: group.lastUpdated
       },
       summary: {
+        currency,
         totalExpenses,
-        totalExpensesFormatted: `${group.currency} ${totalExpenses.toFixed(2)}`,
+        totalExpensesMinor,
+        totalExpensesFormatted: `${currency} ${totalExpenses.toFixed(fractionDigits)}`,
         memberCount: group.members.length,
         expenseCount: expenses.length
       },
       shareLink: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://yourdomain.vercel.app'}?group_id=${groupId}`,
-      message: `Group "${group.name}" has ${group.members.length} members and ${expenses.length} expenses totaling ${group.currency} ${totalExpenses.toFixed(2)}`
+      message: `Group "${group.name}" has ${group.members.length} members and ${expenses.length} expenses totaling ${currency} ${totalExpenses.toFixed(fractionDigits)}`
     });
 
   } catch (error) {
@@ -60,5 +73,4 @@ export async function GET(
     );
   }
 }
-
 

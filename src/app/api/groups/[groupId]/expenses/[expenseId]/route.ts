@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateExpense, deleteExpense, fetchGroupById } from '@/lib/firebaseUtils';
+import { FRACTION_DIGITS, splitByWeights, toMinor } from '@/lib/currency_core';
+import type { CurrencyCode } from '@/lib/currency_core';
 
 export async function PUT(
   request: NextRequest,
@@ -8,7 +10,15 @@ export async function PUT(
   try {
     const { groupId, expenseId } = await params;
     const body = await request.json();
-    const { description, amount, paidBy, splits, createdAt } = body;
+    const {
+      description,
+      amount,
+      amountMinor: amountMinorInput,
+      paidBy,
+      splits,
+      splitsMinor: splitsMinorInput,
+      createdAt
+    } = body;
 
     // Validate required fields
     if (!description || !amount || !paidBy || !splits) {
@@ -19,7 +29,7 @@ export async function PUT(
     }
 
     // Validate amount is positive
-    const expenseAmount = parseFloat(amount);
+    const expenseAmount = typeof amount === 'number' ? amount : parseFloat(amount);
     if (isNaN(expenseAmount) || expenseAmount <= 0) {
       return NextResponse.json(
         { error: 'Amount must be a positive number' },
@@ -28,7 +38,20 @@ export async function PUT(
     }
 
     // Validate splits add up to 100%
-    const totalSplit = Object.values(splits).reduce((sum: number, split: unknown) => sum + (split as number), 0);
+    const normalizedSplits = Object.entries(splits).reduce<Record<string, number>>((acc, [memberId, split]) => {
+      const numericSplit = typeof split === 'number' ? split : parseFloat(String(split));
+      acc[memberId] = numericSplit;
+      return acc;
+    }, {});
+
+    const hasInvalidSplit = Object.values(normalizedSplits).some(splitValue => Number.isNaN(splitValue));
+    if (hasInvalidSplit) {
+      return NextResponse.json(
+        { error: 'Splits must be valid numbers' },
+        { status: 400 }
+      );
+    }
+    const totalSplit = Object.values(normalizedSplits).reduce((sum, splitValue) => sum + splitValue, 0);
     if (Math.abs(totalSplit - 100) > 0.01) {
       return NextResponse.json(
         { error: 'Splits must add up to 100%' },
@@ -45,12 +68,20 @@ export async function PUT(
       );
     }
 
-    // Convert to minor units (cents)
-    const amountMinor = Math.round(expenseAmount * 100);
-    const splitsMinor: Record<string, number> = {};
-    for (const [memberId, split] of Object.entries(splits)) {
-      splitsMinor[memberId] = Math.round(parseFloat(split as string) * expenseAmount * 100 / 100);
-    }
+    const currency = (group.currency ?? 'USD') as CurrencyCode;
+    const fractionDigits = FRACTION_DIGITS[currency] ?? 2;
+
+    // Determine amounts in minor units
+    const amountMinor = typeof amountMinorInput === 'number'
+      ? amountMinorInput
+      : toMinor(expenseAmount, currency);
+
+    const normalizedSplitsMinor = splitsMinorInput && Object.keys(splitsMinorInput).length > 0
+      ? Object.entries(splitsMinorInput).reduce<Record<string, number>>((acc, [memberId, value]) => {
+          acc[memberId] = typeof value === 'number' ? value : parseFloat(String(value));
+          return acc;
+        }, {})
+      : splitByWeights(amountMinor, normalizedSplits);
 
     // Create expense date
     const expenseDate = createdAt ? new Date(createdAt) : new Date();
@@ -60,10 +91,10 @@ export async function PUT(
       description,
       amount: expenseAmount,
       paidBy,
-      splits,
+      splits: normalizedSplits,
       createdAt: expenseDate,
       amountMinor,
-      splitsMinor
+      splitsMinor: normalizedSplitsMinor
     });
 
     // Return success response
@@ -75,11 +106,13 @@ export async function PUT(
         description,
         amount: expenseAmount,
         paidBy,
-        splits,
+        splits: normalizedSplits,
         createdAt: expenseDate.toISOString(),
-        currency: group.currency
+        currency,
+        amountMinor,
+        splitsMinor: normalizedSplitsMinor
       },
-      message: `Expense "${description}" updated successfully`
+      message: `Expense "${description}" updated successfully for ${currency} ${expenseAmount.toFixed(fractionDigits)}`
     });
 
   } catch (error) {
@@ -125,5 +158,4 @@ export async function DELETE(
     );
   }
 }
-
 
