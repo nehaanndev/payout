@@ -79,11 +79,11 @@ export default function ReceiptUploadPanel({
     }));
   }, [splitEqually, members]);
 
-  const triggerInput = useCallback((ref: React.RefObject<HTMLInputElement>) => {
-    if (!ref.current) return;
+  const triggerInput = useCallback((input: HTMLInputElement | null) => {
+    if (!input) return;
     // reset to allow re-selecting the same file
-    ref.current.value = "";
-    ref.current.click();
+    input.value = "";
+    input.click();
   }, []);
 
   const resetScanState = useCallback(() => {
@@ -231,7 +231,7 @@ export default function ReceiptUploadPanel({
             type="button"
             variant="outline"
             className="h-24 flex flex-col items-center justify-center gap-2"
-            onClick={() => triggerInput(fileInputRef)}
+            onClick={() => triggerInput(fileInputRef.current)}
           >
             <UploadCloud className="h-6 w-6" />
             Choose from device
@@ -240,7 +240,7 @@ export default function ReceiptUploadPanel({
             type="button"
             variant="outline"
             className="h-24 flex flex-col items-center justify-center gap-2"
-            onClick={() => triggerInput(cameraInputRef)}
+            onClick={() => triggerInput(cameraInputRef.current)}
           >
             <Camera className="h-6 w-6" />
             Take a photo
