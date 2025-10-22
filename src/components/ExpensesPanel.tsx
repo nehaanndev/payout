@@ -1,5 +1,5 @@
 
-import { DollarSign} from 'lucide-react';
+import { DollarSign } from 'lucide-react';
 // import { useMemo } from 'react';
 
 import {
@@ -20,6 +20,7 @@ import { calculateOpenBalancesMinor, calculateRawBalancesMinor } from '@/lib/fin
 import ExpenseListItem from "@/components/ExpenseListItem";
 import { formatMoneySafeGivenCurrency } from '@/lib/currency';
 import { toMinor, splitByWeights, CurrencyCode, formatMoney } from '@/lib/currency_core';
+import ReceiptUploadPanel, { ReceiptPrefillData } from "@/components/ReceiptUploadPanel";
 
 export interface ExpensesPanelProps {
     /* Data */
@@ -34,6 +35,9 @@ export interface ExpensesPanelProps {
     settlements: Settlement[];
     youId: string;
     currency:CurrencyCode;
+    showReceiptUploader: boolean;
+    setShowReceiptUploader: (value: boolean) => void;
+    onReceiptPrefill: (data: ReceiptPrefillData) => void;
   
     /* Callbacks to mutate parent state */
     setExpenses: (e: Expense[]) => void;
@@ -64,6 +68,9 @@ export interface ExpensesPanelProps {
     settlements,
     youId,
     currency,
+    showReceiptUploader,
+    setShowReceiptUploader,
+    onReceiptPrefill,
     /* MUTATORS */
     setExpenses,
     setCurrentExpense,
@@ -113,6 +120,8 @@ export interface ExpensesPanelProps {
     }
   };
 
+
+  const isIdleState = !showExpenseForm && !showReceiptUploader;
   const handleExpenseSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const parsedAmount = parseFloat(currentExpense.amount.trim());
@@ -301,16 +310,7 @@ export interface ExpensesPanelProps {
             </div>
             </CardHeader>
             <CardContent className="bg-gray-50 p-6 space-y-6">
-        {!showExpenseForm ? (
-            <Button
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
-            disabled={!activeGroupId}
-            onClick={() => setShowExpenseForm(true)}
-            title={!activeGroupId ? "Select or create a group first" : undefined}
-            >
-            Add Expense
-            </Button>
-        ) : (
+        {showExpenseForm ? (
             <form onSubmit={handleExpenseSubmit} className="space-y-4">
             <div>
                 <Label htmlFor="description">Description</Label>
@@ -492,106 +492,120 @@ export interface ExpensesPanelProps {
               </Button>
             </div>
             </form>
+        ) : showReceiptUploader ? (
+            <ReceiptUploadPanel
+              members={members}
+              currency={currency}
+              defaultPayerId={youId}
+              onCancel={() => setShowReceiptUploader(false)}
+              onPrefill={(data) => {
+                onReceiptPrefill(data);
+              }}
+            />
+        ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                disabled={!activeGroupId}
+                onClick={() => {
+                  setShowReceiptUploader(false);
+                  setShowExpenseForm(true);
+                }}
+                title={!activeGroupId ? "Select or create a group first" : undefined}
+              >
+                Add Expense Manually
+              </Button>
+              <Button
+                variant="outline"
+                className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                disabled={!activeGroupId}
+                onClick={() => {
+                  setShowExpenseForm(false);
+                  setShowReceiptUploader(true);
+                }}
+                title={!activeGroupId ? "Select or create a group first" : undefined}
+              >
+                Upload Receipt
+              </Button>
+            </div>
         )}
         {/* 2️⃣ List of existing expenses */}
-        {!showExpenseForm && (
-  <div className="mt-6 space-y-1 rounded-xl overflow-hidden">
-    {expenses.map(exp => (
-      <ExpenseListItem
-        key={exp.id}
-        expense={exp}
-        membersMapById={membersMapById}
-        youId={youId}
-        group_currency={currency}
-        onEdit={() => editExpense(exp.id)}
-        onDelete={async () => {
-          if (!activeGroupId) return
-          if (!confirm("Delete this expense?")) return
-          await deleteExpense(activeGroupId, exp.id)
-          setExpenses(expenses.filter(e => e.id !== exp.id))
-        }}
-      />
-    ))}
-  </div>
-)}
-
-        
-
-        {!showExpenseForm && expenses.length > 0 && settlements.length > 0 && (
-           <div className="mt-6 bg-white bg-opacity-60 backdrop-blur-sm rounded-xl shadow p-4 space-y-4 hover:bg-indigo-50">
-           <h3 className="text-black font-semibold">Settlements</h3>
-         
-           {settlements.map((s) => {
-               const payer = membersMapById[s.payerId]?.firstName ?? s.payerId;
-               const payee = membersMapById[s.payeeId]?.firstName ?? s.payeeId;
-               return (
-                 <p key={s.id} className="text-sm text-gray-700">
-                   {payee} paid {payer} {formatMoneySafeGivenCurrency(toMinor(s.amount, currency), currency)} on{" "}
-                   {new Date(s.createdAt).toLocaleDateString()}
-                 </p>
-               );
-             })
-           }
-         
-           <hr className="my-2" />
-         
-           <h3 className="text-black font-semibold">Balances after settlements</h3>
-           {(Object.entries(openBalances) as [string, number][]).map(([id, bal]) => {
-             const name = membersMapById[id]?.firstName ?? id;
-             return (
-               <div key={id} className="flex justify-between text-sm">
-                 <span className="text-black">{name}</span>
-                 <span
-                   className={
-                     bal >= 0
-                       ? "text-green-600 font-medium"
-                       : "text-red-600 font-medium"
-                   }
-                 >
-                   {formatMoney(bal, currency)}
-                 </span>
-               </div>
-             );
-           })}
-         </div>
-         
+        {isIdleState && (
+          <div className="mt-6 space-y-1 rounded-xl overflow-hidden">
+            {expenses.map((exp) => (
+              <ExpenseListItem
+                key={exp.id}
+                expense={exp}
+                membersMapById={membersMapById}
+                youId={youId}
+                group_currency={currency}
+                onEdit={() => editExpense(exp.id)}
+                onDelete={async () => {
+                  if (!activeGroupId) return;
+                  if (!confirm("Delete this expense?")) return;
+                  await deleteExpense(activeGroupId, exp.id);
+                  setExpenses(expenses.filter((e) => e.id !== exp.id));
+                }}
+              />
+            ))}
+          </div>
         )}
 
-{!showExpenseForm && expenses.length > 0 && (
-           <div className="mt-6 bg-white bg-opacity-80 backdrop-blur-sm rounded-xl shadow p-4 space-y-4  hover:bg-indigo-50">
-                <h3 className="text-black font-semibold mb-2">{settlements.length > 0 ? "Original ":""}Balances</h3>
+        {isIdleState && expenses.length > 0 && settlements.length > 0 && (
+          <div className="mt-6 bg-white bg-opacity-60 backdrop-blur-sm rounded-xl shadow p-4 space-y-4 hover:bg-indigo-50">
+            <h3 className="text-black font-semibold">Settlements</h3>
 
-                {/* ← Assert the entry type so TS knows bal is a number: */}
-                {(Object.entries(balances) as [string, number][]).map(
-                ([id, bal]) => {
-                    const name = membersMapById[id]?.firstName ?? id;
-                    return (
-                    <div key={id} className="text-sm flex justify-between">
-                        <span>{name}</span>
-                        <span
-                        className={
-                            bal >= 0
-                            ? 'text-green-600 font-medium'
-                            : 'text-red-600 font-medium'
-                        }
-                        >
-                        {formatMoney(bal, currency)}
-                        </span>
-                    </div>
-                    );
-                }
-                )}
-           </div>
+            {settlements.map((s) => {
+              const payer = membersMapById[s.payerId]?.firstName ?? s.payerId;
+              const payee = membersMapById[s.payeeId]?.firstName ?? s.payeeId;
+              return (
+                <p key={s.id} className="text-sm text-gray-700">
+                  {payee} paid {payer} {formatMoneySafeGivenCurrency(toMinor(s.amount, currency), currency)} on{" "}
+                  {new Date(s.createdAt).toLocaleDateString()}
+                </p>
+              );
+            })}
+
+            <hr className="my-2" />
+
+            <h3 className="text-black font-semibold">Balances after settlements</h3>
+            {(Object.entries(openBalances) as [string, number][]).map(([id, bal]) => {
+              const name = membersMapById[id]?.firstName ?? id;
+              return (
+                <div key={id} className="flex justify-between text-sm">
+                  <span className="text-black">{name}</span>
+                  <span className={bal >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                    {formatMoney(bal, currency)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {isIdleState && expenses.length > 0 && (
+          <div className="mt-6 bg-white bg-opacity-80 backdrop-blur-sm rounded-xl shadow p-4 space-y-4 hover:bg-indigo-50">
+            <h3 className="text-black font-semibold mb-2">{settlements.length > 0 ? "Original " : ""}Balances</h3>
+
+            {/* ← Assert the entry type so TS knows bal is a number: */}
+            {(Object.entries(balances) as [string, number][]).map(([id, bal]) => {
+              const name = membersMapById[id]?.firstName ?? id;
+              return (
+                <div key={id} className="text-sm flex justify-between">
+                  <span>{name}</span>
+                  <span className={bal >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                    {formatMoney(bal, currency)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         )}
 
         {/* 3️⃣ Back / Save buttons */}
-        {!showExpenseForm && (
+        {isIdleState && (
           <div className="flex justify-end mt-6">
-            <Button
-              size="sm"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              onClick={onBack}
-            >
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={onBack}>
               Back To Group Details
             </Button>
           </div>

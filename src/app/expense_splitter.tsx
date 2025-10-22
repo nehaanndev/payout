@@ -14,6 +14,7 @@ import Summary from '@/components/Summary';
 import ExpensesPanel from '@/components/ExpensesPanel';
 import GroupDetailsForm from '@/components/GroupDetailsForm';
 import SettlementModal from '@/components/SettlementModal';
+import { ReceiptPrefillData } from "@/components/ReceiptUploadPanel";
 import { Settlement } from '@/types/settlement';
 import { calculateRawBalancesMinor } from '@/lib/financeUtils';
 import { CurrencyCode } from '@/lib/currency_core';
@@ -42,6 +43,7 @@ const [expenses, setExpenses] = useState<Expense[]>([]);
 const [splitMode, setSplitMode] = useState<'percentage' | 'weight'>('percentage');
 const [weightSplits, setWeightSplits] = useState<Record<string, number>>({});
 const [showExpenseForm, setShowExpenseForm] = useState(false);
+const [showReceiptUploader, setShowReceiptUploader] = useState(false);
 const [, setCurrentUser] = useState<Member | null>(null);
 const [showIdentityPrompt, setShowIdentityPrompt] = useState(false);
 const [currentExpense, setCurrentExpense] = useState<Omit<Expense, 'amount'> & { amount: string }>({
@@ -188,9 +190,37 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
     setMembers([]);
     setExpenses([]);
     setShowExpenseForm(false);
+    setShowReceiptUploader(false);
     clearcurrentExpense();
     setActiveGroupId('');
     setActiveGroup(null);
+  };
+
+  const handleReceiptPrefill = (data: ReceiptPrefillData) => {
+    setShowReceiptUploader(false);
+    setShowExpenseForm(true);
+    setIsEditingExpense(false);
+
+    const nextSplitMode = data.splitMode ?? "percentage";
+    const payerId = data.paidBy ?? me?.id ?? "";
+
+    setCurrentExpense({
+      id: "",
+      description: data.description ?? "",
+      amount: data.amount != null ? data.amount.toString() : "",
+      paidBy: payerId,
+      splits: nextSplitMode === "percentage" ? data.splits ?? {} : {},
+      createdAt: new Date(),
+      amountMinor: 0,
+      splitsMinor: {},
+    });
+
+    setSplitMode(nextSplitMode);
+    if (nextSplitMode === "weight") {
+      setWeightSplits(data.splits ?? {});
+    } else {
+      setWeightSplits({});
+    }
   };
 
   const loadGroup = async (group: Group) => {
@@ -202,6 +232,8 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
     setActiveTab('create');
     setWizardStep('expenses');
     setCurrency(getGroupCurrency(group));
+    setShowReceiptUploader(false);
+    setShowExpenseForm(false);
 
     const matchedMember = group.members.find((m) => m.id === currentUserId);
     if (matchedMember) {
@@ -447,6 +479,7 @@ const handleMarkSettled = (group: Group) => {
               weightSplits={weightSplits}
               isEditingExpense={isEditingExpense}
               showExpenseForm={showExpenseForm}
+              showReceiptUploader={showReceiptUploader}
               settlements={settlementsByGroup[activeGroupId] ?? []}
               youId={session?.uid ?? anonUser?.id ?? ""}
               currency={currency}
@@ -457,6 +490,8 @@ const handleMarkSettled = (group: Group) => {
               setSplitMode={setSplitMode}
               setIsEditingExpense={setIsEditingExpense}
               setShowExpenseForm={setShowExpenseForm}
+              setShowReceiptUploader={setShowReceiptUploader}
+              onReceiptPrefill={handleReceiptPrefill}
               /* HELPERS */
               membersMapById={Object.fromEntries(members.map(m => [m.id, m]))}
               //addExpenseToFirebase={(exp) =>
