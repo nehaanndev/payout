@@ -387,21 +387,40 @@ function extractReceiptInsights(text: string): { amount: number | undefined; mer
 
   const merchant = lines[0]?.replace(/[^A-Za-z0-9 &'./-]+/g, " ").trim() || undefined;
 
-  const totalKeywords = /(total|amount due|amount|balance due|payment)/i;
+  const totalKeywords = /(total|amount\s+due|balance\s+due|amount\s+payable|payment|payable)/i;
   const numberRegex = /(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})|\d+[.,]\d{2})/g;
 
   let amount: number | undefined;
 
-  for (const line of lines) {
+  interface Candidate {
+    value: number;
+    priority: number;
+    lineIndex: number;
+  }
+
+  const candidates: Candidate[] = [];
+
+  lines.forEach((line, index) => {
     if (totalKeywords.test(line)) {
       const match = line.match(numberRegex);
       if (match) {
-        amount = normalizeNumber(match[match.length - 1]);
-        if (amount != null) {
-          break;
+        const parsed = normalizeNumber(match[match.length - 1]);
+        if (parsed != null) {
+          const priority = computeTotalPriority(line.toLowerCase());
+          candidates.push({ value: parsed, priority, lineIndex: index });
         }
       }
     }
+  });
+
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => {
+      if (a.priority !== b.priority) {
+        return b.priority - a.priority;
+      }
+      return b.lineIndex - a.lineIndex;
+    });
+    amount = candidates[0].value;
   }
 
   if (amount == null) {
@@ -420,6 +439,22 @@ function extractReceiptInsights(text: string): { amount: number | undefined; mer
   }
 
   return { amount, merchant };
+}
+
+function computeTotalPriority(line: string): number {
+  if (/(grand\s+total|amount\s+due|balance\s+due|total\s+due|amount\s+paid|total\s+amount|amount\s+payable|please\s+pay|total\s+to\s+pay|total\s+bill|pay\s+this)/i.test(line)) {
+    return 4;
+  }
+  if (/(tax|vat|gst|hst|pst|service|delivery|tip|gratuity|fees?|sub[-\s]?total)/i.test(line)) {
+    return 1;
+  }
+  if (/total/i.test(line)) {
+    return 3;
+  }
+  if (/(amount|payment)/i.test(line)) {
+    return 2;
+  }
+  return 0;
 }
 
 function normalizeNumber(input: string): number | undefined {
