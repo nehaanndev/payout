@@ -59,6 +59,7 @@ export default function ReceiptUploadPanel({
   const [parsedMerchant, setParsedMerchant] = useState<string | undefined>();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasScanned, setHasScanned] = useState(false);
+  const [scanDebug, setScanDebug] = useState("");
 
   useEffect(() => {
     if (!selectedPayer && defaultPayerId) {
@@ -93,6 +94,7 @@ export default function ReceiptUploadPanel({
     setErrorMessage(null);
     setParsedMerchant(undefined);
     setHasScanned(false);
+    setScanDebug("");
   }, []);
 
   const handleFileSelection = useCallback((file: File | null) => {
@@ -141,7 +143,7 @@ export default function ReceiptUploadPanel({
       setOcrText(text);
       setHasScanned(true);
 
-      const { amount, merchant } = extractReceiptInsights(text);
+      const { amount, merchant, debug } = extractReceiptInsights(text);
       setParsedMerchant(merchant);
       if (!description.trim() && merchant) {
         setDescription(merchant);
@@ -151,6 +153,7 @@ export default function ReceiptUploadPanel({
       } else if (!totalAmount) {
         setTotalAmount("");
       }
+      setScanDebug(debug);
     } catch (err) {
       console.error("Receipt scan failed", err);
       setErrorMessage("We couldn't scan that receipt. Try a clearer photo or re-upload.");
@@ -203,6 +206,8 @@ export default function ReceiptUploadPanel({
     splitEqually,
     totalAmount,
   ]);
+
+  const detectedTextWithDebug = scanDebug ? `${ocrText}\n\n---\n${scanDebug}`.trim() : ocrText;
 
   return (
     <Card className="border-dashed border-2 border-blue-200 bg-white/80">
@@ -295,7 +300,7 @@ export default function ReceiptUploadPanel({
                   <div className="space-y-2">
                     <Label>Detected text</Label>
                     <textarea
-                      value={ocrText}
+                      value={detectedTextWithDebug}
                       readOnly
                       className="min-h-32 w-full rounded-md border border-slate-200 bg-white p-2 text-sm text-slate-700"
                     />
@@ -379,7 +384,21 @@ export default function ReceiptUploadPanel({
   );
 }
 
-function extractReceiptInsights(text: string): { amount: number | undefined; merchant: string | undefined } {
+type CandidateType = "grandTotal" | "total" | "amount" | "subtotal" | "tax" | "other";
+
+interface Candidate {
+  value: number;
+  priority: number;
+  lineIndex: number;
+  line: string;
+  type: CandidateType;
+}
+
+function extractReceiptInsights(text: string): {
+  amount: number | undefined;
+  merchant: string | undefined;
+  debug: string;
+} {
   const lines = text
     .split("\n")
     .map((line) => line.trim())
@@ -387,40 +406,80 @@ function extractReceiptInsights(text: string): { amount: number | undefined; mer
 
   const merchant = lines[0]?.replace(/[^A-Za-z0-9 &'./-]+/g, " ").trim() || undefined;
 
-  const totalKeywords = /(total|amount\s+due|balance\s+due|amount\s+payable|payment|payable)/i;
   const numberRegex = /(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})|\d+[.,]\d{2})/g;
-
-  let amount: number | undefined;
-
-  interface Candidate {
-    value: number;
-    priority: number;
-    lineIndex: number;
-  }
 
   const candidates: Candidate[] = [];
 
   lines.forEach((line, index) => {
-    if (totalKeywords.test(line)) {
-      const match = line.match(numberRegex);
-      if (match) {
-        const parsed = normalizeNumber(match[match.length - 1]);
-        if (parsed != null) {
-          const priority = computeTotalPriority(line.toLowerCase());
-          candidates.push({ value: parsed, priority, lineIndex: index });
-        }
-      }
-    }
+    const matches = Array.from(line.matchAll(numberRegex));
+    if (matches.length === 0) return;
+    const token = matches[matches.length - 1][0];
+    const parsed = normalizeNumber(token);
+    if (parsed == null) return;
+
+    const type = classifyLine(line);
+    const priority = computePriority(type);
+
+    candidates.push({
+      value: parsed,
+      priority,
+      lineIndex: index,
+      line,
+      type,
+    });
   });
 
+  let amount: number | undefined;
+  let debug = "No numeric matches found.";
+
   if (candidates.length > 0) {
-    candidates.sort((a, b) => {
-      if (a.priority !== b.priority) {
+    const sortedByValue = [...candidates].sort((a, b) => {
+      if (b.value !== a.value) {
+        return b.value - a.value;
+      }
+      if (b.priority !== a.priority) {
         return b.priority - a.priority;
       }
       return b.lineIndex - a.lineIndex;
     });
-    amount = candidates[0].value;
+
+    const valuePreferred = sortedByValue.find((candidate) => candidate.priority >= 3);
+
+    const sortedByPriority = [...candidates].sort((a, b) => {
+      if (b.priority !== a.priority) {
+        return b.priority - a.priority;
+      }
+      if (b.value !== a.value) {
+        return b.value - a.value;
+      }
+      return b.lineIndex - a.lineIndex;
+    });
+
+    const priorityPreferred = sortedByPriority[0];
+
+    const fallbackHighest = sortedByValue[0];
+
+    if (valuePreferred) {
+      amount = valuePreferred.value;
+    } else if (priorityPreferred) {
+      amount = priorityPreferred.value;
+    } else if (fallbackHighest) {
+      amount = fallbackHighest.value;
+    }
+
+    debug = candidates
+      .map((candidate) => `line ${candidate.lineIndex + 1}: ${candidate.line} => ${candidate.value.toFixed(2)} [${candidate.type} | priority ${candidate.priority}]`)
+      .join("\n");
+
+    if (amount != null) {
+      const chosen =
+        (valuePreferred && valuePreferred.value === amount && valuePreferred.priority >= 3 && valuePreferred) ||
+        (priorityPreferred && priorityPreferred.value === amount && priorityPreferred) ||
+        fallbackHighest;
+      if (chosen) {
+        debug += `\n\nChosen: line ${chosen.lineIndex + 1} (${chosen.type}) value ${chosen.value.toFixed(2)} priority ${chosen.priority}`;
+      }
+    }
   }
 
   if (amount == null) {
@@ -438,23 +497,50 @@ function extractReceiptInsights(text: string): { amount: number | undefined; mer
     amount = highest > 0 ? highest : undefined;
   }
 
-  return { amount, merchant };
+  if (candidates.length === 0 && amount != null) {
+    debug = `Fallback to highest numeric value detected: ${amount.toFixed(2)}`;
+  }
+
+  return { amount, merchant, debug };
 }
 
-function computeTotalPriority(line: string): number {
-  if (/(grand\s+total|amount\s+due|balance\s+due|total\s+due|amount\s+paid|total\s+amount|amount\s+payable|please\s+pay|total\s+to\s+pay|total\s+bill|pay\s+this)/i.test(line)) {
-    return 4;
+function classifyLine(line: string): CandidateType {
+  const normalized = line.toLowerCase();
+  if (/(grand\s+total|amount\s+due|balance\s+due|total\s+due|total\s+amount|amount\s+payable|please\s+pay|total\s+to\s+pay|total\s+bill|pay\s+this)/i.test(normalized)) {
+    return "grandTotal";
   }
-  if (/(tax|vat|gst|hst|pst|service|delivery|tip|gratuity|fees?|sub[-\s]?total)/i.test(line)) {
-    return 1;
+  if (/(subtotal|sub\s*total)/i.test(normalized)) {
+    return "subtotal";
   }
-  if (/total/i.test(line)) {
-    return 3;
+  if (/(tax|vat|gst|hst|pst|service|delivery|tip|gratuity|fee)/i.test(normalized)) {
+    return "tax";
   }
-  if (/(amount|payment)/i.test(line)) {
-    return 2;
+  if (/total/i.test(normalized)) {
+    return "total";
   }
-  return 0;
+  if (/(amount|payment|payable)/i.test(normalized)) {
+    return "amount";
+  }
+  return "other";
+}
+
+function computePriority(type: CandidateType): number {
+  switch (type) {
+    case "grandTotal":
+      return 5;
+    case "total":
+      return 4;
+    case "amount":
+      return 3;
+    case "subtotal":
+      return 2;
+    case "other":
+      return 2;
+    case "tax":
+      return 1;
+    default:
+      return 0;
+  }
 }
 
 function normalizeNumber(input: string): number | undefined {
