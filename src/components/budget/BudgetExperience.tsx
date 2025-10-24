@@ -2084,26 +2084,30 @@ function ImportExpenses({
       return;
     }
 
-    const drafts = rows
-      .map((row) => {
-        const amount = coerceAmount(row[amountIndex]);
-        if (!Number.isFinite(amount) || amount === 0) {
-          return null;
-        }
-        const categoryRaw = row[categoryIndex] ?? "";
-        const category = categoryRaw.trim();
-        const description = descriptionIndex >= 0 ? row[descriptionIndex] : "";
-        const dateRaw = dateIndex >= 0 ? row[dateIndex] : undefined;
-        const normalizedDate = coerceDateInput(dateRaw);
+    const drafts = rows.reduce<LedgerEntryDraft[]>((acc, row) => {
+      const amount = coerceAmount(row[amountIndex]);
+      if (!Number.isFinite(amount) || amount === 0) {
+        return acc;
+      }
+      const rawCategory = row[categoryIndex] ?? "";
+      const category = rawCategory.trim();
+      const description = descriptionIndex >= 0 ? row[descriptionIndex] : "";
+      const dateRaw = dateIndex >= 0 ? row[dateIndex] : undefined;
+      const normalizedDate = coerceDateInput(dateRaw);
 
-        return {
-          amount,
-          category,
-          merchant: description || undefined,
-          date: normalizedDate,
-        } satisfies LedgerEntryDraft;
-      })
-      .filter((value): value is LedgerEntryDraft => Boolean(value));
+      const draft: LedgerEntryDraft = {
+        amount,
+        category,
+      };
+      if (description) {
+        draft.merchant = description;
+      }
+      if (normalizedDate) {
+        draft.date = normalizedDate;
+      }
+      acc.push(draft);
+      return acc;
+    }, []);
 
     if (!drafts.length) {
       setError("No rows were importable. Check your column mapping.");
