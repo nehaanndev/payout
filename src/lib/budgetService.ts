@@ -13,6 +13,8 @@ import {
 
 import { db } from "./firebase";
 import {
+  BudgetCategoryRule,
+  BudgetCustomCategory,
   BudgetDocument,
   BudgetFixedExpense,
   BudgetIncome,
@@ -55,6 +57,8 @@ export const createBudgetDocument = async (member?: BudgetMember) => {
     shareCode: budgetRef.id,
     createdAt: nowIso,
     updatedAt: nowIso,
+    customCategories: [],
+    categoryRules: [],
   };
 
   await setDoc(budgetRef, {
@@ -115,8 +119,6 @@ export const buildEmptyMonth = (monthKey: string): BudgetMonth => {
     incomes: defaultIncomes(),
     fixeds: defaultFixeds(),
     entries: [],
-    customCategories: [],
-    categoryRules: [],
     createdAt: nowIso,
     updatedAt: nowIso,
     initializedFrom: null,
@@ -131,10 +133,6 @@ const copyMonthData = (prev: BudgetMonth, monthKey: string): BudgetMonth => {
     incomes: prev.incomes.map((item) => ({ ...item, id: generateId() })),
     fixeds: prev.fixeds.map((item) => ({ ...item, id: generateId() })),
     entries: [],
-    customCategories: (prev.customCategories ?? []).map((category) => ({
-      ...category,
-    })),
-    categoryRules: (prev.categoryRules ?? []).map((rule) => ({ ...rule })),
     createdAt: nowIso,
     updatedAt: nowIso,
     initializedFrom: prev.id,
@@ -180,10 +178,27 @@ export const saveBudgetMonth = async (
   const ref = doc(db, "budgets", budgetId, "months", month.id);
   const payload = {
     ...month,
-    updatedAt: new Date().toISOString(),
+    updatedAt: month.updatedAt ?? new Date().toISOString(),
     serverUpdatedAt: serverTimestamp(),
   };
   await setDoc(ref, payload, { merge: true });
+};
+
+export const saveBudgetMetadata = async (
+  budgetId: string,
+  metadata: {
+    customCategories: BudgetCustomCategory[];
+    categoryRules: BudgetCategoryRule[];
+    updatedAt: string;
+  }
+) => {
+  const ref = doc(db, "budgets", budgetId);
+  await updateDoc(ref, {
+    customCategories: metadata.customCategories,
+    categoryRules: metadata.categoryRules,
+    updatedAt: metadata.updatedAt,
+    serverUpdatedAt: serverTimestamp(),
+  });
 };
 
 export const listBudgetsForMember = async (memberId: string) => {

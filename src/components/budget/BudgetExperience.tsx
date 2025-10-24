@@ -58,9 +58,11 @@ import {
   generateId,
   getMonthKey,
   saveBudgetMonth,
+  saveBudgetMetadata,
 } from "@/lib/budgetService";
 import { auth } from "@/lib/firebase";
 import {
+  BudgetDocument,
   BudgetCategoryRule,
   BudgetCustomCategory,
   BudgetFixedExpense,
@@ -105,6 +107,32 @@ type CategoryRuleInput = {
   pattern: string;
   operator: CategoryRuleOperator;
   categoryValue: string;
+};
+
+type CategorySummary = {
+  value: string;
+  label: string;
+  emoji?: string | null;
+  total: number;
+};
+
+const ruleMatches = (
+  rule: BudgetCategoryRule,
+  merchant: string | null | undefined
+) => {
+  if (!merchant) {
+    return false;
+  }
+  const merchantLower = merchant.toLowerCase();
+  const pattern = rule.pattern.toLowerCase();
+  switch (rule.operator) {
+    case "equals":
+      return merchantLower === pattern;
+    case "starts_with":
+      return merchantLower.startsWith(pattern);
+    default:
+      return merchantLower.includes(pattern);
+  }
 };
 
 const formatDateParts = (date: Date, useUTC = false) => {
@@ -443,12 +471,17 @@ const getLocalMember = (): BudgetMember => {
   return member;
 };
 
-const getInitialStateFromMonth = (month: BudgetMonth): BudgetState => ({
+const getInitialStateFromMonth = (
+  month: BudgetMonth,
+  doc: BudgetDocument | null
+): BudgetState => ({
   incomes: month.incomes.length ? month.incomes : defaultState().incomes,
   fixeds: month.fixeds.length ? month.fixeds : defaultState().fixeds,
   entries: sortLedgerEntries(month.entries || []),
-  customCategories: month.customCategories ? [...month.customCategories] : [],
-  categoryRules: month.categoryRules ? [...month.categoryRules] : [],
+  customCategories: doc?.customCategories
+    ? [...doc.customCategories]
+    : [],
+  categoryRules: doc?.categoryRules ? [...doc.categoryRules] : [],
 });
 
 const BudgetExperience = () => {
@@ -508,11 +541,13 @@ const BudgetExperience = () => {
 
 
   const memberRules = useMemo(() => {
-    if (!member?.id) {
-      return [];
-    }
     return state.categoryRules
-      .filter((rule) => rule.memberId === member.id)
+      .filter((rule) => {
+        if (!rule.memberId) {
+          return true;
+        }
+        return rule.memberId === member?.id;
+      })
       .slice()
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }, [member?.id, state.categoryRules]);
@@ -522,28 +557,8 @@ const BudgetExperience = () => {
       if (!memberRules.length) {
         return draft;
       }
-      const merchantText = (draft.merchant ?? "").toLowerCase();
-      if (!merchantText) {
-        return draft;
-      }
       for (const rule of memberRules) {
-        const pattern = rule.pattern.toLowerCase();
-        if (!pattern) {
-          continue;
-        }
-        let matches = false;
-        switch (rule.operator) {
-          case "equals":
-            matches = merchantText === pattern;
-            break;
-          case "starts_with":
-            matches = merchantText.startsWith(pattern);
-            break;
-          default:
-            matches = merchantText.includes(pattern);
-            break;
-        }
-        if (matches) {
+        if (ruleMatches(rule, draft.merchant)) {
           return { ...draft, category: rule.categoryValue };
         }
       }
@@ -551,6 +566,30 @@ const BudgetExperience = () => {
     },
     [memberRules]
   );
+
+  const categorySummaries = useMemo(() => {
+    if (!state.entries.length) {
+      return [];
+    }
+    const totals = new Map<string, number>();
+    for (const entry of state.entries) {
+      const key = entry.category;
+      totals.set(key, (totals.get(key) ?? 0) + entry.amount);
+    }
+    return Array.from(totals.entries())
+      .map(([value, total]) => {
+        const match = availableCategories.find(
+          (category) => category.value.toLowerCase() === value.toLowerCase()
+        );
+        return {
+          value,
+          total,
+          label: match?.label ?? value,
+          emoji: match?.emoji ?? null,
+        } satisfies CategorySummary;
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [availableCategories, state.entries]);
 
   const upsertCustomCategory = useCallback(
     (label: string, emoji?: string | null): CategoryOption | null => {
@@ -633,9 +672,6 @@ const BudgetExperience = () => {
 
   const createCategoryRule = useCallback(
     ({ categoryValue, operator, pattern }: CategoryRuleInput): BudgetCategoryRule | null => {
-      if (!member?.id) {
-        return null;
-      }
       const normalizedPattern = pattern.trim().toLowerCase();
       if (!normalizedPattern) {
         return null;
@@ -645,28 +681,9 @@ const BudgetExperience = () => {
         availableCategories
       );
 
-      const shouldApplyRule = (
-        rule: BudgetCategoryRule,
-        entry: BudgetLedgerEntry
-      ) => {
-        if (!entry.merchant) {
-          return false;
-        }
-        const merchantLower = entry.merchant.toLowerCase();
-        const rulePattern = rule.pattern.toLowerCase();
-        switch (rule.operator) {
-          case "equals":
-            return merchantLower === rulePattern;
-          case "starts_with":
-            return merchantLower.startsWith(rulePattern);
-          default:
-            return merchantLower.includes(rulePattern);
-        }
-      };
-
       const existing = state.categoryRules.find(
         (rule) =>
-          rule.memberId === member.id &&
+          rule.memberId === (member?.id ?? null) &&
           rule.operator === operator &&
           rule.pattern.toLowerCase() === normalizedPattern
       );
@@ -683,7 +700,7 @@ const BudgetExperience = () => {
               rule.id === existing.id ? updatedRule : rule
             ),
             entries: prev.entries.map((entry) =>
-              shouldApplyRule(updatedRule, entry)
+              ruleMatches(updatedRule, entry.merchant)
                 ? { ...entry, category: normalizedCategory }
                 : entry
             ),
@@ -695,7 +712,7 @@ const BudgetExperience = () => {
 
       const newRule: BudgetCategoryRule = {
         id: generateId(),
-        memberId: member.id,
+        memberId: member?.id ?? null,
         operator,
         pattern: normalizedPattern,
         categoryValue: normalizedCategory,
@@ -706,7 +723,7 @@ const BudgetExperience = () => {
         ...prev,
         categoryRules: [...prev.categoryRules, newRule],
         entries: prev.entries.map((entry) =>
-          shouldApplyRule(newRule, entry)
+          ruleMatches(newRule, entry.merchant)
             ? { ...entry, category: normalizedCategory }
             : entry
         ),
@@ -765,17 +782,17 @@ const BudgetExperience = () => {
         if (!doc) {
           setInvalidBudget(true);
           setLoading(false);
-        return;
-      }
+          return;
+        }
 
-      await ensureMemberOnBudget(id, activeMember);
-      const month = await fetchBudgetMonth(id, monthKey);
-      hasHydrated.current = false;
-      const initial = getInitialStateFromMonth(month);
-      setState(initial);
-      setMonthMeta({
-        id: month.id,
-        createdAt: month.createdAt,
+        await ensureMemberOnBudget(id, activeMember);
+        const month = await fetchBudgetMonth(id, monthKey);
+        hasHydrated.current = false;
+        const initial = getInitialStateFromMonth(month, doc);
+        setState(initial);
+        setMonthMeta({
+          id: month.id,
+          createdAt: month.createdAt,
           updatedAt: month.updatedAt,
           initializedFrom: month.initializedFrom ?? null,
         });
@@ -823,31 +840,38 @@ const BudgetExperience = () => {
       hasHydrated.current = true;
       return;
     }
-    const payload: BudgetMonth = {
+    const updatedAt = new Date().toISOString();
+    const monthPayload: BudgetMonth = {
       id: monthMeta.id,
       month: monthMeta.id,
       incomes: state.incomes,
       fixeds: state.fixeds,
       entries: state.entries,
+      createdAt: monthMeta.createdAt,
+      updatedAt,
+      initializedFrom: monthMeta.initializedFrom ?? null,
+    };
+    const metadataPayload = {
       customCategories: state.customCategories,
       categoryRules: state.categoryRules,
-      createdAt: monthMeta.createdAt,
-      updatedAt: new Date().toISOString(),
-      initializedFrom: monthMeta.initializedFrom ?? null,
+      updatedAt,
     };
 
     let cancelled = false;
     setSaving(true);
     const timeout = setTimeout(() => {
-      saveBudgetMonth(budgetId, payload)
+      Promise.all([
+        saveBudgetMonth(budgetId, monthPayload),
+        saveBudgetMetadata(budgetId, metadataPayload),
+      ])
         .then(() => {
           if (!cancelled) {
             setSaving(false);
-            setLastSavedAt(payload.updatedAt);
+            setLastSavedAt(updatedAt);
           }
         })
         .catch((error) => {
-          console.error("Failed to save budget month:", error);
+          console.error("Failed to save budget changes:", error);
           if (!cancelled) {
             setSaving(false);
           }
@@ -1065,6 +1089,7 @@ const BudgetExperience = () => {
           <Ledger
             entries={state.entries}
             categories={availableCategories}
+            categorySummaries={categorySummaries}
             flexBudget={flexBudget}
             monthSpend={monthSpend}
             remaining={remaining}
@@ -1372,6 +1397,7 @@ function Wizard({
 function Ledger({
   entries,
   categories,
+  categorySummaries,
   flexBudget,
   monthSpend,
   remaining,
@@ -1385,6 +1411,7 @@ function Ledger({
 }: {
   entries: BudgetLedgerEntry[];
   categories: CategoryOption[];
+  categorySummaries: CategorySummary[];
   flexBudget: number;
   monthSpend: number;
   remaining: number;
@@ -1394,7 +1421,7 @@ function Ledger({
   onImportEntries: (entries: LedgerEntryDraft[]) => void;
   onAssignCategory: (entryId: string, categoryValue: string) => void;
   onCreateCategory: (label: string, emoji?: string | null) => CategoryOption | null;
-  onCreateRule: (input: CategoryRuleInput) => void;
+  onCreateRule: (input: CategoryRuleInput) => BudgetCategoryRule | null;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -1425,6 +1452,26 @@ function Ledger({
               </div>
             </div>
           </div>
+          {categorySummaries.length > 0 && (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {categorySummaries.map((summary) => (
+                <div
+                  key={summary.value.toLowerCase()}
+                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white/60 px-3 py-2 text-sm shadow-sm backdrop-blur"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-base" aria-hidden>
+                      {summary.emoji ?? "🏷️"}
+                    </span>
+                    <span className="font-medium">{summary.label}</span>
+                  </div>
+                  <span className="font-semibold">
+                    {currency(summary.total)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1646,7 +1693,7 @@ function CategoryEditorDialog({
   categories: CategoryOption[];
   onAssignCategory: (entryId: string, categoryValue: string) => void;
   onCreateCategory: (label: string, emoji?: string | null) => CategoryOption | null;
-  onCreateRule: (input: CategoryRuleInput) => void;
+  onCreateRule: (input: CategoryRuleInput) => BudgetCategoryRule | null;
   onClose: () => void;
 }) {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -1693,12 +1740,12 @@ function CategoryEditorDialog({
       setSelectedCategory("");
       setRulePattern("");
     }
-      setShowNewCategory(false);
-      setNewCategoryName("");
-      setNewCategoryEmoji("");
-      setRememberRule(false);
-      setRuleOperator("contains");
-      setError(null);
+    setShowNewCategory(false);
+    setNewCategoryName("");
+    setNewCategoryEmoji("");
+    setRememberRule(false);
+    setRuleOperator("contains");
+    setError(null);
   }, [effectiveCategories, entry, open]);
 
   const handleCreateCategory = () => {
@@ -2043,17 +2090,15 @@ function ImportExpenses({
         if (!Number.isFinite(amount) || amount === 0) {
           return null;
         }
-        const categoryRaw = row[categoryIndex];
-        if (!categoryRaw) {
-          return null;
-        }
+        const categoryRaw = row[categoryIndex] ?? "";
+        const category = categoryRaw.trim();
         const description = descriptionIndex >= 0 ? row[descriptionIndex] : "";
         const dateRaw = dateIndex >= 0 ? row[dateIndex] : undefined;
         const normalizedDate = coerceDateInput(dateRaw);
 
         return {
           amount,
-          category: categoryRaw,
+          category,
           merchant: description || undefined,
           date: normalizedDate,
         } satisfies LedgerEntryDraft;
@@ -2278,7 +2323,7 @@ function QuickAdd({
       date: dateStr,
     });
     setAmountStr("");
-    setCategory(null);
+    setCategory(categories[0]?.value ?? null);
     setMerchant("");
     setDateStr(formatDateInput(new Date()));
   };

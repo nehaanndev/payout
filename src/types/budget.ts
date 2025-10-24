@@ -52,6 +52,8 @@ export type BudgetDocument = {
   shareCode: string;
   createdAt: string;
   updatedAt: string;
+  customCategories?: BudgetCustomCategory[];
+  categoryRules?: BudgetCategoryRule[];
 };
 
 export type BudgetMonth = {
@@ -60,8 +62,6 @@ export type BudgetMonth = {
   incomes: BudgetIncome[];
   fixeds: BudgetFixedExpense[];
   entries: BudgetLedgerEntry[];
-  customCategories?: BudgetCustomCategory[];
-  categoryRules?: BudgetCategoryRule[];
   createdAt: string;
   updatedAt: string;
   initializedFrom?: string | null;
