@@ -506,13 +506,6 @@ const BudgetExperience = () => {
     return combined;
   }, [state.customCategories]);
 
-  const categoriesByValue = useMemo(() => {
-    const map = new Map<string, CategoryOption>();
-    for (const option of availableCategories) {
-      map.set(option.value.toLowerCase(), option);
-    }
-    return map;
-  }, [availableCategories]);
 
   const memberRules = useMemo(() => {
     if (!member?.id) {
