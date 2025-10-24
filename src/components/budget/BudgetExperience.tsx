@@ -22,6 +22,7 @@ import { User, onAuthStateChanged } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -503,6 +504,7 @@ const BudgetExperience = () => {
   const [saving, setSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [invalidBudget, setInvalidBudget] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   const availableCategories = useMemo(() => {
     const seen = new Set<string>();
@@ -1090,6 +1092,7 @@ const BudgetExperience = () => {
             entries={state.entries}
             categories={availableCategories}
             categorySummaries={categorySummaries}
+            categoryFilter={categoryFilter}
             flexBudget={flexBudget}
             monthSpend={monthSpend}
             remaining={remaining}
@@ -1100,6 +1103,8 @@ const BudgetExperience = () => {
             onAssignCategory={assignCategoryToEntry}
             onCreateCategory={upsertCustomCategory}
             onCreateRule={createCategoryRule}
+            onSelectCategory={setCategoryFilter}
+            onClearCategoryFilter={() => setCategoryFilter(null)}
           />
         )}
       </div>
@@ -1398,6 +1403,7 @@ function Ledger({
   entries,
   categories,
   categorySummaries,
+  categoryFilter,
   flexBudget,
   monthSpend,
   remaining,
@@ -1408,10 +1414,13 @@ function Ledger({
   onAssignCategory,
   onCreateCategory,
   onCreateRule,
+  onSelectCategory,
+  onClearCategoryFilter,
 }: {
   entries: BudgetLedgerEntry[];
   categories: CategoryOption[];
   categorySummaries: CategorySummary[];
+  categoryFilter: string | null;
   flexBudget: number;
   monthSpend: number;
   remaining: number;
@@ -1422,11 +1431,27 @@ function Ledger({
   onAssignCategory: (entryId: string, categoryValue: string) => void;
   onCreateCategory: (label: string, emoji?: string | null) => CategoryOption | null;
   onCreateRule: (input: CategoryRuleInput) => BudgetCategoryRule | null;
+  onSelectCategory: (categoryValue: string) => void;
+  onClearCategoryFilter: () => void;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [categoryEditorEntry, setCategoryEditorEntry] =
     useState<BudgetLedgerEntry | null>(null);
+
+  const normalizedFilter = useMemo(
+    () => categoryFilter?.toLowerCase() ?? null,
+    [categoryFilter]
+  );
+
+  const visibleEntries = useMemo(() => {
+    if (!normalizedFilter) {
+      return entries;
+    }
+    return entries.filter(
+      (entry) => entry.category.toLowerCase() === normalizedFilter
+    );
+  }, [entries, normalizedFilter]);
 
   const topColor =
     progressPct < 60 ? "bg-emerald-100" : progressPct < 90 ? "bg-amber-100" : "bg-rose-100";
@@ -1455,9 +1480,18 @@ function Ledger({
           {categorySummaries.length > 0 && (
             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {categorySummaries.map((summary) => (
-                <div
+                <button
                   key={summary.value.toLowerCase()}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white/60 px-3 py-2 text-sm shadow-sm backdrop-blur"
+                  type="button"
+                  onClick={() => onSelectCategory(summary.value)}
+                  className={cn(
+                    "flex items-center justify-between rounded-full border border-slate-200 px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2",
+                    categoryFilter &&
+                      summary.value.toLowerCase() ===
+                        categoryFilter.toLowerCase()
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "bg-white/60 text-slate-700 hover:bg-slate-100"
+                  )}
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-base" aria-hidden>
@@ -1468,7 +1502,7 @@ function Ledger({
                   <span className="font-semibold">
                     {currency(summary.total)}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -1480,6 +1514,16 @@ function Ledger({
           <CardTitle className="flex items-center justify-between">
             <span>Ledger</span>
             <div className="flex items-center gap-2">
+              {categoryFilter && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onClearCategoryFilter}
+                  className="gap-1"
+                >
+                  Clear filters
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className="gap-2"
@@ -1512,7 +1556,7 @@ function Ledger({
         </CardHeader>
         <CardContent>
           <EntryList
-            entries={entries}
+            entries={visibleEntries}
             categories={categories}
             onDelete={onRemoveEntry}
             onEditCategory={(entry) => setCategoryEditorEntry(entry)}
