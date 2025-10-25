@@ -201,6 +201,12 @@ export const saveBudgetMetadata = async (
   });
 };
 
+export const listBudgetMonthKeys = async (budgetId: string) => {
+  const monthsRef = collection(db, "budgets", budgetId, "months");
+  const snapshot = await getDocs(monthsRef);
+  return snapshot.docs.map((docSnap) => docSnap.id);
+};
+
 export const listBudgetsForMember = async (memberId: string) => {
   const budgetsRef = collection(db, "budgets");
   const q = query(budgetsRef, where("memberIds", "array-contains", memberId));

@@ -56,6 +56,7 @@ import {
   ensureMemberOnBudget,
   fetchBudgetDocument,
   fetchBudgetMonth,
+  listBudgetMonthKeys,
   generateId,
   getMonthKey,
   saveBudgetMonth,
@@ -134,6 +135,25 @@ const ruleMatches = (
     default:
       return merchantLower.includes(pattern);
   }
+};
+
+const sortMonthKeys = (keys: Iterable<string>) =>
+  Array.from(new Set(keys)).sort(
+    (a, b) =>
+      new Date(`${b}-01`).getTime() - new Date(`${a}-01`).getTime()
+  );
+
+const formatMonthLabel = (monthKey: string) => {
+  const [year, month] = monthKey.split("-");
+  const parsed = new Date(
+    Number(year),
+    Number.parseInt(month, 10) - 1,
+    1
+  );
+  return parsed.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+  });
 };
 
 const formatDateParts = (date: Date, useUTC = false) => {
@@ -407,8 +427,6 @@ const sortLedgerEntries = (entries: BudgetLedgerEntry[]) =>
         normalizeDraftDate(a.date).getTime()
     );
 
-const monthKey = getMonthKey();
-
 const currency = (value: number) =>
   value.toLocaleString(undefined, { style: "currency", currency: "USD" });
 
@@ -495,6 +513,7 @@ const BudgetExperience = () => {
   const [mode, setMode] = useState<Mode>("wizard");
   const [step, setStep] = useState<WizardStep>(0);
   const [state, setState] = useState<BudgetState>(defaultState);
+  const [budgetDoc, setBudgetDoc] = useState<BudgetDocument | null>(null);
   const [monthMeta, setMonthMeta] = useState<Pick<
     BudgetMonth,
     "id" | "createdAt" | "updatedAt" | "initializedFrom"
@@ -505,6 +524,24 @@ const BudgetExperience = () => {
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [invalidBudget, setInvalidBudget] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+  const [activeMonthKey, setActiveMonthKey] = useState<string>(() =>
+    getMonthKey()
+  );
+  const initialMonthFromUrl = useRef<string | null>(null);
+  const lastUrlMonthRef = useRef<string | null>(null);
+  const lastUrlStateRef = useRef<{ id: string | null; month: string | null }>(
+    {
+      id: null,
+      month: null,
+    }
+  );
+  const lastHydrated = useRef<{ budgetId: string | null; month: string | null }>(
+    {
+      budgetId: null,
+      month: null,
+    }
+  );
 
   const availableCategories = useMemo(() => {
     const seen = new Set<string>();
@@ -757,26 +794,85 @@ const BudgetExperience = () => {
     }
   }, [user]);
 
-  // Sync budget id from search params.
+  // Sync budget id & month from search params.
   useEffect(() => {
     const param = searchParams.get("budget_id");
-    if (param) {
+    if (param && param !== budgetId) {
       setBudgetId(param);
-    } else {
-      setBudgetId(null);
     }
-  }, [searchParams]);
+    const monthParam = searchParams.get("month");
+    if (monthParam) {
+      initialMonthFromUrl.current = monthParam;
+      if (monthParam !== lastUrlMonthRef.current) {
+        lastUrlMonthRef.current = monthParam;
+        if (monthParam !== activeMonthKey) {
+          lastHydrated.current = { budgetId: param ?? budgetId, month: monthParam };
+          setActiveMonthKey(monthParam);
+        }
+      }
+    }
+    lastUrlStateRef.current = {
+      id: param ?? null,
+      month: monthParam ?? null,
+    };
+  }, [activeMonthKey, budgetId, searchParams]);
 
-  const persistBudgetIdToUrl = useCallback(
-    (id: string) => {
-      router.replace(`/budget?budget_id=${id}`);
-      setBudgetId(id);
+  const persistBudgetToUrl = useCallback(
+    (id: string, month: string) => {
+      if (
+        lastUrlStateRef.current.id === id &&
+        lastUrlStateRef.current.month === month
+      ) {
+        return;
+      }
+      lastUrlStateRef.current = { id, month };
+      const params = new URLSearchParams();
+      params.set("budget_id", id);
+      params.set("month", month);
+      router.replace(`/budget?${params.toString()}`);
     },
     [router]
   );
 
+  const handleSelectMonth = useCallback(
+    async (nextMonthKey: string) => {
+      if (!budgetId || nextMonthKey === activeMonthKey) {
+        return;
+      }
+      setLoading(true);
+      try {
+        const month = await fetchBudgetMonth(budgetId, nextMonthKey);
+        hasHydrated.current = false;
+        setState(getInitialStateFromMonth(month, budgetDoc));
+        setMonthMeta({
+          id: month.id,
+          createdAt: month.createdAt,
+          updatedAt: month.updatedAt,
+          initializedFrom: month.initializedFrom ?? null,
+        });
+        setLastSavedAt(month.updatedAt);
+        setActiveMonthKey(nextMonthKey);
+        setCategoryFilter(null);
+        setAvailableMonths((prev) => sortMonthKeys([...prev, nextMonthKey]));
+        persistBudgetToUrl(budgetId, nextMonthKey);
+        lastHydrated.current = { budgetId, month: nextMonthKey };
+        lastUrlMonthRef.current = nextMonthKey;
+        lastUrlStateRef.current = { id: budgetId, month: nextMonthKey };
+      } catch (error) {
+        console.error("Failed to switch month:", error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [activeMonthKey, budgetDoc, budgetId, persistBudgetToUrl]
+  );
+
   const hydrateBudget = useCallback(
-    async (id: string, activeMember: BudgetMember) => {
+    async (
+      id: string,
+      activeMember: BudgetMember,
+      preferredMonth?: string | null
+    ) => {
       setLoading(true);
       setInvalidBudget(false);
       try {
@@ -788,10 +884,17 @@ const BudgetExperience = () => {
         }
 
         await ensureMemberOnBudget(id, activeMember);
-        const month = await fetchBudgetMonth(id, monthKey);
+        let monthKeys = sortMonthKeys(await listBudgetMonthKeys(id));
+        const targetMonthKey = preferredMonth || getMonthKey();
+        if (!monthKeys.includes(targetMonthKey)) {
+          monthKeys = sortMonthKeys([...monthKeys, targetMonthKey]);
+        }
+        const month = await fetchBudgetMonth(id, targetMonthKey);
         hasHydrated.current = false;
-        const initial = getInitialStateFromMonth(month, doc);
-        setState(initial);
+        setBudgetDoc(doc);
+        setAvailableMonths(monthKeys);
+        setActiveMonthKey(targetMonthKey);
+        setState(getInitialStateFromMonth(month, doc));
         setMonthMeta({
           id: month.id,
           createdAt: month.createdAt,
@@ -800,6 +903,8 @@ const BudgetExperience = () => {
         });
         setLastSavedAt(month.updatedAt);
         setMode(month.entries.length ? "ledger" : "wizard");
+        persistBudgetToUrl(id, targetMonthKey);
+        lastHydrated.current = { budgetId: id, month: targetMonthKey };
       } catch (error) {
         console.error("Failed to load budget:", error);
         setInvalidBudget(true);
@@ -807,7 +912,7 @@ const BudgetExperience = () => {
         setLoading(false);
       }
     },
-    []
+    [persistBudgetToUrl]
   );
 
   // Initialize budget if not specified.
@@ -816,14 +921,33 @@ const BudgetExperience = () => {
       if (!member) {
         return;
       }
+      const preferredMonth = initialMonthFromUrl.current ?? activeMonthKey;
+
+      if (
+        budgetId &&
+        lastHydrated.current.budgetId === budgetId &&
+        lastHydrated.current.month === preferredMonth
+      ) {
+        return;
+      }
+
       if (budgetId) {
-        await hydrateBudget(budgetId, member);
+        await hydrateBudget(budgetId, member, preferredMonth);
+        initialMonthFromUrl.current = null;
+        lastUrlMonthRef.current = preferredMonth ?? lastUrlMonthRef.current;
+        lastUrlStateRef.current = { id: budgetId, month: preferredMonth ?? null };
         return;
       }
 
       // No budget id: create a fresh budget bound to this member.
       const newBudgetId = await createBudgetDocument(member);
-      persistBudgetIdToUrl(newBudgetId);
+      const initialMonth = getMonthKey();
+      setBudgetId(newBudgetId);
+      setActiveMonthKey(initialMonth);
+      initialMonthFromUrl.current = initialMonth;
+      persistBudgetToUrl(newBudgetId, initialMonth);
+      await hydrateBudget(newBudgetId, member, initialMonth);
+      initialMonthFromUrl.current = null;
     };
 
     bootstrap().catch((error) => {
@@ -831,7 +955,7 @@ const BudgetExperience = () => {
       setInvalidBudget(true);
       setLoading(false);
     });
-  }, [budgetId, hydrateBudget, member, persistBudgetIdToUrl]);
+  }, [activeMonthKey, budgetId, hydrateBudget, member, persistBudgetToUrl]);
 
   // Save changes whenever state updates.
   useEffect(() => {
@@ -870,6 +994,16 @@ const BudgetExperience = () => {
           if (!cancelled) {
             setSaving(false);
             setLastSavedAt(updatedAt);
+            setBudgetDoc((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    customCategories: metadataPayload.customCategories,
+                    categoryRules: metadataPayload.categoryRules,
+                    updatedAt,
+                  }
+                : prev
+            );
           }
         })
         .catch((error) => {
@@ -970,26 +1104,29 @@ const BudgetExperience = () => {
     }));
   };
 
-  const createEntryFromDraft = (draft: LedgerEntryDraft): BudgetLedgerEntry | null => {
-    const adjusted = applyCategoryRulesToDraft(draft);
-    const amount = Number(adjusted.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return null;
-    }
-    const source = adjusted.merchant?.trim();
-    const safeDate = normalizeDraftDate(adjusted.date);
-    const categoryValue = normaliseCategory(
-      adjusted.category,
-      availableCategories
-    );
-    return {
-      id: generateId(),
-      amount,
-      category: categoryValue,
-      merchant: source ? source : undefined,
-      date: safeDate.toISOString(),
-    };
-  };
+  const createEntryFromDraft = useCallback(
+    (draft: LedgerEntryDraft): BudgetLedgerEntry | null => {
+      const adjusted = applyCategoryRulesToDraft(draft);
+      const amount = Number(adjusted.amount);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return null;
+      }
+      const source = adjusted.merchant?.trim();
+      const safeDate = normalizeDraftDate(adjusted.date);
+      const categoryValue = normaliseCategory(
+        adjusted.category,
+        availableCategories
+      );
+      return {
+        id: generateId(),
+        amount,
+        category: categoryValue,
+        merchant: source ? source : undefined,
+        date: safeDate.toISOString(),
+      };
+    },
+    [applyCategoryRulesToDraft, availableCategories]
+  );
 
   const handleAddEntry = (draft: LedgerEntryDraft) => {
     const entry = createEntryFromDraft(draft);
@@ -1003,19 +1140,121 @@ const BudgetExperience = () => {
     setMode("ledger");
   };
 
-  const handleImportEntries = (drafts: LedgerEntryDraft[]) => {
-    const newEntries = drafts
-      .map(createEntryFromDraft)
-      .filter((entry): entry is BudgetLedgerEntry => Boolean(entry));
-    if (!newEntries.length) {
+  const handleImportEntries = useCallback(
+    async (drafts: LedgerEntryDraft[]) => {
+      if (!budgetId) {
+        return;
+      }
+
+      const grouped = drafts.reduce<Map<string, LedgerEntryDraft[]>>(
+        (acc, draft) => {
+          const monthKey = draft.date
+            ? getMonthKey(new Date(draft.date))
+            : activeMonthKey;
+          const list = acc.get(monthKey) ?? [];
+          list.push(draft);
+          acc.set(monthKey, list);
+          return acc;
+        },
+        new Map()
+      );
+
+      if (!grouped.size) {
+        return;
+      }
+
+      const nowIso = new Date().toISOString();
+      const monthKeysInImport: string[] = [];
+
+      for (const [monthKey, monthDrafts] of grouped.entries()) {
+        const entriesToAppend = monthDrafts
+          .map(createEntryFromDraft)
+          .filter((entry): entry is BudgetLedgerEntry => Boolean(entry));
+
+        if (!entriesToAppend.length) {
+          continue;
+        }
+
+        const existingMonth = await fetchBudgetMonth(budgetId, monthKey);
+        const mergedEntries = sortLedgerEntries([
+          ...entriesToAppend,
+          ...(existingMonth.entries ?? []),
+        ]);
+
+        const payload: BudgetMonth = {
+          ...existingMonth,
+          entries: mergedEntries,
+          updatedAt: nowIso,
+        };
+
+        await saveBudgetMonth(budgetId, payload);
+
+        if (monthKey === activeMonthKey) {
+          setState((prev) => ({
+            ...prev,
+            entries: mergedEntries,
+          }));
+          setMonthMeta({
+            id: payload.id,
+            createdAt: payload.createdAt,
+            updatedAt: payload.updatedAt,
+            initializedFrom: payload.initializedFrom ?? null,
+          });
+          setLastSavedAt(payload.updatedAt);
+          setCategoryFilter(null);
+          setMode("ledger");
+          lastHydrated.current = { budgetId, month: monthKey };
+        } else {
+          monthKeysInImport.push(monthKey);
+        }
+      }
+
+      if (monthKeysInImport.length) {
+        setAvailableMonths((prev) =>
+          sortMonthKeys([...prev, ...monthKeysInImport])
+        );
+      }
+
+      // Ensure currently active month remains in the URL metadata after import
+      if (budgetId && activeMonthKey) {
+        persistBudgetToUrl(budgetId, activeMonthKey);
+      }
+    },
+    [activeMonthKey, budgetId, createEntryFromDraft, persistBudgetToUrl]
+  );
+
+  const handleDeleteAllEntries = useCallback(async () => {
+    if (!budgetId || !activeMonthKey) {
       return;
     }
-    setState((prev) => ({
-      ...prev,
-      entries: sortLedgerEntries([...newEntries, ...prev.entries]),
-    }));
-    setMode("ledger");
-  };
+    setLoading(true);
+    try {
+      const month = await fetchBudgetMonth(budgetId, activeMonthKey);
+      const payload: BudgetMonth = {
+        ...month,
+        entries: [],
+        updatedAt: new Date().toISOString(),
+      };
+      await saveBudgetMonth(budgetId, payload);
+      setState((prev) => ({
+        ...prev,
+        entries: [],
+      }));
+      setMonthMeta({
+        id: payload.id,
+        createdAt: payload.createdAt,
+        updatedAt: payload.updatedAt,
+        initializedFrom: payload.initializedFrom ?? null,
+      });
+      setLastSavedAt(payload.updatedAt);
+      setCategoryFilter(null);
+      lastHydrated.current = { budgetId, month: activeMonthKey };
+    } catch (error) {
+      console.error("Failed to delete entries:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeMonthKey, budgetId]);
 
   const handleRemoveEntry = (entryId: string) => {
     setState((prev) => ({
@@ -1047,7 +1286,11 @@ const BudgetExperience = () => {
           onClick={async () => {
             if (!member) return;
             const newBudgetId = await createBudgetDocument(member);
-            persistBudgetIdToUrl(newBudgetId);
+            const initialMonth = getMonthKey();
+            setBudgetId(newBudgetId);
+            setActiveMonthKey(initialMonth);
+            persistBudgetToUrl(newBudgetId, initialMonth);
+            await hydrateBudget(newBudgetId, member, initialMonth);
           }}
         >
           Create new budget
@@ -1066,10 +1309,34 @@ const BudgetExperience = () => {
           lastSavedAt={lastSavedAt}
           shareLink={
             budgetId && isClient()
-              ? `${window.location.origin}/budget?budget_id=${budgetId}`
+              ? `${window.location.origin}/budget?budget_id=${budgetId}&month=${activeMonthKey}`
               : null
           }
         />
+        {mode === "ledger" && availableMonths.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Label className="text-slate-600">Month</Label>
+              <Select
+                value={activeMonthKey}
+                onValueChange={(value) => {
+                  void handleSelectMonth(value);
+                }}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Select a month" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableMonths.map((monthKey) => (
+                    <SelectItem key={monthKey} value={monthKey}>
+                      {formatMonthLabel(monthKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
         {mode === "wizard" ? (
           <Wizard
             step={step}
@@ -1105,6 +1372,7 @@ const BudgetExperience = () => {
             onCreateRule={createCategoryRule}
             onSelectCategory={setCategoryFilter}
             onClearCategoryFilter={() => setCategoryFilter(null)}
+            onDeleteAllEntries={handleDeleteAllEntries}
           />
         )}
       </div>
@@ -1416,6 +1684,7 @@ function Ledger({
   onCreateRule,
   onSelectCategory,
   onClearCategoryFilter,
+  onDeleteAllEntries,
 }: {
   entries: BudgetLedgerEntry[];
   categories: CategoryOption[];
@@ -1427,12 +1696,13 @@ function Ledger({
   progressPct: number;
   onAddEntry: (entry: LedgerEntryDraft) => void;
   onRemoveEntry: (id: string) => void;
-  onImportEntries: (entries: LedgerEntryDraft[]) => void;
+  onImportEntries: (entries: LedgerEntryDraft[]) => Promise<void> | void;
   onAssignCategory: (entryId: string, categoryValue: string) => void;
   onCreateCategory: (label: string, emoji?: string | null) => CategoryOption | null;
   onCreateRule: (input: CategoryRuleInput) => BudgetCategoryRule | null;
   onSelectCategory: (categoryValue: string) => void;
   onClearCategoryFilter: () => void;
+  onDeleteAllEntries: () => Promise<void> | void;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -1525,6 +1795,22 @@ function Ledger({
                 </Button>
               )}
               <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Delete all expenses for this month? This cannot be undone."
+                    )
+                  ) {
+                    void onDeleteAllEntries();
+                  }
+                }}
+                className="gap-1"
+              >
+                <Trash2 className="h-4 w-4" /> Delete all
+              </Button>
+              <Button
                 variant="outline"
                 className="gap-2"
                 onClick={() => setShowImport(true)}
@@ -1565,8 +1851,8 @@ function Ledger({
         <ImportExpenses
           open={showImport}
           onOpenChange={setShowImport}
-          onImport={(drafts) => {
-            onImportEntries(drafts);
+          onImport={async (drafts) => {
+            await onImportEntries(drafts);
             setShowImport(false);
           }}
         />
@@ -2010,7 +2296,7 @@ function ImportExpenses({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImport: (entries: LedgerEntryDraft[]) => void;
+  onImport: (entries: LedgerEntryDraft[]) => Promise<void> | void;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -2106,7 +2392,7 @@ function ImportExpenses({
     }
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!headers.length || !rows.length) {
       setError("Upload a CSV or Excel file before importing.");
       return;
@@ -2115,6 +2401,7 @@ function ImportExpenses({
       setError("Map amount, description, and category before importing.");
       return;
     }
+    setLoading(true);
     const amountIndex = headers.indexOf(mapping.amount);
     const descriptionIndex = headers.indexOf(mapping.description);
     const categoryIndex = headers.indexOf(mapping.category);
@@ -2155,12 +2442,24 @@ function ImportExpenses({
 
     if (!drafts.length) {
       setError("No rows were importable. Check your column mapping.");
+      setLoading(false);
       return;
     }
 
-    onImport(drafts);
-    onOpenChange(false);
-    resetState();
+    try {
+      await onImport(drafts);
+      onOpenChange(false);
+      resetState();
+    } catch (err) {
+      console.error("Failed to import entries:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while importing."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const previewRows = rows.slice(0, 5);
@@ -2330,7 +2629,12 @@ function ImportExpenses({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleImport} disabled={loading || !headers.length}>
+          <Button
+            onClick={() => {
+              void handleImport();
+            }}
+            disabled={loading || !headers.length}
+          >
             {loading ? "Processing…" : "Import transactions"}
           </Button>
         </DialogFooter>
