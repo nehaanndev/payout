@@ -57,12 +57,12 @@ import {
   fetchBudgetDocument,
   fetchBudgetMonth,
   listBudgetMonthKeys,
-  generateId,
   getMonthKey,
   saveBudgetMonth,
   saveBudgetMetadata,
 } from "@/lib/budgetService";
 import { auth } from "@/lib/firebase";
+import { generateId } from "@/lib/id";
 import {
   BudgetDocument,
   BudgetCategoryRule,

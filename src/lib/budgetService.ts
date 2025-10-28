@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "./firebase";
+import { generateId } from "./id";
 import {
   BudgetCategoryRule,
   BudgetCustomCategory,
@@ -23,13 +24,6 @@ import {
 } from "@/types/budget";
 
 export const GENERIC_BUDGET_TITLE = "Household Budget";
-
-export const generateId = () => {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).slice(2, 10);
-};
 
 export const getMonthKey = (date = new Date()) => {
   const year = date.getFullYear();
