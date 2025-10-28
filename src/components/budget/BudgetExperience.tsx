@@ -76,7 +76,7 @@ import {
 
 type Mode = "wizard" | "ledger";
 
-type WizardStep = 0 | 1 | 2;
+type WizardStep = 0 | 1 | 2 | 3;
 
 type BudgetState = {
   incomes: BudgetIncome[];
@@ -84,6 +84,7 @@ type BudgetState = {
   entries: BudgetLedgerEntry[];
   customCategories: BudgetCustomCategory[];
   categoryRules: BudgetCategoryRule[];
+  savingsTarget: number;
 };
 
 type LedgerEntryDraft = {
@@ -116,6 +117,16 @@ type CategorySummary = {
   label: string;
   emoji?: string | null;
   total: number;
+};
+
+type PaceStats = {
+  daysOnPace: number;
+  currentStreak: number;
+  bestStreak: number;
+  evaluationEndDay: number;
+  daysInMonth: number;
+  onPaceToday: boolean;
+  projectedMonthlySpend: number;
 };
 
 const ruleMatches = (
@@ -154,6 +165,20 @@ const formatMonthLabel = (monthKey: string) => {
     year: "numeric",
     month: "long",
   });
+};
+
+const parseMonthKey = (monthKey: string | null | undefined) => {
+  if (!monthKey) {
+    return null;
+  }
+  const [yearStr, monthStr] = monthKey.split("-");
+  const year = Number(yearStr);
+  const monthIndex = Number(monthStr) - 1;
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex)) {
+    return null;
+  }
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  return { year, monthIndex, daysInMonth };
 };
 
 const formatDateParts = (date: Date, useUTC = false) => {
@@ -462,6 +487,7 @@ const defaultState = (): BudgetState => ({
   ]),
   customCategories: [],
   categoryRules: [],
+  savingsTarget: 0,
 });
 
 const isClient = () => typeof window !== "undefined";
@@ -489,19 +515,6 @@ const getLocalMember = (): BudgetMember => {
   window.localStorage.setItem("toodl_budget_member", JSON.stringify(member));
   return member;
 };
-
-const getInitialStateFromMonth = (
-  month: BudgetMonth,
-  doc: BudgetDocument | null
-): BudgetState => ({
-  incomes: month.incomes.length ? month.incomes : defaultState().incomes,
-  fixeds: month.fixeds.length ? month.fixeds : defaultState().fixeds,
-  entries: sortLedgerEntries(month.entries || []),
-  customCategories: doc?.customCategories
-    ? [...doc.customCategories]
-    : [],
-  categoryRules: doc?.categoryRules ? [...doc.categoryRules] : [],
-});
 
 const BudgetExperience = () => {
   const router = useRouter();
@@ -604,6 +617,38 @@ const BudgetExperience = () => {
       return draft;
     },
     [memberRules]
+  );
+
+  const applyCategoryRulesToEntry = useCallback(
+    (entry: BudgetLedgerEntry): BudgetLedgerEntry => {
+      if (!memberRules.length) {
+        return entry;
+      }
+      for (const rule of memberRules) {
+        if (ruleMatches(rule, entry.merchant)) {
+          return {
+            ...entry,
+            category: normaliseCategory(rule.categoryValue, availableCategories),
+          };
+        }
+      }
+      return entry;
+    },
+    [availableCategories, memberRules]
+  );
+
+  const deriveStateFromMonth = useCallback(
+    (month: BudgetMonth, doc: BudgetDocument | null): BudgetState => ({
+      incomes: month.incomes.length ? month.incomes : defaultState().incomes,
+      fixeds: month.fixeds.length ? month.fixeds : defaultState().fixeds,
+      entries: sortLedgerEntries(
+        (month.entries ?? []).map(applyCategoryRulesToEntry)
+      ),
+      customCategories: doc?.customCategories ? [...doc.customCategories] : [],
+      categoryRules: doc?.categoryRules ? [...doc.categoryRules] : [],
+      savingsTarget: month.savingsTarget ?? 0,
+    }),
+    [applyCategoryRulesToEntry]
   );
 
   const categorySummaries = useMemo(() => {
@@ -843,7 +888,12 @@ const BudgetExperience = () => {
       try {
         const month = await fetchBudgetMonth(budgetId, nextMonthKey);
         hasHydrated.current = false;
-        setState(getInitialStateFromMonth(month, budgetDoc));
+        setState(
+          deriveStateFromMonth(
+            { ...month, savingsTarget: month.savingsTarget ?? 0 },
+            budgetDoc
+          )
+        );
         setMonthMeta({
           id: month.id,
           createdAt: month.createdAt,
@@ -864,7 +914,7 @@ const BudgetExperience = () => {
         setLoading(false);
       }
     },
-    [activeMonthKey, budgetDoc, budgetId, persistBudgetToUrl]
+    [activeMonthKey, budgetDoc, budgetId, deriveStateFromMonth, persistBudgetToUrl]
   );
 
   const hydrateBudget = useCallback(
@@ -894,7 +944,7 @@ const BudgetExperience = () => {
         setBudgetDoc(doc);
         setAvailableMonths(monthKeys);
         setActiveMonthKey(targetMonthKey);
-        setState(getInitialStateFromMonth(month, doc));
+        setState(deriveStateFromMonth(month, doc));
         setMonthMeta({
           id: month.id,
           createdAt: month.createdAt,
@@ -912,7 +962,7 @@ const BudgetExperience = () => {
         setLoading(false);
       }
     },
-    [persistBudgetToUrl]
+    [deriveStateFromMonth, persistBudgetToUrl]
   );
 
   // Initialize budget if not specified.
@@ -973,6 +1023,7 @@ const BudgetExperience = () => {
       incomes: state.incomes,
       fixeds: state.fixeds,
       entries: state.entries,
+      savingsTarget: state.savingsTarget,
       createdAt: monthMeta.createdAt,
       updatedAt,
       initializedFrom: monthMeta.initializedFrom ?? null,
@@ -1026,6 +1077,7 @@ const BudgetExperience = () => {
     state.incomes,
     state.customCategories,
     state.categoryRules,
+    state.savingsTarget,
   ]);
 
   const totalIncome = useMemo(
@@ -1041,7 +1093,87 @@ const BudgetExperience = () => {
     [state.fixeds]
   );
 
-  const flexBudget = Math.max(0, totalIncome - totalFixed);
+  const savingsTarget = state.savingsTarget || 0;
+  const flexBudget = Math.max(0, totalIncome - totalFixed - savingsTarget);
+
+  const paceStats = useMemo<PaceStats>(() => {
+    const monthDetails = parseMonthKey(activeMonthKey);
+    if (!monthDetails) {
+      return {
+        daysOnPace: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        evaluationEndDay: 0,
+        daysInMonth: 0,
+        onPaceToday: true,
+        projectedMonthlySpend: 0,
+      };
+    }
+    const { year, monthIndex, daysInMonth } = monthDetails;
+    const today = new Date();
+    const firstOfMonth = new Date(year, monthIndex, 1);
+    let evaluationEndDay = daysInMonth;
+    if (today.getFullYear() === year && today.getMonth() === monthIndex) {
+      evaluationEndDay = today.getDate();
+    } else if (today < firstOfMonth) {
+      evaluationEndDay = 0;
+    }
+
+    const dailyTotals = new Array(daysInMonth).fill(0);
+    state.entries.forEach((entry) => {
+      const entryDate = normalizeDraftDate(entry.date);
+      if (
+        entryDate.getFullYear() === year &&
+        entryDate.getMonth() === monthIndex
+      ) {
+        const day = entryDate.getDate();
+        if (day >= 1 && day <= daysInMonth) {
+          dailyTotals[day - 1] += entry.amount;
+        }
+      }
+    });
+
+    let cumulative = 0;
+    let daysOnPace = 0;
+    let runningStreak = 0;
+    let bestStreak = 0;
+    let currentStreak = 0;
+    let onPaceToday = true;
+
+    for (let day = 1; day <= evaluationEndDay; day++) {
+      cumulative += dailyTotals[day - 1];
+      const allowed = flexBudget * (day / daysInMonth);
+      const onPace = cumulative <= allowed + 0.01;
+
+      if (onPace) {
+        daysOnPace += 1;
+        runningStreak += 1;
+        if (runningStreak > bestStreak) {
+          bestStreak = runningStreak;
+        }
+      } else {
+        runningStreak = 0;
+      }
+
+      if (day === evaluationEndDay) {
+        onPaceToday = onPace;
+        currentStreak = runningStreak;
+      }
+    }
+
+    const averageDailySpend = evaluationEndDay > 0 ? cumulative / evaluationEndDay : 0;
+    const projectedMonthlySpend = averageDailySpend * daysInMonth;
+
+    return {
+      daysOnPace,
+      currentStreak,
+      bestStreak: Math.max(bestStreak, currentStreak),
+      evaluationEndDay,
+      daysInMonth,
+      onPaceToday,
+      projectedMonthlySpend,
+    };
+  }, [activeMonthKey, flexBudget, state.entries]);
 
   const monthSpend = useMemo(
     () => state.entries.reduce((sum, entry) => sum + entry.amount, 0),
@@ -1140,6 +1272,13 @@ const BudgetExperience = () => {
     setMode("ledger");
   };
 
+  const updateSavingsTarget = (value: number) => {
+    setState((prev) => ({
+      ...prev,
+      savingsTarget: Math.max(0, value),
+    }));
+  };
+
   const handleImportEntries = useCallback(
     async (drafts: LedgerEntryDraft[]) => {
       if (!budgetId) {
@@ -1176,24 +1315,23 @@ const BudgetExperience = () => {
         }
 
         const existingMonth = await fetchBudgetMonth(budgetId, monthKey);
-        const mergedEntries = sortLedgerEntries([
-          ...entriesToAppend,
-          ...(existingMonth.entries ?? []),
-        ]);
+        const mergedEntries = sortLedgerEntries(
+          [...entriesToAppend, ...(existingMonth.entries ?? [])].map(
+            applyCategoryRulesToEntry
+          )
+        );
 
         const payload: BudgetMonth = {
           ...existingMonth,
           entries: mergedEntries,
           updatedAt: nowIso,
+          savingsTarget: existingMonth.savingsTarget ?? state.savingsTarget,
         };
 
         await saveBudgetMonth(budgetId, payload);
 
         if (monthKey === activeMonthKey) {
-          setState((prev) => ({
-            ...prev,
-            entries: mergedEntries,
-          }));
+          setState(deriveStateFromMonth(payload, budgetDoc));
           setMonthMeta({
             id: payload.id,
             createdAt: payload.createdAt,
@@ -1220,7 +1358,16 @@ const BudgetExperience = () => {
         persistBudgetToUrl(budgetId, activeMonthKey);
       }
     },
-    [activeMonthKey, budgetId, createEntryFromDraft, persistBudgetToUrl]
+    [
+      activeMonthKey,
+      applyCategoryRulesToEntry,
+      budgetDoc,
+      budgetId,
+      createEntryFromDraft,
+      deriveStateFromMonth,
+      persistBudgetToUrl,
+      state.savingsTarget,
+    ]
   );
 
   const handleDeleteAllEntries = useCallback(async () => {
@@ -1234,12 +1381,10 @@ const BudgetExperience = () => {
         ...month,
         entries: [],
         updatedAt: new Date().toISOString(),
+        savingsTarget: month.savingsTarget ?? state.savingsTarget,
       };
       await saveBudgetMonth(budgetId, payload);
-      setState((prev) => ({
-        ...prev,
-        entries: [],
-      }));
+      setState(deriveStateFromMonth(payload, budgetDoc));
       setMonthMeta({
         id: payload.id,
         createdAt: payload.createdAt,
@@ -1254,7 +1399,7 @@ const BudgetExperience = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeMonthKey, budgetId]);
+  }, [activeMonthKey, budgetDoc, budgetId, deriveStateFromMonth, state.savingsTarget]);
 
   const handleRemoveEntry = (entryId: string) => {
     setState((prev) => ({
@@ -1351,6 +1496,8 @@ const BudgetExperience = () => {
             addFixed={addFixed}
             totalIncome={totalIncome}
             totalFixed={totalFixed}
+            savingsTarget={state.savingsTarget}
+            setSavingsTarget={updateSavingsTarget}
             flexBudget={flexBudget}
             onFinish={() => setMode("ledger")}
           />
@@ -1373,6 +1520,8 @@ const BudgetExperience = () => {
             onSelectCategory={setCategoryFilter}
             onClearCategoryFilter={() => setCategoryFilter(null)}
             onDeleteAllEntries={handleDeleteAllEntries}
+            savingsTarget={state.savingsTarget}
+            paceStats={paceStats}
           />
         )}
       </div>
@@ -1450,6 +1599,8 @@ function Wizard({
   addFixed,
   totalIncome,
   totalFixed,
+  savingsTarget,
+  setSavingsTarget,
   flexBudget,
   onFinish,
 }: {
@@ -1465,10 +1616,14 @@ function Wizard({
   addFixed: () => void;
   totalIncome: number;
   totalFixed: number;
+  savingsTarget: number;
+  setSavingsTarget: (value: number) => void;
   flexBudget: number;
   onFinish: () => void;
 }) {
-  const progress = ((step + 1) / 3) * 100;
+  const progress = ((step + 1) / 4) * 100;
+  const remainingAfterBills = Math.max(0, totalIncome - totalFixed);
+  const projectedLeftover = Math.max(0, flexBudget);
 
   return (
     <Card className="border-slate-200">
@@ -1619,6 +1774,9 @@ function Wizard({
               <span>Fixed costs:</span>
               <span className="font-semibold">{currency(totalFixed)}</span>
             </div>
+            <p className="text-sm text-slate-500">
+              That leaves {currency(remainingAfterBills)} before savings.
+            </p>
             <div className="flex items-center justify-between">
               <Button
                 variant="ghost"
@@ -1636,19 +1794,30 @@ function Wizard({
 
         {step === 2 && (
           <div className="space-y-6">
-            <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-6">
-              <div className="text-sm text-slate-600">
-                Based on what you entered
-              </div>
-              <div className="mt-2 text-2xl font-semibold">
-                You have {currency(flexBudget)} to spend this month
-              </div>
-              <div className="mt-1 text-sm text-slate-500">
-                We’ll track this as your flexible budget.
-              </div>
-              <div className="mt-4">
-                <Progress value={100} />
-              </div>
+            <div>
+              <h3 className="text-lg font-medium">Target savings</h3>
+              <p className="text-sm text-slate-500">
+                Set how much you want to save before spending.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="savings-target-input">Monthly savings goal</Label>
+              <Input
+                id="savings-target-input"
+                type="number"
+                min={0}
+                value={savingsTarget}
+                onChange={(event) =>
+                  setSavingsTarget(Number(event.target.value) || 0)
+                }
+                placeholder="0.00"
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-xl bg-slate-50 p-3 text-sm">
+              <span>Total savings target:</span>
+              <span className="font-semibold">
+                {currency(Math.max(0, savingsTarget))}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <Button
@@ -1658,7 +1827,54 @@ function Wizard({
               >
                 <ArrowLeft className="h-4 w-4" /> Back
               </Button>
-              <Button onClick={onFinish}>Continue to Ledger</Button>
+              <Button onClick={() => setStep(3)} className="gap-1">
+                Continue <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-6">
+              <div className="text-sm text-slate-600">
+                Based on what you entered
+              </div>
+              <div className="mt-2 text-2xl font-semibold">
+                You have {currency(flexBudget)} to spend this month
+              </div>
+              <div className="mt-1 text-sm text-slate-500">
+                After bills and savings, this is your flexible budget.
+              </div>
+              <div className="mt-4 space-y-2 text-sm text-slate-600">
+                <div className="flex items-center justify-between">
+                  <span>Total income</span>
+                  <span className="font-semibold">{currency(totalIncome)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Fixed costs</span>
+                  <span className="font-semibold">- {currency(totalFixed)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Savings target</span>
+                  <span className="font-semibold">- {currency(Math.max(0, savingsTarget))}</span>
+                </div>
+                <hr className="border-slate-200" />
+                <div className="flex items-center justify-between text-base font-semibold text-emerald-700">
+                  <span>Flexible spending</span>
+                  <span>{currency(projectedLeftover)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <Button
+                variant="ghost"
+                onClick={() => setStep(2)}
+                className="gap-1"
+              >
+                <ArrowLeft className="h-4 w-4" /> Back
+              </Button>
+              <Button onClick={onFinish}>Finish & view ledger</Button>
             </div>
           </div>
         )}
@@ -1685,6 +1901,8 @@ function Ledger({
   onSelectCategory,
   onClearCategoryFilter,
   onDeleteAllEntries,
+  savingsTarget,
+  paceStats,
 }: {
   entries: BudgetLedgerEntry[];
   categories: CategoryOption[];
@@ -1703,11 +1921,23 @@ function Ledger({
   onSelectCategory: (categoryValue: string) => void;
   onClearCategoryFilter: () => void;
   onDeleteAllEntries: () => Promise<void> | void;
+  savingsTarget: number;
+  paceStats: PaceStats;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [categoryEditorEntry, setCategoryEditorEntry] =
     useState<BudgetLedgerEntry | null>(null);
+
+  const {
+    daysOnPace,
+    currentStreak,
+    bestStreak,
+    evaluationEndDay,
+    daysInMonth,
+    onPaceToday,
+    projectedMonthlySpend,
+  } = paceStats;
 
   const normalizedFilter = useMemo(
     () => categoryFilter?.toLowerCase() ?? null,
@@ -1745,35 +1975,129 @@ function Ledger({
               <div className="mt-1 text-xs text-slate-500">
                 Spent {currency(monthSpend)} ({progressPct}%)
               </div>
+              <div className="text-xs text-slate-500">
+                Savings goal: {currency(Math.max(0, savingsTarget))}
+              </div>
+              {evaluationEndDay > 0 && evaluationEndDay < daysInMonth && (
+                <div className="text-xs text-slate-500">
+                  Projected spend: {currency(projectedMonthlySpend)}
+                </div>
+              )}
             </div>
           </div>
+          {evaluationEndDay > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2 shadow-sm">
+                <span className="text-lg">📅</span>
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-slate-500">
+                    Days on pace
+                  </div>
+                  <div className="text-sm font-semibold text-slate-900">
+                    {daysOnPace} / {evaluationEndDay}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2 shadow-sm">
+                <span className="text-lg">🔥</span>
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-slate-500">
+                    Current streak
+                  </div>
+                  <div className="text-sm font-semibold text-slate-900">
+                    {currentStreak} day{currentStreak === 1 ? "" : "s"}
+                    <span className="ml-2 text-xs text-slate-500">
+                      Best {bestStreak}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div
+                className={cn(
+                  "flex items-center gap-2 rounded-xl px-3 py-2 shadow-sm",
+                  onPaceToday
+                    ? "border border-emerald-300 bg-emerald-50 text-emerald-700"
+                    : "border border-rose-300 bg-rose-50 text-rose-700"
+                )}
+              >
+                <span className="text-lg">
+                  {onPaceToday ? "🎯" : "⚠️"}
+                </span>
+                <div>
+                  <div className="text-xs uppercase tracking-wide">
+                    {onPaceToday ? "On pace" : "Above pace"}
+                  </div>
+                  <div className="text-xs">
+                    {onPaceToday
+                      ? "Nice work! Keep protecting the streak."
+                      : "Spend a little less tomorrow to recover."}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {categorySummaries.length > 0 && (
             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {categorySummaries.map((summary) => (
-                <button
-                  key={summary.value.toLowerCase()}
-                  type="button"
-                  onClick={() => onSelectCategory(summary.value)}
-                  className={cn(
-                    "flex items-center justify-between rounded-full border border-slate-200 px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2",
-                    categoryFilter &&
-                      summary.value.toLowerCase() ===
-                        categoryFilter.toLowerCase()
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "bg-white/60 text-slate-700 hover:bg-slate-100"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-base" aria-hidden>
-                      {summary.emoji ?? "🏷️"}
+              {categorySummaries.map((summary) => {
+                const normalizedValue = summary.value.toLowerCase();
+                const categoryMatch = categories.find(
+                  (category) => category.value.toLowerCase() === normalizedValue
+                );
+                const isActive =
+                  categoryFilter &&
+                  normalizedValue === categoryFilter.toLowerCase();
+                const representativeEntry = entries.find(
+                  (entry) => entry.category.toLowerCase() === normalizedValue
+                );
+                const handlePillClick = () => onSelectCategory(summary.value);
+                const handleIconClick = (
+                  event: React.MouseEvent<HTMLSpanElement>
+                ) => {
+                  if (categoryMatch) {
+                    return;
+                  }
+                  event.stopPropagation();
+                  if (representativeEntry) {
+                    setCategoryEditorEntry(representativeEntry);
+                  }
+                };
+                return (
+                  <button
+                    key={normalizedValue}
+                    type="button"
+                    onClick={handlePillClick}
+                    className={cn(
+                      "flex items-center justify-between rounded-full border border-slate-200 px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2",
+                      isActive
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "bg-white/60 text-slate-700 hover:bg-slate-100"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="text-base focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+                        aria-label="Reassign category"
+                        onClick={handleIconClick}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            handleIconClick(
+                              event as unknown as React.MouseEvent<HTMLSpanElement>
+                            );
+                          }
+                        }}
+                      >
+                        {summary.emoji ?? "🏷️"}
+                      </span>
+                      <span className="font-medium">{summary.label}</span>
+                    </div>
+                    <span className="font-semibold">
+                      {currency(summary.total)}
                     </span>
-                    <span className="font-medium">{summary.label}</span>
-                  </div>
-                  <span className="font-semibold">
-                    {currency(summary.total)}
-                  </span>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
         </CardContent>

@@ -62,6 +62,7 @@ export type BudgetMonth = {
   incomes: BudgetIncome[];
   fixeds: BudgetFixedExpense[];
   entries: BudgetLedgerEntry[];
+  savingsTarget?: number;
   createdAt: string;
   updatedAt: string;
   initializedFrom?: string | null;
