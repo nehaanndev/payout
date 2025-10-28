@@ -1,6 +1,9 @@
+import { BackToHomeLink } from "@/components/back-to-home-link";
+
 export default function FAQPage() {
     return (
       <main className="max-w-3xl mx-auto px-6 py-16 text-sm leading-7 text-gray-800">
+        <BackToHomeLink className="mb-6" />
         <h1 className="text-2xl font-bold mb-8">Frequently Asked Questions</h1>
   
         <section className="mb-8">
