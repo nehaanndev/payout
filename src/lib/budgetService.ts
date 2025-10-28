@@ -21,6 +21,7 @@ import {
   BudgetIncome,
   BudgetMember,
   BudgetMonth,
+  BudgetGoal,
 } from "@/types/budget";
 
 export const GENERIC_BUDGET_TITLE = "Household Budget";
@@ -53,6 +54,7 @@ export const createBudgetDocument = async (member?: BudgetMember) => {
     updatedAt: nowIso,
     customCategories: [],
     categoryRules: [],
+    goals: [],
   };
 
   await setDoc(budgetRef, {
@@ -185,6 +187,7 @@ export const saveBudgetMetadata = async (
   metadata: {
     customCategories: BudgetCustomCategory[];
     categoryRules: BudgetCategoryRule[];
+    goals: BudgetGoal[];
     updatedAt: string;
   }
 ) => {
@@ -192,6 +195,7 @@ export const saveBudgetMetadata = async (
   await updateDoc(ref, {
     customCategories: metadata.customCategories,
     categoryRules: metadata.categoryRules,
+    goals: metadata.goals,
     updatedAt: metadata.updatedAt,
     serverUpdatedAt: serverTimestamp(),
   });

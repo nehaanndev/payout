@@ -72,6 +72,7 @@ import {
   BudgetLedgerEntry,
   BudgetMember,
   BudgetMonth,
+  BudgetGoal,
 } from "@/types/budget";
 
 type Mode = "wizard" | "ledger";
@@ -85,6 +86,7 @@ type BudgetState = {
   customCategories: BudgetCustomCategory[];
   categoryRules: BudgetCategoryRule[];
   savingsTarget: number;
+  goals: BudgetGoal[];
 };
 
 type LedgerEntryDraft = {
@@ -92,6 +94,7 @@ type LedgerEntryDraft = {
   category: string;
   merchant?: string;
   date?: string;
+  isOneTime?: boolean;
 };
 
 type CategoryOption = {
@@ -117,6 +120,23 @@ type CategorySummary = {
   label: string;
   emoji?: string | null;
   total: number;
+  recurringTotal: number;
+  oneTimeTotal: number;
+};
+
+type NextMonthTarget = {
+  value: string;
+  label: string;
+  emoji?: string | null;
+  suggestedAmount: number;
+};
+
+type GoalProjection = {
+  goal: BudgetGoal;
+  normalized: BudgetGoal;
+  remainingAmount: number;
+  monthsToGoal: number | null;
+  projectedCompletionDate: string | null;
 };
 
 type PaceStats = {
@@ -452,6 +472,23 @@ const sortLedgerEntries = (entries: BudgetLedgerEntry[]) =>
         normalizeDraftDate(a.date).getTime()
     );
 
+const normalizeGoalRecord = (goal: BudgetGoal): BudgetGoal => {
+  const targetAmount = Math.max(0, Number(goal.targetAmount) || 0);
+  const currentBalance = Number(goal.currentBalance) || 0;
+  const monthlyContribution = Math.max(
+    0,
+    Number(goal.monthlyContribution) || 0
+  );
+  const name = goal.name?.trim?.() ?? goal.name ?? "";
+  return {
+    ...goal,
+    name,
+    targetAmount,
+    currentBalance: Math.min(Math.max(0, currentBalance), targetAmount),
+    monthlyContribution,
+  };
+};
+
 const currency = (value: number) =>
   value.toLocaleString(undefined, { style: "currency", currency: "USD" });
 
@@ -488,6 +525,7 @@ const defaultState = (): BudgetState => ({
   customCategories: [],
   categoryRules: [],
   savingsTarget: 0,
+  goals: [],
 });
 
 const isClient = () => typeof window !== "undefined";
@@ -621,18 +659,22 @@ const BudgetExperience = () => {
 
   const applyCategoryRulesToEntry = useCallback(
     (entry: BudgetLedgerEntry): BudgetLedgerEntry => {
+      const normalizedEntry: BudgetLedgerEntry = {
+        ...entry,
+        isOneTime: Boolean(entry.isOneTime),
+      };
       if (!memberRules.length) {
-        return entry;
+        return normalizedEntry;
       }
       for (const rule of memberRules) {
         if (ruleMatches(rule, entry.merchant)) {
           return {
-            ...entry,
+            ...normalizedEntry,
             category: normaliseCategory(rule.categoryValue, availableCategories),
           };
         }
       }
-      return entry;
+      return normalizedEntry;
     },
     [availableCategories, memberRules]
   );
@@ -647,6 +689,7 @@ const BudgetExperience = () => {
       customCategories: doc?.customCategories ? [...doc.customCategories] : [],
       categoryRules: doc?.categoryRules ? [...doc.categoryRules] : [],
       savingsTarget: month.savingsTarget ?? 0,
+      goals: doc?.goals ? doc.goals.map(normalizeGoalRecord) : [],
     }),
     [applyCategoryRulesToEntry]
   );
@@ -655,25 +698,116 @@ const BudgetExperience = () => {
     if (!state.entries.length) {
       return [];
     }
-    const totals = new Map<string, number>();
+    const aggregates = new Map<
+      string,
+      {
+        value: string;
+        total: number;
+        oneTimeTotal: number;
+        recurringTotal: number;
+      }
+    >();
     for (const entry of state.entries) {
-      const key = entry.category;
-      totals.set(key, (totals.get(key) ?? 0) + entry.amount);
+      const value = entry.category || "Uncategorized";
+      const normalized = value.toLowerCase();
+      const amount = Number(entry.amount) || 0;
+      const existing =
+        aggregates.get(normalized) ??
+        {
+          value,
+          total: 0,
+          oneTimeTotal: 0,
+          recurringTotal: 0,
+        };
+      existing.value = value;
+      existing.total += amount;
+      if (entry.isOneTime) {
+        existing.oneTimeTotal += amount;
+      } else {
+        existing.recurringTotal += amount;
+      }
+      aggregates.set(normalized, existing);
     }
-    return Array.from(totals.entries())
-      .map(([value, total]) => {
+    return Array.from(aggregates.values())
+      .map((summary) => {
         const match = availableCategories.find(
-          (category) => category.value.toLowerCase() === value.toLowerCase()
+          (category) =>
+            category.value.toLowerCase() === summary.value.toLowerCase()
         );
         return {
-          value,
-          total,
-          label: match?.label ?? value,
+          value: summary.value,
+          total: summary.total,
+          oneTimeTotal: summary.oneTimeTotal,
+          recurringTotal: summary.recurringTotal,
+          label: match?.label ?? summary.value,
           emoji: match?.emoji ?? null,
         } satisfies CategorySummary;
       })
-      .sort((a, b) => b.total - a.total);
+      .sort((a, b) => {
+        if (b.recurringTotal === a.recurringTotal) {
+          return b.total - a.total;
+        }
+        return b.recurringTotal - a.recurringTotal;
+      });
   }, [availableCategories, state.entries]);
+
+  const nextMonthTargets = useMemo<NextMonthTarget[]>(() => {
+    if (!categorySummaries.length) {
+      return [];
+    }
+    return categorySummaries
+      .filter((summary) => summary.recurringTotal > 0)
+      .map((summary) => ({
+        value: summary.value,
+        label: summary.label,
+        emoji: summary.emoji ?? null,
+        suggestedAmount: summary.recurringTotal,
+      }));
+  }, [categorySummaries]);
+
+  const goalContributionTotal = useMemo(
+    () =>
+      state.goals.reduce(
+        (sum, goal) => sum + (Number(goal.monthlyContribution) || 0),
+        0
+      ),
+    [state.goals]
+  );
+
+  const goalProjections = useMemo<GoalProjection[]>(() => {
+    const baseDate = new Date();
+    return state.goals.map((goal) => {
+      const normalized = normalizeGoalRecord(goal);
+      const remainingAmount = Math.max(
+        0,
+        normalized.targetAmount - normalized.currentBalance
+      );
+      let monthsToGoal: number | null = null;
+      let projectedCompletionDate: string | null = null;
+      if (remainingAmount === 0) {
+        monthsToGoal = 0;
+        projectedCompletionDate = baseDate.toISOString();
+      } else if (normalized.monthlyContribution > 0) {
+        monthsToGoal = Math.max(
+          0,
+          Math.ceil(remainingAmount / normalized.monthlyContribution)
+        );
+        const projected = new Date(
+          baseDate.getFullYear(),
+          baseDate.getMonth() + (monthsToGoal || 0),
+          1
+        );
+        projectedCompletionDate = projected.toISOString();
+      }
+      return {
+        goal,
+        normalized,
+        remainingAmount,
+        monthsToGoal,
+        projectedCompletionDate,
+      };
+    });
+  }, [state.goals]);
 
   const upsertCustomCategory = useCallback(
     (label: string, emoji?: string | null): CategoryOption | null => {
@@ -754,6 +888,15 @@ const BudgetExperience = () => {
     [availableCategories]
   );
 
+  const setEntryOneTime = useCallback((entryId: string, isOneTime: boolean) => {
+    setState((prev) => ({
+      ...prev,
+      entries: prev.entries.map((entry) =>
+        entry.id === entryId ? { ...entry, isOneTime } : entry
+      ),
+    }));
+  }, []);
+
   const createCategoryRule = useCallback(
     ({ categoryValue, operator, pattern }: CategoryRuleInput): BudgetCategoryRule | null => {
       const normalizedPattern = pattern.trim().toLowerCase();
@@ -817,6 +960,66 @@ const BudgetExperience = () => {
     },
     [availableCategories, member?.id, state.categoryRules]
   );
+
+  const createGoal = useCallback(
+    (input: {
+      name: string;
+      targetAmount: number;
+      currentBalance?: number;
+      monthlyContribution?: number;
+    }): BudgetGoal | null => {
+      const trimmedName = input.name.trim();
+      if (!trimmedName) {
+        return null;
+      }
+      const nowIso = new Date().toISOString();
+      const goal: BudgetGoal = normalizeGoalRecord({
+        id: generateId(),
+        name: trimmedName,
+        targetAmount: Number(input.targetAmount) || 0,
+        currentBalance: Number(input.currentBalance) || 0,
+        monthlyContribution: Number(input.monthlyContribution) || 0,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+      setState((prev) => ({
+        ...prev,
+        goals: [...prev.goals, goal],
+      }));
+      return goal;
+    },
+    []
+  );
+
+  const updateGoal = useCallback(
+    (goalId: string, patch: Partial<BudgetGoal>) => {
+      const nowIso = new Date().toISOString();
+      setState((prev) => ({
+        ...prev,
+        goals: prev.goals.map((goal) => {
+          if (goal.id !== goalId) {
+            return goal;
+          }
+          const nextName =
+            patch.name !== undefined ? patch.name.trim() : goal.name;
+          return normalizeGoalRecord({
+            ...goal,
+            ...patch,
+            name: nextName,
+            updatedAt: nowIso,
+          });
+        }),
+      }));
+    },
+    []
+  );
+
+  const deleteGoal = useCallback((goalId: string) => {
+    setState((prev) => ({
+      ...prev,
+      goals: prev.goals.filter((goal) => goal.id !== goalId),
+    }));
+  }, []);
 
   // Track auth state
   useEffect(() => {
@@ -1031,6 +1234,7 @@ const BudgetExperience = () => {
     const metadataPayload = {
       customCategories: state.customCategories,
       categoryRules: state.categoryRules,
+      goals: state.goals,
       updatedAt,
     };
 
@@ -1051,6 +1255,7 @@ const BudgetExperience = () => {
                     ...prev,
                     customCategories: metadataPayload.customCategories,
                     categoryRules: metadataPayload.categoryRules,
+                    goals: metadataPayload.goals,
                     updatedAt,
                   }
                 : prev
@@ -1078,6 +1283,7 @@ const BudgetExperience = () => {
     state.customCategories,
     state.categoryRules,
     state.savingsTarget,
+    state.goals,
   ]);
 
   const totalIncome = useMemo(
@@ -1094,6 +1300,7 @@ const BudgetExperience = () => {
   );
 
   const savingsTarget = state.savingsTarget || 0;
+  const goalAllocationDelta = savingsTarget - goalContributionTotal;
   const flexBudget = Math.max(0, totalIncome - totalFixed - savingsTarget);
 
   const paceStats = useMemo<PaceStats>(() => {
@@ -1176,8 +1383,27 @@ const BudgetExperience = () => {
   }, [activeMonthKey, flexBudget, state.entries]);
 
   const monthSpend = useMemo(
-    () => state.entries.reduce((sum, entry) => sum + entry.amount, 0),
+    () =>
+      state.entries.reduce(
+        (sum, entry) => sum + (Number(entry.amount) || 0),
+        0
+      ),
     [state.entries]
+  );
+
+  const recurringSpend = useMemo(
+    () =>
+      state.entries.reduce(
+        (sum, entry) =>
+          sum + (entry.isOneTime ? 0 : Number(entry.amount) || 0),
+        0
+      ),
+    [state.entries]
+  );
+
+  const oneTimeSpend = useMemo(
+    () => monthSpend - recurringSpend,
+    [monthSpend, recurringSpend]
   );
 
   const remaining = Math.max(0, flexBudget - monthSpend);
@@ -1255,6 +1481,7 @@ const BudgetExperience = () => {
         category: categoryValue,
         merchant: source ? source : undefined,
         date: safeDate.toISOString(),
+        isOneTime: Boolean(adjusted.isOneTime),
       };
     },
     [applyCategoryRulesToDraft, availableCategories]
@@ -1509,6 +1736,9 @@ const BudgetExperience = () => {
             categoryFilter={categoryFilter}
             flexBudget={flexBudget}
             monthSpend={monthSpend}
+            recurringSpend={recurringSpend}
+            oneTimeSpend={oneTimeSpend}
+            nextMonthTargets={nextMonthTargets}
             remaining={remaining}
             progressPct={progressPct}
             onAddEntry={handleAddEntry}
@@ -1521,6 +1751,13 @@ const BudgetExperience = () => {
             onClearCategoryFilter={() => setCategoryFilter(null)}
             onDeleteAllEntries={handleDeleteAllEntries}
             savingsTarget={state.savingsTarget}
+            goalProjections={goalProjections}
+            goalContributionTotal={goalContributionTotal}
+            goalAllocationDelta={goalAllocationDelta}
+            onToggleOneTime={setEntryOneTime}
+            onCreateGoal={createGoal}
+            onUpdateGoal={updateGoal}
+            onDeleteGoal={deleteGoal}
             paceStats={paceStats}
           />
         )}
@@ -1890,6 +2127,9 @@ function Ledger({
   categoryFilter,
   flexBudget,
   monthSpend,
+  recurringSpend,
+  oneTimeSpend,
+  nextMonthTargets,
   remaining,
   progressPct,
   onAddEntry,
@@ -1902,6 +2142,13 @@ function Ledger({
   onClearCategoryFilter,
   onDeleteAllEntries,
   savingsTarget,
+  goalProjections,
+  goalContributionTotal,
+  goalAllocationDelta,
+  onToggleOneTime,
+  onCreateGoal,
+  onUpdateGoal,
+  onDeleteGoal,
   paceStats,
 }: {
   entries: BudgetLedgerEntry[];
@@ -1910,6 +2157,9 @@ function Ledger({
   categoryFilter: string | null;
   flexBudget: number;
   monthSpend: number;
+  recurringSpend: number;
+  oneTimeSpend: number;
+  nextMonthTargets: NextMonthTarget[];
   remaining: number;
   progressPct: number;
   onAddEntry: (entry: LedgerEntryDraft) => void;
@@ -1922,6 +2172,18 @@ function Ledger({
   onClearCategoryFilter: () => void;
   onDeleteAllEntries: () => Promise<void> | void;
   savingsTarget: number;
+  goalProjections: GoalProjection[];
+  goalContributionTotal: number;
+  goalAllocationDelta: number;
+  onToggleOneTime: (entryId: string, isOneTime: boolean) => void;
+  onCreateGoal: (input: {
+    name: string;
+    targetAmount: number;
+    currentBalance?: number;
+    monthlyContribution?: number;
+  }) => BudgetGoal | null;
+  onUpdateGoal: (goalId: string, patch: Partial<BudgetGoal>) => void;
+  onDeleteGoal: (goalId: string) => void;
   paceStats: PaceStats;
 }) {
   const [showAdd, setShowAdd] = useState(false);
@@ -1975,6 +2237,14 @@ function Ledger({
               <div className="mt-1 text-xs text-slate-500">
                 Spent {currency(monthSpend)} ({progressPct}%)
               </div>
+              <div className="text-xs text-slate-500">
+                Recurring spend: {currency(recurringSpend)}
+              </div>
+              {oneTimeSpend > 0 && (
+                <div className="text-xs text-slate-500">
+                  One-time this month: {currency(oneTimeSpend)}
+                </div>
+              )}
               <div className="text-xs text-slate-500">
                 Savings goal: {currency(Math.max(0, savingsTarget))}
               </div>
@@ -2049,6 +2319,8 @@ function Ledger({
                 const representativeEntry = entries.find(
                   (entry) => entry.category.toLowerCase() === normalizedValue
                 );
+                const hasRecurring = summary.recurringTotal > 0;
+                const hasOneTime = summary.oneTimeTotal > 0;
                 const handlePillClick = () => onSelectCategory(summary.value);
                 const handleIconClick = (
                   event: React.MouseEvent<HTMLSpanElement>
@@ -2092,9 +2364,24 @@ function Ledger({
                       </span>
                       <span className="font-medium">{summary.label}</span>
                     </div>
-                    <span className="font-semibold">
-                      {currency(summary.total)}
-                    </span>
+                    <div className="flex flex-col items-end">
+                      <span className="font-semibold">
+                        {currency(
+                          hasRecurring ? summary.recurringTotal : summary.total
+                        )}
+                      </span>
+                      {hasOneTime ? (
+                        <span className="text-xs text-slate-500">
+                          +{currency(summary.oneTimeTotal)} one-time
+                        </span>
+                      ) : hasRecurring ? (
+                        <span className="text-xs text-slate-400">Recurring</span>
+                      ) : (
+                        <span className="text-xs text-slate-400">
+                          All one-time
+                        </span>
+                      )}
+                    </div>
                   </button>
                 );
               })}
@@ -2102,6 +2389,23 @@ function Ledger({
           )}
         </CardContent>
       </Card>
+
+      <NextMonthPlanner
+        recurringSpend={recurringSpend}
+        oneTimeSpend={oneTimeSpend}
+        nextMonthTargets={nextMonthTargets}
+        onSelectCategory={onSelectCategory}
+      />
+
+      <SavingsGoalPlanner
+        goalProjections={goalProjections}
+        savingsTarget={savingsTarget}
+        goalContributionTotal={goalContributionTotal}
+        goalAllocationDelta={goalAllocationDelta}
+        onCreateGoal={onCreateGoal}
+        onUpdateGoal={onUpdateGoal}
+        onDeleteGoal={onDeleteGoal}
+      />
 
       <Card className="border-slate-200">
         <CardHeader className="pb-2">
@@ -2170,6 +2474,7 @@ function Ledger({
             categories={categories}
             onDelete={onRemoveEntry}
             onEditCategory={(entry) => setCategoryEditorEntry(entry)}
+            onToggleOneTime={onToggleOneTime}
           />
         </CardContent>
         <ImportExpenses
@@ -2199,11 +2504,13 @@ function EntryList({
   categories,
   onDelete,
   onEditCategory,
+  onToggleOneTime,
 }: {
   entries: BudgetLedgerEntry[];
   categories: CategoryOption[];
   onDelete: (id: string) => void;
   onEditCategory: (entry: BudgetLedgerEntry) => void;
+  onToggleOneTime: (entryId: string, isOneTime: boolean) => void;
 }) {
   const categoryLookup = useMemo(() => {
     const map = new Map<string, CategoryOption>();
@@ -2276,6 +2583,7 @@ function EntryList({
                   ? categoryInfo.emoji
                   : "🏷️";
               const categoryLabel = categoryInfo?.label ?? entry.category;
+              const isOneTime = Boolean(entry.isOneTime);
               return (
                 <div
                   key={entry.id}
@@ -2300,9 +2608,27 @@ function EntryList({
                           minute: "2-digit",
                         })}
                       </div>
+                      {isOneTime && (
+                        <div className="text-xs font-medium text-amber-600">
+                          One-time expense
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => onToggleOneTime(entry.id, !isOneTime)}
+                      aria-pressed={isOneTime}
+                      className={cn(
+                        "rounded-full border px-2 py-1 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2",
+                        isOneTime
+                          ? "border-amber-300 bg-amber-50 text-amber-700"
+                          : "border-slate-200 text-slate-500 hover:bg-slate-100"
+                      )}
+                    >
+                      {isOneTime ? "One-time" : "Mark one-time"}
+                    </button>
                     <div className="font-semibold">
                       {currency(entry.amount)}
                     </div>
@@ -2610,6 +2936,396 @@ function CategoryEditorDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function NextMonthPlanner({
+  nextMonthTargets,
+  recurringSpend,
+  oneTimeSpend,
+  onSelectCategory,
+}: {
+  nextMonthTargets: NextMonthTarget[];
+  recurringSpend: number;
+  oneTimeSpend: number;
+  onSelectCategory: (categoryValue: string) => void;
+}) {
+  const hasTargets = nextMonthTargets.length > 0;
+  return (
+    <Card className="border-slate-200">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-semibold">
+          Next month plan
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+          <span>
+            Recurring baseline:{" "}
+            <span className="font-semibold text-slate-900">
+              {currency(recurringSpend)}
+            </span>
+          </span>
+          {oneTimeSpend > 0 ? (
+            <span>
+              Potential savings from one-time spend:{" "}
+              <span className="font-semibold text-emerald-600">
+                {currency(oneTimeSpend)}
+              </span>
+            </span>
+          ) : (
+            <span>No one-time spend recorded this month.</span>
+          )}
+        </div>
+        {hasTargets ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {nextMonthTargets.map((target) => (
+              <button
+                key={target.value.toLowerCase()}
+                type="button"
+                onClick={() => onSelectCategory(target.value)}
+                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+              >
+                <div className="flex items-center gap-2">
+                  <span>{target.emoji ?? "🏷️"}</span>
+                  <span className="font-medium text-slate-700">
+                    {target.label}
+                  </span>
+                </div>
+                <span className="font-semibold text-slate-900">
+                  {currency(target.suggestedAmount)}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+            Add a few expenses and mark one-time purchases to see tailored
+            targets for next month.
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SavingsGoalPlanner({
+  goalProjections,
+  savingsTarget,
+  goalContributionTotal,
+  goalAllocationDelta,
+  onCreateGoal,
+  onUpdateGoal,
+  onDeleteGoal,
+}: {
+  goalProjections: GoalProjection[];
+  savingsTarget: number;
+  goalContributionTotal: number;
+  goalAllocationDelta: number;
+  onCreateGoal: (input: {
+    name: string;
+    targetAmount: number;
+    currentBalance?: number;
+    monthlyContribution?: number;
+  }) => BudgetGoal | null;
+  onUpdateGoal: (goalId: string, patch: Partial<BudgetGoal>) => void;
+  onDeleteGoal: (goalId: string) => void;
+}) {
+  const [showForm, setShowForm] = useState(false);
+  const [name, setName] = useState("");
+  const [target, setTarget] = useState("");
+  const [balance, setBalance] = useState("");
+  const [contribution, setContribution] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const allocationPositive = goalAllocationDelta >= 0;
+  const allocationMagnitude = Math.abs(goalAllocationDelta);
+
+  const resetForm = () => {
+    setName("");
+    setTarget("");
+    setBalance("");
+    setContribution("");
+    setError(null);
+  };
+
+  const handleCreateGoal = () => {
+    const trimmed = name.trim();
+    const targetAmount = Math.max(0, Number(target) || 0);
+    const currentBalance = Math.max(0, Number(balance) || 0);
+    const monthlyContribution = Math.max(0, Number(contribution) || 0);
+
+    if (!trimmed) {
+      setError("Add a name so you recognize the goal later.");
+      return;
+    }
+    if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
+      setError("Set a target amount above zero.");
+      return;
+    }
+    if (currentBalance > targetAmount) {
+      setError("Current balance can't be above the target.");
+      return;
+    }
+
+    const created = onCreateGoal({
+      name: trimmed,
+      targetAmount,
+      currentBalance,
+      monthlyContribution,
+    });
+    if (!created) {
+      setError("We couldn't create that goal. Try different details.");
+      return;
+    }
+    resetForm();
+    setShowForm(false);
+  };
+
+  const formatProjectionDate = (iso: string | null) => {
+    if (!iso) {
+      return null;
+    }
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "long",
+    });
+  };
+
+  return (
+    <Card className="border-slate-200">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-semibold">
+          Savings goals
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div
+          className={cn(
+            "rounded-lg border px-3 py-2 text-xs",
+            allocationPositive
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-amber-200 bg-amber-50 text-amber-700"
+          )}
+        >
+          <div>
+            Allocated{" "}
+            <span className="font-semibold">
+              {currency(goalContributionTotal)}
+            </span>{" "}
+            of your {currency(Math.max(0, savingsTarget))} monthly savings goal.
+          </div>
+          {allocationMagnitude > 0 ? (
+            <div>
+              {allocationPositive
+                ? `Unallocated savings remaining: ${currency(
+                    allocationMagnitude
+                  )}`
+                : `Over-allocated by ${currency(
+                    allocationMagnitude
+                  )} — adjust a goal below.`}
+            </div>
+          ) : (
+            <div>Every dollar of savings is assigned to a goal.</div>
+          )}
+        </div>
+
+        {goalProjections.length ? (
+          <div className="space-y-4">
+            {goalProjections.map((projection) => {
+              const { goal, normalized, remainingAmount, monthsToGoal } =
+                projection;
+              const formattedDate = formatProjectionDate(
+                projection.projectedCompletionDate
+              );
+              const timeline =
+                remainingAmount === 0
+                  ? "Goal complete! 🎉"
+                  : monthsToGoal === null
+                  ? "Add a monthly contribution to project the finish date."
+                  : `~${monthsToGoal} month${
+                      monthsToGoal === 1 ? "" : "s"
+                    }${formattedDate ? ` (by ${formattedDate})` : ""}`;
+              return (
+                <div
+                  key={goal.id}
+                  className="space-y-3 rounded-xl border border-slate-200 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 space-y-3">
+                      <div className="space-y-1">
+                        <Label htmlFor={`goal-name-${goal.id}`}>
+                          Goal name
+                        </Label>
+                        <Input
+                          id={`goal-name-${goal.id}`}
+                          value={normalized.name}
+                          onChange={(event) =>
+                            onUpdateGoal(goal.id, {
+                              name: event.target.value,
+                            })
+                          }
+                          placeholder="Debt payoff, travel fund…"
+                        />
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="space-y-1">
+                          <Label htmlFor={`goal-target-${goal.id}`}>
+                            Target amount
+                          </Label>
+                          <Input
+                            id={`goal-target-${goal.id}`}
+                            type="number"
+                            min={0}
+                            value={normalized.targetAmount}
+                            onChange={(event) =>
+                              onUpdateGoal(goal.id, {
+                                targetAmount: Number(event.target.value) || 0,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor={`goal-balance-${goal.id}`}>
+                            Current balance
+                          </Label>
+                          <Input
+                            id={`goal-balance-${goal.id}`}
+                            type="number"
+                            min={0}
+                            value={normalized.currentBalance}
+                            onChange={(event) =>
+                              onUpdateGoal(goal.id, {
+                                currentBalance: Number(event.target.value) || 0,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor={`goal-monthly-${goal.id}`}>
+                            Monthly contribution
+                          </Label>
+                          <Input
+                            id={`goal-monthly-${goal.id}`}
+                            type="number"
+                            min={0}
+                            value={normalized.monthlyContribution}
+                            onChange={(event) =>
+                              onUpdateGoal(goal.id, {
+                                monthlyContribution:
+                                  Number(event.target.value) || 0,
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onDeleteGoal(goal.id)}
+                      aria-label="Delete goal"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                    <span className="rounded-full bg-slate-100 px-2 py-1 font-medium text-slate-700">
+                      Remaining {currency(remainingAmount)}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-slate-500",
+                        remainingAmount === 0 && "text-emerald-600 font-medium"
+                      )}
+                    >
+                      {timeline}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+            Create a goal to start directing savings toward what matters most.
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <Button
+            variant={showForm ? "outline" : "secondary"}
+            onClick={() => {
+              setShowForm((prev) => !prev);
+              setError(null);
+            }}
+            className="w-full sm:w-auto"
+          >
+            {showForm ? "Cancel" : "Add goal"}
+          </Button>
+          {showForm && (
+            <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="new-goal-name">Goal name</Label>
+                  <Input
+                    id="new-goal-name"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Pay off credit card"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="new-goal-target">Target amount</Label>
+                  <Input
+                    id="new-goal-target"
+                    type="number"
+                    min={0}
+                    value={target}
+                    onChange={(event) => setTarget(event.target.value)}
+                    placeholder="30000"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="new-goal-balance">Current balance</Label>
+                  <Input
+                    id="new-goal-balance"
+                    type="number"
+                    min={0}
+                    value={balance}
+                    onChange={(event) => setBalance(event.target.value)}
+                    placeholder="5000"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="new-goal-monthly">Monthly contribution</Label>
+                  <Input
+                    id="new-goal-monthly"
+                    type="number"
+                    min={0}
+                    value={contribution}
+                    onChange={(event) => setContribution(event.target.value)}
+                    placeholder="600"
+                  />
+                </div>
+              </div>
+              {error && (
+                <div className="text-sm text-rose-600" role="alert">
+                  {error}
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button onClick={handleCreateGoal}>Save goal</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -2979,6 +3695,7 @@ function QuickAdd({
   const [merchant, setMerchant] = useState("");
   const [showCamera, setShowCamera] = useState(false);
   const [dateStr, setDateStr] = useState(() => formatDateInput(new Date()));
+  const [isOneTime, setIsOneTime] = useState(false);
 
   const amount = Number(amountStr || 0);
 
@@ -2997,11 +3714,13 @@ function QuickAdd({
       category,
       merchant: merchant || undefined,
       date: dateStr,
+      isOneTime,
     });
     setAmountStr("");
     setCategory(categories[0]?.value ?? null);
     setMerchant("");
     setDateStr(formatDateInput(new Date()));
+    setIsOneTime(false);
   };
 
   return (
@@ -3015,6 +3734,17 @@ function QuickAdd({
           onChange={(event) => setAmountStr(event.target.value)}
           className="text-lg"
         />
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="quick-add-one-time"
+          checked={isOneTime}
+          onCheckedChange={(value) => setIsOneTime(Boolean(value))}
+        />
+        <Label htmlFor="quick-add-one-time" className="text-sm">
+          Mark as one-time expense
+        </Label>
       </div>
 
       <div className="space-y-2">

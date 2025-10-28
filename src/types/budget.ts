@@ -23,6 +23,17 @@ export type BudgetLedgerEntry = {
   category: string;
   merchant?: string | null;
   date: string;
+  isOneTime?: boolean;
+};
+
+export type BudgetGoal = {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentBalance: number;
+  monthlyContribution: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type BudgetCustomCategory = {
@@ -54,6 +65,7 @@ export type BudgetDocument = {
   updatedAt: string;
   customCategories?: BudgetCustomCategory[];
   categoryRules?: BudgetCategoryRule[];
+  goals?: BudgetGoal[];
 };
 
 export type BudgetMonth = {
