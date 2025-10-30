@@ -39,3 +39,12 @@ export type JournalEntry = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type JournalEntrySummary = {
+  id: string;
+  entryDate: string | null;
+  mood: string | null;
+  snippet: string | null;
+  createdAt: string;
+  updatedAt: string;
+};

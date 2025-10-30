@@ -17,7 +17,6 @@ import {
   Plus,
   Receipt,
   Trash2,
-  Wallet,
   X,
   Upload,
 } from "lucide-react";
@@ -26,6 +25,9 @@ import { User, onAuthStateChanged } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
+import Link from "next/link";
+import { AppTopBar } from "@/components/AppTopBar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -631,6 +633,9 @@ const BudgetExperience = () => {
       month: null,
     }
   );
+
+  const [showProfileCard, setShowProfileCard] = useState(false);
+  const profileRef = useRef<HTMLDivElement | null>(null);
 
   const availableCategories = useMemo(() => {
     const seen = new Set<string>();
@@ -1379,6 +1384,35 @@ const BudgetExperience = () => {
   const goalAllocationDelta = savingsTarget - goalContributionTotal;
   const flexBudget = Math.max(0, totalIncome - totalFixed - savingsTarget);
 
+  const shareLink = useMemo(() => {
+    if (!budgetId || !activeMonthKey || !isClient()) {
+      return null;
+    }
+    return `${window.location.origin}/budget?budget_id=${budgetId}&month=${activeMonthKey}`;
+  }, [budgetId, activeMonthKey]);
+
+  const saveStatus = saving
+    ? "Saving..."
+    : lastSavedAt
+    ? `Last saved ${new Date(lastSavedAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`
+    : "Ready when you are";
+
+  useEffect(() => {
+    if (!showProfileCard) {
+      return;
+    }
+    const handler = (event: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfileCard(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showProfileCard]);
+
   const paceStats = useMemo<PaceStats>(() => {
     const monthDetails = parseMonthKey(activeMonthKey);
     if (!monthDetails) {
@@ -1757,17 +1791,103 @@ const BudgetExperience = () => {
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-white p-4 md:p-8">
       <div className="mx-auto max-w-3xl">
-        <Header
-          onSwitch={() => setMode(mode === "wizard" ? "ledger" : "wizard")}
-          mode={mode}
-          saving={saving}
-          lastSavedAt={lastSavedAt}
-          shareLink={
-            budgetId && isClient()
-              ? `${window.location.origin}/budget?budget_id=${budgetId}&month=${activeMonthKey}`
-              : null
+        <AppTopBar
+          product="budget"
+          actions={
+            <div className="flex flex-col items-stretch gap-2 sm:items-end">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                {shareLink ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard
+                        .writeText(shareLink)
+                        .catch(() => console.warn("Failed to copy share link"));
+                    }}
+                    className="border-slate-300"
+                  >
+                    Copy share link
+                  </Button>
+                ) : null}
+                <Button
+                  variant="secondary"
+                  onClick={() => setMode(mode === "wizard" ? "ledger" : "wizard")}
+                >
+                  {mode === "wizard" ? "Go to Ledger" : "Run Budget Wizard"}
+                </Button>
+              </div>
+              <span className="text-xs text-slate-500">{saveStatus}</span>
+            </div>
           }
-        />
+          userSlot={
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowProfileCard((prev) => !prev)}
+              className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm transition hover:border-slate-300"
+            >
+              <Image src="/brand/toodl-budget.svg" alt="Budget avatar" width={18} height={18} />
+              <span className="text-sm font-medium text-slate-700">
+                {member?.name ?? "Guest"}
+              </span>
+            </button>
+            {showProfileCard && (
+              <div ref={profileRef} className="absolute right-0 mt-3 w-72 rounded-2xl bg-white/95 shadow-xl ring-1 ring-slate-200">
+                <Card className="border-0 bg-transparent p-6">
+                  <CardHeader className="flex flex-col items-center gap-3">
+                    <CardTitle className="text-lg">Budget navigation</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="rounded-2xl bg-slate-50 p-3">
+                      <p className="text-xs font-medium uppercase tracking-[0.25em] text-slate-400">Jump to</p>
+                      <div className="mt-3 grid gap-2">
+                        <Link href="/" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800" onClick={() => setShowProfileCard(false)}>
+                          <Image src="/brand/toodl-expense.svg" alt="Expense" width={20} height={20} />
+                          Expense Splitter
+                        </Link>
+                        <Link href="/budget" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800" onClick={() => setShowProfileCard(false)}>
+                          <Image src="/brand/toodl-budget.svg" alt="Budget" width={20} height={20} />
+                          Budget Studio
+                        </Link>
+                        <Link href="/journal" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800" onClick={() => setShowProfileCard(false)}>
+                          <Image src="/brand/toodl-journal.svg" alt="Journal" width={20} height={20} />
+                          Journal Studio
+                        </Link>
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Button
+                        variant="outline"
+                        className="w-full border-slate-200"
+                        onClick={() => {
+                          if (!shareLink) return;
+                          navigator.clipboard
+                            .writeText(shareLink)
+                            .catch(() => console.warn("Failed to copy share link"));
+                          setShowProfileCard(false);
+                        }}
+                        disabled={!shareLink}
+                      >
+                        Copy share link
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full border-slate-200"
+                        onClick={() => {
+                          setMode(mode === "wizard" ? "ledger" : "wizard");
+                          setShowProfileCard(false);
+                        }}
+                      >
+                        {mode === "wizard" ? "Go to ledger" : "Run budget wizard"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
+        }
+      />
         {mode === "ledger" && availableMonths.length > 0 && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm">
@@ -1862,60 +1982,6 @@ const BudgetExperience = () => {
 
 export default BudgetExperience;
 
-function Header({
-  onSwitch,
-  mode,
-  saving,
-  lastSavedAt,
-  shareLink,
-}: {
-  onSwitch: () => void;
-  mode: Mode;
-  saving: boolean;
-  lastSavedAt: string | null;
-  shareLink: string | null;
-}) {
-  return (
-    <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div className="flex items-center gap-2">
-        <Wallet className="h-6 w-6" />
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            Toodl — Money that moves fast
-          </h1>
-          <div className="text-xs text-slate-500">
-            {saving
-              ? "Saving..."
-              : lastSavedAt
-              ? `Last saved ${new Date(lastSavedAt).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}`
-              : "Ready when you are"}
-          </div>
-        </div>
-      </div>
-      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-        {shareLink && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              if (!shareLink) return;
-              navigator.clipboard
-                .writeText(shareLink)
-                .catch(() => console.warn("Failed to copy share link"));
-            }}
-          >
-            Copy share link
-          </Button>
-        )}
-        <Button variant="secondary" onClick={onSwitch}>
-          {mode === "wizard" ? "Go to Ledger" : "Run Budget Wizard"}
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 function Wizard({
   step,

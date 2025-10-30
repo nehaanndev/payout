@@ -23,8 +23,10 @@ import { fetchGroupById } from "@/lib/firebaseUtils";
 import IdentityPrompt from "@/components/IdentityPrompt";
 /* --- imports (add these near the top of the file) --- */
 import Image from "next/image";
+import Link from "next/link";
 import { CurrencyCode } from "@/lib/currency_core";
 import { DEFAULT_CURRENCY, getGroupCurrency } from "@/lib/currency";
+import { AppTopBar } from "@/components/AppTopBar";
 
 export default function Home() {
   const [session, setSession] = useState<User | null>(null);
@@ -169,70 +171,77 @@ export default function Home() {
       { /* Case A: Signed-in or already-identified anon user → show the app */ }
       {session || anonUser ? (
         <>
-          {/* Top banner */}
-          <div className="bg-white shadow-md w-full py-4 px-8 flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold">Toodl</h1>
-              <p className="text-gray-500 text-sm">Manage your expenses with ease</p>
-            </div>
-
-            {/* Profile image and dropdown */}
-            <div className="relative">
-              {avatar && (
-                <Image
-                src={avatar}
-                alt="User Avatar"
-                width={40}         /* <–– sets natural size */
-                height={40}
-                className="rounded-full border cursor-pointer"
-                onClick={() => setShowProfileCard((prev) => !prev)}
-              />
-
-              )}
-
-              {/* Profile Card */}
-              {showProfileCard && (
-                <div ref={profileRef} className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg z-50">
-                  <Card className="p-6">
-                    <CardHeader className="flex flex-col items-center">
-                      <Image
-                        src={avatar}
-                        alt="User"
-                        width={80}
-                        height={80}
-                        className="rounded-full border"
-                      />
-                      <CardTitle className="text-lg mt-4">
-                        Hi, {displayName}! 👋
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex justify-center mt-4">
-                      {session ? (
-                        <Button onClick={handleSignOut} variant="outline" className="w-full">
-                          Sign Out
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={() => {
-                            localStorage.clear();
-                            location.reload();
-                          }}
-                          variant="outline"
-                          className="w-full"
-                        >
-                          Reset Identity
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </div>
-          </div>              
-          {/* Main App Content */}
+          <AppTopBar
+            product="expense"
+            userSlot={
+              <div className="relative">
+                {avatar && (
+                  <Image
+                    src={avatar}
+                    alt="User Avatar"
+                    width={40}
+                    height={40}
+                    className="rounded-full border cursor-pointer"
+                    onClick={() => setShowProfileCard((prev) => !prev)}
+                  />
+                )}
+                {showProfileCard && (
+                  <div ref={profileRef} className="absolute right-0 mt-2 w-72 rounded-2xl bg-white/95 shadow-xl ring-1 ring-slate-200">
+                    <Card className="border-0 bg-transparent p-6">
+                      <CardHeader className="flex flex-col items-center gap-3">
+                        <Image
+                          src={avatar}
+                          alt="User"
+                          width={80}
+                          height={80}
+                          className="rounded-full border"
+                        />
+                        <CardTitle className="text-lg">Hi, {displayName}! 👋</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="rounded-2xl bg-slate-50 p-3">
+                          <p className="text-xs font-medium uppercase tracking-[0.25em] text-slate-400">Jump to</p>
+                          <div className="mt-3 grid gap-2">
+                            <Link href="/" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800">
+                              <Image src="/brand/toodl-expense.svg" alt="Expense" width={20} height={20} />
+                              Expense Splitter
+                            </Link>
+                            <Link href="/budget" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800">
+                              <Image src="/brand/toodl-budget.svg" alt="Budget" width={20} height={20} />
+                              Budget Studio
+                            </Link>
+                            <Link href="/journal" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800">
+                              <Image src="/brand/toodl-journal.svg" alt="Journal" width={20} height={20} />
+                              Journal Studio
+                            </Link>
+                          </div>
+                        </div>
+                        {session ? (
+                          <Button onClick={handleSignOut} variant="outline" className="w-full">
+                            Sign Out
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() => {
+                              localStorage.clear();
+                              location.reload();
+                            }}
+                            variant="outline"
+                            className="w-full"
+                          >
+                            Reset Identity
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </div>
+            }
+          />
           <div className="flex-grow p-8">
-          <ExpenseSplitter session={session} groupid={group} anonUser={anonUser} currency={currency} />
-          </div>              
+            <ExpenseSplitter session={session} groupid={group} anonUser={anonUser} currency={currency} />
+          </div>
         </>
       )     
       /* Case B: No user yet, but we fetched sharedMembers → ask “Who are you?” */ 

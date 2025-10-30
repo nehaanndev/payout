@@ -10,17 +10,23 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
+import Image from "next/image";
+import { AppTopBar } from "@/components/AppTopBar";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   createJournalDocument,
   ensureMemberOnJournal,
   fetchJournalDocument,
   saveJournalEntry,
+  listJournalEntrySummaries,
+  fetchJournalEntryById,
 } from "@/lib/journalService";
 import { auth, onAuthStateChanged } from "@/lib/firebase";
 import { generateId } from "@/lib/id";
@@ -31,7 +37,15 @@ import type {
   JournalDocument,
   JournalEntry,
   JournalMember,
+  JournalEntrySummary,
 } from "@/types/journal";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 type JournalQuestion = {
   id: keyof JournalAnswers;
@@ -48,8 +62,6 @@ type JournalStep = {
   accent: string;
   questions: JournalQuestion[];
 };
-
-const JOURNAL_MEMBER_STORAGE_KEY = "toodl_journal_member";
 
 const JOURNAL_STEPS: JournalStep[] = [
   {
@@ -201,6 +213,23 @@ const initialAnswers: JournalAnswers = {
   other: "",
 };
 
+const isClient = () => typeof window !== "undefined";
+
+const formatMonthGroupLabel = (dateValue: string | null, fallbackValue: string) => {
+  const target = dateValue || fallbackValue;
+  if (!target) {
+    return "Undated entries";
+  }
+  const date = new Date(target);
+  if (Number.isNaN(date.getTime())) {
+    return "Undated entries";
+  }
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+  });
+};
+
 const formatDisplayDate = (value: string) => {
   if (!value) {
     return "";
@@ -233,41 +262,13 @@ const formatTimestamp = (value: string) => {
   }
 };
 
-const isClient = () => typeof window !== "undefined";
-
-const getLocalJournalMember = (): JournalMember => {
-  if (!isClient()) {
-    return { id: "guest", email: null, name: "Guest Writer" };
-  }
-  const stored = window.localStorage.getItem(JOURNAL_MEMBER_STORAGE_KEY);
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored) as JournalMember;
-      if (parsed.id) {
-        return parsed;
-      }
-    } catch {
-      // ignore malformed data
-    }
-  }
-  const member = {
-    id: `anon-${generateId()}`,
-    email: null,
-    name: "Guest Writer",
-  };
-  window.localStorage.setItem(
-    JOURNAL_MEMBER_STORAGE_KEY,
-    JSON.stringify(member)
-  );
-  return member;
-};
-
 const JournalExperience = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamsString = searchParams.toString();
   const lastUrlIdRef = useRef<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [member, setMember] = useState<JournalMember | null>(null);
   const [journalId, setJournalId] = useState<string | null>(null);
   const [journalDoc, setJournalDoc] = useState<JournalDocument | null>(null);
@@ -284,6 +285,44 @@ const JournalExperience = () => {
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [answers, setAnswers] = useState<JournalAnswers>(initialAnswers);
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryEntries, setLibraryEntries] = useState<JournalEntrySummary[]>([]);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
+  const [entryLoading, setEntryLoading] = useState(false);
+  const [showProfileCard, setShowProfileCard] = useState(false);
+  const profileRef = useRef<HTMLDivElement | null>(null);
+
+  const groupedLibraryEntries = useMemo(() => {
+    if (!libraryEntries.length) {
+      return [] as Array<{ label: string; entries: JournalEntrySummary[] }>;
+    }
+    const groups = new Map<
+      string,
+      { label: string; entries: JournalEntrySummary[] }
+    >();
+    for (const entry of libraryEntries) {
+      const keySource = entry.entryDate || entry.createdAt;
+      const date = keySource ? new Date(keySource) : null;
+      const key =
+        date && !Number.isNaN(date.getTime())
+          ? `${date.getFullYear()}-${date.getMonth()}`
+          : `undated-${entry.id}`;
+      const label = formatMonthGroupLabel(entry.entryDate, entry.createdAt);
+      const bucket = groups.get(key);
+      if (!bucket) {
+        groups.set(key, { label, entries: [entry] });
+      } else {
+        bucket.entries.push(entry);
+      }
+    }
+    return Array.from(groups.values()).map((group) => ({
+      label: group.label,
+      entries: group.entries.sort((a, b) =>
+        (b.entryDate || b.createdAt).localeCompare(a.entryDate || a.createdAt)
+      ),
+    }));
+  }, [libraryEntries]);
 
   const totalSteps = JOURNAL_STEPS.length;
   const isSummaryStep = currentStep === totalSteps;
@@ -292,21 +331,28 @@ const JournalExperience = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
+      setAuthChecked(true);
     });
     return unsubscribe;
   }, []);
 
   useEffect(() => {
-    if (user) {
-      setMember({
-        id: user.uid,
-        name: user.displayName ?? "Signed Writer",
-        email: user.email ?? null,
-      });
-    } else {
-      setMember(getLocalJournalMember());
+    if (!authChecked) {
+      return;
     }
-  }, [user]);
+    if (!user) {
+      setMember(null);
+      setJournalId(null);
+      setJournalDoc(null);
+      setLoadingJournal(false);
+      return;
+    }
+    setMember({
+      id: user.uid,
+      name: user.displayName ?? "Signed Writer",
+      email: user.email ?? null,
+    });
+  }, [authChecked, user]);
 
   useEffect(() => {
     const paramId = searchParams.get("journal_id");
@@ -420,6 +466,18 @@ const JournalExperience = () => {
     return () => clearTimeout(timeout);
   }, [copyStatus]);
 
+  useEffect(() => {
+    if (showProfileCard) {
+      const handler = (event: MouseEvent) => {
+        if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+          setShowProfileCard(false);
+        }
+      };
+      document.addEventListener("mousedown", handler);
+      return () => document.removeEventListener("mousedown", handler);
+    }
+  }, [showProfileCard]);
+
   const shareUrl = useMemo(() => {
     if (!journalId) {
       return "";
@@ -429,6 +487,14 @@ const JournalExperience = () => {
     }
     return `${window.location.origin}/journal?journal_id=${journalId}`;
   }, [journalId]);
+
+  const journalStatus = savingEntry
+    ? "Saving..."
+    : hasUnsavedChanges
+    ? "Draft in progress"
+    : lastSavedAt
+    ? `Last saved ${formatTimestamp(lastSavedAt)}`
+    : "Ready to capture";
 
   useEffect(() => {
     setCopyStatus("idle");
@@ -647,6 +713,88 @@ const JournalExperience = () => {
     handleReset();
   };
 
+  const loadLibraryEntries = useCallback(async () => {
+    if (!journalId) {
+      return;
+    }
+    setLibraryLoading(true);
+    try {
+      const summaries = await listJournalEntrySummaries(journalId);
+      setLibraryEntries(summaries);
+      setLibraryError(null);
+    } catch (error) {
+      console.error("Failed to load journal entries:", error);
+      setLibraryError("We couldn't load previous entries right now.");
+    } finally {
+      setLibraryLoading(false);
+    }
+  }, [journalId]);
+
+  useEffect(() => {
+    if (libraryOpen) {
+      void loadLibraryEntries();
+    }
+  }, [libraryOpen, loadLibraryEntries]);
+
+  const handleSelectEntry = useCallback(
+    async (entryId: string) => {
+      if (!journalId) {
+        return;
+      }
+      setEntryLoading(true);
+      try {
+        const entry = await fetchJournalEntryById(journalId, entryId);
+        if (!entry) {
+          throw new Error("Entry not found");
+        }
+        setAnswers({ ...entry.answers });
+        setSelectedMood(entry.mood ?? null);
+        setLastSavedAt(entry.updatedAt);
+        setHasUnsavedChanges(false);
+        setCurrentStep(0);
+        setLibraryOpen(false);
+      } catch (error) {
+        console.error("Failed to load journal entry:", error);
+        setLibraryError("We couldn't open that entry. Please try another one.");
+      } finally {
+        setEntryLoading(false);
+      }
+    },
+    [journalId]
+  );
+
+  if (!authChecked) {
+    return (
+      <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (authChecked && !user) {
+    return (
+      <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+        <Card className="max-w-md space-y-6 border-none bg-white/80 p-8 text-center shadow-2xl shadow-rose-200/40 backdrop-blur-xl">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            Sign-in required
+          </h1>
+          <p className="text-sm leading-relaxed text-slate-600">
+            The Toodl Journal is private to your account. Please sign in to
+            continue, then come back to capture your stories.
+          </p>
+          <Button
+            className="w-full bg-primary text-white hover:bg-payoutHover"
+            onClick={() => router.push("/")}
+          >
+            Go to sign-in
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   if (invalidJournal) {
     return (
       <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-16">
@@ -689,9 +837,93 @@ const JournalExperience = () => {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-16">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
+    <>
+      <AppTopBar
+        product="journal"
+        actions={
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Button
+                variant="outline"
+                onClick={handleCopyLink}
+                disabled={!shareUrl}
+                className="border-slate-300"
+              >
+                Copy journal link
+              </Button>
+              <Button variant="secondary" onClick={() => setLibraryOpen(true)}>
+                Browse past entries
+              </Button>
+            </div>
+            <span className="text-xs text-slate-500">{journalStatus}</span>
+          </div>
+        }
+        userSlot={
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowProfileCard((prev) => !prev)}
+              className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm transition hover:border-slate-300"
+            >
+              <Image src="/brand/toodl-journal.svg" alt="Journal avatar" width={18} height={18} />
+              <span className="text-sm font-medium text-slate-700">
+                {member?.name ?? user?.displayName ?? "Writer"}
+              </span>
+            </button>
+            {showProfileCard && (
+              <div ref={profileRef} className="absolute right-0 mt-3 w-72 rounded-2xl bg-white/95 shadow-xl ring-1 ring-slate-200">
+                <Card className="border-0 bg-transparent p-6">
+                  <CardHeader className="flex flex-col items-center gap-3">
+                    <CardTitle className="text-lg">Journal navigation</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="rounded-2xl bg-slate-50 p-3">
+                      <p className="text-xs font-medium uppercase tracking-[0.25em] text-slate-400">Jump to</p>
+                      <div className="mt-3 grid gap-2">
+                        <Link href="/" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800">
+                          <Image src="/brand/toodl-expense.svg" alt="Expense" width={20} height={20} />
+                          Expense Splitter
+                        </Link>
+                        <Link href="/budget" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800">
+                          <Image src="/brand/toodl-budget.svg" alt="Budget" width={20} height={20} />
+                          Budget Studio
+                        </Link>
+                        <Link href="/journal" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800">
+                          <Image src="/brand/toodl-journal.svg" alt="Journal" width={20} height="20" />
+                          Journal Studio
+                        </Link>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        void handleCopyLink();
+                        setShowProfileCard(false);
+                      }}
+                      variant="outline"
+                      className="w-full border-slate-200"
+                    >
+                      Copy journal link
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setLibraryOpen(true);
+                        setShowProfileCard(false);
+                      }}
+                      variant="outline"
+                      className="w-full border-slate-200"
+                    >
+                      Browse entries
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
+        }
+      />
+      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-16">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
         <header className="space-y-4 text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.35em] text-rose-400">
             Toodl Journal Studio
@@ -973,6 +1205,88 @@ const JournalExperience = () => {
         </Card>
       </div>
     </div>
+      <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>
+        <SheetContent
+          side="right"
+          className="w-full max-w-md overflow-y-auto bg-white/85 backdrop-blur-xl"
+        >
+          <SheetHeader>
+            <SheetTitle>Past entries</SheetTitle>
+            <SheetDescription>
+              Revisit previous reflections and reopen them in the studio.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-6">
+            {libraryLoading && !libraryEntries.length ? (
+              <div className="flex justify-center py-10">
+                <Spinner />
+              </div>
+            ) : libraryError ? (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                {libraryError}
+              </div>
+            ) : groupedLibraryEntries.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                Your notebook is waiting for its first entry.
+              </div>
+            ) : (
+              groupedLibraryEntries.map((group, index) => (
+                <div key={`${group.label}-${index}`} className="space-y-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
+                    {group.label}
+                  </h3>
+                  <div className="space-y-2">
+                    {group.entries.map((entry) => {
+                      const displayDate = formatDisplayDate(
+                        entry.entryDate || entry.createdAt
+                      );
+                      const updatedStamp = formatTimestamp(entry.updatedAt);
+                      return (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          disabled={entryLoading}
+                          onClick={() => void handleSelectEntry(entry.id)}
+                          className={cn(
+                            "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-md",
+                            entryLoading && "opacity-60"
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-slate-700">
+                              {displayDate}
+                            </span>
+                            <span className="text-xs text-slate-400">
+                              Updated {updatedStamp}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                            {entry.mood ? (
+                              <Badge className="bg-rose-100 text-rose-700" variant="secondary">
+                                {entry.mood}
+                              </Badge>
+                            ) : null}
+                            {entry.snippet ? (
+                              <span className="line-clamp-2 text-left text-sm text-slate-500">
+                                “{entry.snippet}”
+                              </span>
+                            ) : (
+                              <span className="text-sm text-slate-400">
+                                No snippet saved
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 };
 
