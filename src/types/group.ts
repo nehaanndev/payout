@@ -18,7 +18,7 @@
       email: string | null; // Optional email field
       firstName: string;   // Add first name field
       id: string; // Unique identifier for the user (to support unauthenticated members)
-      authProvider?: 'google' | 'microsoft' | 'anon' | 'manual'; // Optional for clarity
+      authProvider?: 'google' | 'microsoft' | 'facebook' | 'anon' | 'manual'; // Optional for clarity
     };
     
   export interface Group {

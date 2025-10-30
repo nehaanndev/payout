@@ -4,6 +4,7 @@ import {
   getAuth,
   GoogleAuthProvider,
   OAuthProvider,
+  FacebookAuthProvider,
   signInWithPopup,
   User,
   signOut,
@@ -33,11 +34,17 @@ microsoftProvider.setCustomParameters({
   prompt: "select_account",
 });
 
+const facebookProvider = new FacebookAuthProvider();
+facebookProvider.setCustomParameters({
+  display: "popup",
+});
+
 export {
   db,
   auth,
   provider,
   microsoftProvider,
+  facebookProvider,
   signInWithPopup,
   signOut,
   onAuthStateChanged,

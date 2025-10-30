@@ -18,12 +18,16 @@ export default function IdentityPrompt({ members, onSelect }: IdentityPromptProp
           <div className="space-y-2">
             {members.map((member) => {
               const isManagedUser =
-                member.authProvider === "google" || member.authProvider === "microsoft";
+                member.authProvider === "google" ||
+                member.authProvider === "microsoft" ||
+                member.authProvider === "facebook";
               const providerLabel =
                 member.authProvider === "google"
                   ? "Google user"
                   : member.authProvider === "microsoft"
                   ? "Microsoft user"
+                  : member.authProvider === "facebook"
+                  ? "Facebook user"
                   : null;
               const button = (
                 <Button
@@ -49,7 +53,9 @@ export default function IdentityPrompt({ members, onSelect }: IdentityPromptProp
                     <p>
                       {member.authProvider === "google"
                         ? "Sign in with Google to use this account"
-                        : "Sign in with Microsoft to use this account"}
+                        : member.authProvider === "microsoft"
+                        ? "Sign in with Microsoft to use this account"
+                        : "Sign in with Facebook to use this account"}
                     </p>
                   </TooltipContent>
                 </Tooltip>

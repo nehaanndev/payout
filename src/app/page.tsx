@@ -6,6 +6,7 @@ import {
   auth,
   provider,
   microsoftProvider,
+  facebookProvider,
   signInWithPopup,
   signOut,
   User,
@@ -115,6 +116,14 @@ export default function Home() {
       await signInWithPopup(auth, microsoftProvider);
     } catch (error) {
       console.error("Error signing in with Microsoft: ", error);
+    }
+  };
+
+  const handleFacebookSignIn = async () => {
+    try {
+      await signInWithPopup(auth, facebookProvider);
+    } catch (error) {
+      console.error("Error signing in with Facebook: ", error);
     }
   };
 
@@ -253,15 +262,53 @@ export default function Home() {
                   </CardHeader>
 
                   <div className="flex flex-col items-center space-y-6 p-4">
-                    <Button variant="primaryDark" onClick={handleGoogleSignIn} className="w-full">
-                      Sign In with Google
+                    <Button
+                      variant="primaryDark"
+                      onClick={handleGoogleSignIn}
+                      className="w-full bg-[#1F2937] text-white hover:bg-[#111827]"
+                    >
+                      <span className="flex items-center justify-center gap-2">
+                        <Image
+                          src="/logos/google.svg"
+                          alt="Google"
+                          width={18}
+                          height={18}
+                          className="h-4 w-4"
+                        />
+                        Sign In with Google
+                      </span>
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="primaryDark"
                       onClick={handleMicrosoftSignIn}
-                      className="w-full border-[#2F2F2F] text-[#2F2F2F] hover:bg-[#2F2F2F] hover:text-white"
+                      className="w-full bg-[#1F2937] text-white hover:bg-[#111827]"
                     >
-                      Sign In with Microsoft
+                      <span className="flex items-center justify-center gap-2">
+                        <Image
+                          src="/logos/microsoft.svg"
+                          alt="Microsoft"
+                          width={18}
+                          height={18}
+                          className="h-4 w-4"
+                        />
+                        Sign In with Microsoft
+                      </span>
+                    </Button>
+                    <Button
+                      variant="primaryDark"
+                      onClick={handleFacebookSignIn}
+                      className="w-full bg-[#1F2937] text-white hover:bg-[#111827]"
+                    >
+                      <span className="flex items-center justify-center gap-2">
+                        <Image
+                          src="/logos/facebook.svg"
+                          alt="Facebook"
+                          width={18}
+                          height={18}
+                          className="h-4 w-4"
+                        />
+                        Sign In with Facebook
+                      </span>
                     </Button>
                     <Button
                       variant="primaryDark"

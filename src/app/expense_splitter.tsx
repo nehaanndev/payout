@@ -89,6 +89,8 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
     switch (primaryProvider) {
       case "microsoft.com":
         return "microsoft";
+      case "facebook.com":
+        return "facebook";
       case "google.com":
         return "google";
       default:
