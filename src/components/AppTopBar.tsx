@@ -32,8 +32,6 @@ const PRODUCT_META: Record<
   },
 };
 
-const toodlMark = "/brand/toodl-mark.svg";
-
 export function AppTopBar({
   product,
   heading,
@@ -60,13 +58,15 @@ export function AppTopBar({
     >
       <div className="absolute inset-0 bg-gradient-to-r from-white/70 via-white/40 to-white/10" />
       <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-start gap-4">
-          <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900/5">
-            <Image src={meta.icon} alt={`${product} icon`} width={40} height={40} />
-            <span className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow">
-              <Image src={toodlMark} alt="Toodl" width={20} height={20} />
-            </span>
-          </div>
+        <div className="flex items-center gap-4">
+          <Image
+            src={meta.icon}
+            alt={`${product} icon`}
+            width={64}
+            height={64}
+            className="h-16 w-16 shrink-0"
+            priority
+          />
           <div className="space-y-1">
             <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">
               {heading ?? meta.title}

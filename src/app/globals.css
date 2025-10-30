@@ -119,3 +119,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+.brand-logo:hover {
+  filter: saturate(1.5);
+  transform: translateY(-1px);
+}

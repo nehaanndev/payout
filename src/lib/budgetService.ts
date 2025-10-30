@@ -40,12 +40,16 @@ const getPreviousMonthKey = (monthKey: string) => {
   return getMonthKey(prev);
 };
 
-export const createBudgetDocument = async (member?: BudgetMember) => {
+export const createBudgetDocument = async (
+  member?: BudgetMember,
+  title?: string
+) => {
   const budgetRef = doc(collection(db, "budgets"));
   const nowIso = new Date().toISOString();
+  const normalizedTitle = title?.trim() || GENERIC_BUDGET_TITLE;
 
   const base: Omit<BudgetDocument, "id"> = {
-    title: GENERIC_BUDGET_TITLE,
+    title: normalizedTitle,
     ownerIds: member?.id ? [member.id] : [],
     memberIds: member?.id ? [member.id] : [],
     members: member ? [member] : [],
@@ -215,4 +219,13 @@ export const listBudgetsForMember = async (memberId: string) => {
     (docSnap) =>
       ({ id: docSnap.id, ...(docSnap.data() as Omit<BudgetDocument, "id">) }) as BudgetDocument
   );
+};
+
+export const renameBudget = async (budgetId: string, title: string) => {
+  const ref = doc(db, "budgets", budgetId);
+  await updateDoc(ref, {
+    title: title.trim() || GENERIC_BUDGET_TITLE,
+    updatedAt: new Date().toISOString(),
+    serverUpdatedAt: serverTimestamp(),
+  });
 };

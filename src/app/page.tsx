@@ -202,16 +202,28 @@ export default function Home() {
                         <div className="rounded-2xl bg-slate-50 p-3">
                           <p className="text-xs font-medium uppercase tracking-[0.25em] text-slate-400">Jump to</p>
                           <div className="mt-3 grid gap-2">
-                            <Link href="/" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800">
-                              <Image src="/brand/toodl-expense.svg" alt="Expense" width={20} height={20} />
+                            <Link
+                              href="/"
+                              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
+                              onClick={() => setShowProfileCard(false)}
+                            >
+                              <Image className="brand-logo" src="/brand/toodl-expense.svg" alt="Expense" width={20} height={20} />
                               Expense Splitter
                             </Link>
-                            <Link href="/budget" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800">
-                              <Image src="/brand/toodl-budget.svg" alt="Budget" width={20} height={20} />
+                            <Link
+                              href="/budget"
+                              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
+                              onClick={() => setShowProfileCard(false)}
+                            >
+                              <Image className="brand-logo" src="/brand/toodl-budget.svg" alt="Budget" width={20} height={20} />
                               Budget Studio
                             </Link>
-                            <Link href="/journal" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800">
-                              <Image src="/brand/toodl-journal.svg" alt="Journal" width={20} height={20} />
+                            <Link
+                              href="/journal"
+                              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
+                              onClick={() => setShowProfileCard(false)}
+                            >
+                              <Image className="brand-logo" src="/brand/toodl-journal.svg" alt="Journal" width={20} height={20} />
                               Journal Studio
                             </Link>
                           </div>
