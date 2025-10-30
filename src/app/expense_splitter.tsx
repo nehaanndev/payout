@@ -76,6 +76,26 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
   defaultAmount: 0
 });
 
+  const getAuthProviderFromSession = (user: User): Member["authProvider"] => {
+    const providerIds = user.providerData
+      .map((entry) => entry.providerId)
+      .filter((id): id is string => Boolean(id));
+    const primaryProvider =
+      providerIds[providerIds.length - 1] ??
+      providerIds[0] ??
+      user.providerId ??
+      "";
+
+    switch (primaryProvider) {
+      case "microsoft.com":
+        return "microsoft";
+      case "google.com":
+        return "google";
+      default:
+        return "manual";
+    }
+  };
+
   // ② whenever savedGroups changes, fetch each group’s settlements
   useEffect(() => {
     async function loadAllSettlements() {
@@ -163,9 +183,11 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
     // build “me” from the signed-in user
     me = {
       id: session.uid,
-      firstName: session.displayName?.split(" ")[0] ?? session.email!.split("@")[0],
-      email: session.email!,
-      authProvider: "google",
+      firstName:
+        session.displayName?.split(" ")[0] ??
+        (session.email ? session.email.split("@")[0] : "User"),
+      email: session.email ?? null,
+      authProvider: getAuthProviderFromSession(session),
     };
   } else if (anonUser) {
     // anonUser is already a Member
