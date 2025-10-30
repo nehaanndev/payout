@@ -2,7 +2,15 @@
 
 import { Suspense, useState, useEffect, useRef } from "react";
 import SearchParamsClient from '@/components/SearchParamsClient'
-import { auth, provider, signInWithPopup, signOut, User, onAuthStateChanged } from "../lib/firebase"; // Import Firebase auth and provider
+import {
+  auth,
+  provider,
+  microsoftProvider,
+  signInWithPopup,
+  signOut,
+  User,
+  onAuthStateChanged,
+} from "../lib/firebase"; // Import Firebase auth and providers
 import ExpenseSplitter from "./expense_splitter";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -94,11 +102,19 @@ export default function Home() {
   }, [groupId, session, anonUser]);
 
   const displayName = session?.displayName || anonUser?.firstName || 'Guest User';
-  const handleSignIn = async () => {
+  const handleGoogleSignIn = async () => {
     try {
       await signInWithPopup(auth, provider);
     } catch (error) {
       console.error("Error signing in to Firebase: ", error);
+    }
+  };
+
+  const handleMicrosoftSignIn = async () => {
+    try {
+      await signInWithPopup(auth, microsoftProvider);
+    } catch (error) {
+      console.error("Error signing in with Microsoft: ", error);
     }
   };
 
@@ -237,8 +253,15 @@ export default function Home() {
                   </CardHeader>
 
                   <div className="flex flex-col items-center space-y-6 p-4">
-                    <Button variant="primaryDark" onClick={handleSignIn} className="w-full">
+                    <Button variant="primaryDark" onClick={handleGoogleSignIn} className="w-full">
                       Sign In with Google
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleMicrosoftSignIn}
+                      className="w-full border-[#2F2F2F] text-[#2F2F2F] hover:bg-[#2F2F2F] hover:text-white"
+                    >
+                      Sign In with Microsoft
                     </Button>
                     <Button
                       variant="primaryDark"

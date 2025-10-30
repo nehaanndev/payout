@@ -1,6 +1,14 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth, GoogleAuthProvider, signInWithPopup, User, signOut, onAuthStateChanged} from "firebase/auth";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  OAuthProvider,
+  signInWithPopup,
+  User,
+  signOut,
+  onAuthStateChanged,
+} from "firebase/auth";
 
 
 // Your web app's Firebase configuration
@@ -19,6 +27,19 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+const microsoftProvider = new OAuthProvider("microsoft.com");
+// Optionally force account picker every time for clarity.
+microsoftProvider.setCustomParameters({
+  prompt: "select_account",
+});
 
-export { db, auth, provider, signInWithPopup, signOut, onAuthStateChanged };
+export {
+  db,
+  auth,
+  provider,
+  microsoftProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+};
 export type { User };
