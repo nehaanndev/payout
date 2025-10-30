@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useState, useEffect, useRef } from "react";
+import type { ComponentType, SVGProps } from "react";
 import SearchParamsClient from '@/components/SearchParamsClient'
 import {
   auth,
@@ -27,6 +28,129 @@ import Link from "next/link";
 import { CurrencyCode } from "@/lib/currency_core";
 import { DEFAULT_CURRENCY, getGroupCurrency } from "@/lib/currency";
 import { AppTopBar } from "@/components/AppTopBar";
+import {
+  ArrowRight,
+  BarChart3,
+  CalendarCheck2,
+  NotebookPen,
+  ShieldCheck,
+  Target,
+  Users,
+  Wand2,
+} from "lucide-react";
+
+type SpotlightProduct = {
+  name: string;
+  tagline: string;
+  icon: string;
+  accent: string;
+  description: string;
+};
+
+const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
+  {
+    name: "Expense Splitter",
+    tagline: "Fair splits without spreadsheets",
+    icon: "/brand/toodl-expense.svg",
+    accent: "from-slate-900/10 via-slate-800/5 to-slate-900/0",
+    description:
+      "Track group purchases, settle up in seconds, and keep every friend in the loop.",
+  },
+  {
+    name: "Budget Studio",
+    tagline: "Plan months that stay on track",
+    icon: "/brand/toodl-budget.svg",
+    accent: "from-emerald-500/15 via-teal-400/10 to-emerald-500/0",
+    description:
+      "Build shared budgets, set savings goals, and forecast your next month with clarity.",
+  },
+  {
+    name: "Journal Studio",
+    tagline: "Capture the days you don’t want to forget",
+    icon: "/brand/toodl-journal.svg",
+    accent: "from-rose-400/15 via-amber-300/10 to-sky-400/0",
+    description:
+      "Reflect on wins, lessons, and family moments—then revisit them in a beautiful library.",
+  },
+];
+
+const WORKFLOW_STEPS: Array<{
+  title: string;
+  description: string;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+}> = [
+  {
+    title: "Split & settle",
+    description: "Drop expenses into shared tabs and settle balances instantly.",
+    icon: Users,
+  },
+  {
+    title: "Plan next month",
+    description: "Spin up budgets, tag one-time spends, and project the month ahead.",
+    icon: Target,
+  },
+  {
+    title: "Celebrate progress",
+    description: "Log highlights in the journal so your team, family, or future self can look back.",
+    icon: NotebookPen,
+  },
+];
+
+const FEATURE_CALLOUTS: Array<{
+  title: string;
+  description: string;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+}> = [
+  {
+    title: "Multi-budget workspaces",
+    description:
+      "Run parallel budgets for home, side projects, or trips—each with its own collaborators.",
+    icon: BarChart3,
+  },
+  {
+    title: "Predictive targets",
+    description:
+      "Automatically suggest next-month spend based on trends and tagged one-time expenses.",
+    icon: Target,
+  },
+  {
+    title: "Private by default",
+    description:
+      "Budgets and journals live behind your sign-in so personal plans stay personal.",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Reminders you’ll love",
+    description:
+      "Calendar-friendly nudges to close the month, add entries, or check on shared goals.",
+    icon: CalendarCheck2,
+  },
+];
+
+const SOCIAL_PROOF: Array<{
+  quote: string;
+  name: string;
+  role: string;
+}> = [
+  {
+    quote:
+      "Toodl finally gave our roommates a way to track the boring bills and still capture the memories.",
+    name: "Priya N.",
+    role: "Brooklyn house share",
+  },
+  {
+    quote:
+      "We run one budget for our startup team, another for home. Switching between them feels effortless.",
+    name: "Marcus L.",
+    role: "Small business co-founder",
+  },
+  {
+    quote:
+      "Seeing projected savings next to our debt payoff goal keeps us motivated every single month.",
+    name: "Harper & Lee",
+    role: "Family CFOs",
+  },
+];
 
 export default function Home() {
   const [session, setSession] = useState<User | null>(null);
@@ -151,6 +275,46 @@ export default function Home() {
     localStorage.setItem('user_avatar', anonAvatar);
   };
 
+  const handleSelectExistingIdentity = () => {
+    const memberStr = localStorage.getItem("anon_member");
+    if (!memberStr) {
+      return;
+    }
+    try {
+      const member: Member = JSON.parse(memberStr);
+      setAnonUser(member);
+      setShowIdentityChoice(false);
+      setIsNewUser(false);
+      if (member.firstName) {
+        setExistingName(member.firstName);
+      }
+    } catch (error) {
+      console.warn("Failed to parse stored anon member", error);
+    }
+  };
+
+  const handleSubmitIdentityName = () => {
+    if (!tempName.trim()) {
+      return;
+    }
+    const id = getOrCreateUserId();
+    const member: Member = {
+      id,
+      email: "",
+      firstName: tempName.trim(),
+      authProvider: "anon",
+    };
+    localStorage.setItem("anon_member", JSON.stringify(member));
+    setAnonUser(member);
+    setExistingName(member.firstName ?? null);
+    const avatarIndex = Math.floor(Math.random() * avatarUrls.length);
+    const anonAvatar = avatarUrls[avatarIndex];
+    localStorage.setItem("user_avatar", anonAvatar);
+    setShowIdentityChoice(false);
+    setIsNewUser(false);
+    setTempName("");
+  };
+
   
   if (loading) {
     return (
@@ -269,158 +433,405 @@ export default function Home() {
           }}
         />
       ): (
-          /* ⬇️ LANDING HERO + SIGN‑IN SECTION ⬇️ */
-          <div className="relative min-h-screen bg-[#FEF4D6] flex items-center">
-            {/* decorative split background for desktop */}
-            <div className="hidden lg:block absolute inset-y-0 right-0 w-1/2 bg-[#FEF4D6]/40 pointer-events-none" />
-            <div className="container max-w-6xl mx-auto px-6 py-16 flex flex-col md:flex-row md:items-start lg:items-center gap-16 lg:gap-32">
-              {/* ── left / top column : sign‑in card ─────────────────────────── */}
-              <div className="w-full md:max-w-sm">
-              <Card className="p-8 rounded-xl shadow-lg ring-1 ring-black/5 bg-white">
-                  <CardHeader>
-                    <CardTitle className="text-4xl font-extrabold text-center text-[#1F2A37]">Toodl</CardTitle>
-                    <p className="text-center text-gray-500 mt-2">Manage your expenses with ease</p>
-                  </CardHeader>
-
-                  <div className="flex flex-col items-center space-y-6 p-4">
-                    <Button
-                      variant="primaryDark"
-                      onClick={handleGoogleSignIn}
-                      className="w-full bg-[#1F2937] text-white hover:bg-[#111827]"
-                    >
-                      <span className="flex items-center justify-center gap-2">
-                        <Image
-                          src="/logos/google.svg"
-                          alt="Google"
-                          width={18}
-                          height={18}
-                          className="h-4 w-4"
-                        />
-                        Sign In with Google
-                      </span>
-                    </Button>
-                    <Button
-                      variant="primaryDark"
-                      onClick={handleMicrosoftSignIn}
-                      className="w-full bg-[#1F2937] text-white hover:bg-[#111827]"
-                    >
-                      <span className="flex items-center justify-center gap-2">
-                        <Image
-                          src="/logos/microsoft.svg"
-                          alt="Microsoft"
-                          width={18}
-                          height={18}
-                          className="h-4 w-4"
-                        />
-                        Sign In with Microsoft
-                      </span>
-                    </Button>
-                    <Button
-                      variant="primaryDark"
-                      onClick={handleFacebookSignIn}
-                      className="w-full bg-[#1F2937] text-white hover:bg-[#111827]"
-                    >
-                      <span className="flex items-center justify-center gap-2">
-                        <Image
-                          src="/logos/facebook.svg"
-                          alt="Facebook"
-                          width={18}
-                          height={18}
-                          className="h-4 w-4"
-                        />
-                        Sign In with Facebook
-                      </span>
-                    </Button>
-                    <Button
-                      variant="primaryDark"
-                      className="w-full"
-                      onClick={handleContinueWithoutSignIn}
-                    >
-                      Continue Without Sign In
-                    </Button>
-                  </div> 
-            {showIdentityChoice && (
-              <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-                <div className="bg-white p-6 rounded shadow-lg max-w-sm w-full">
-                  {existingName && !isNewUser ? (
-                    <>
-                      <h2 className="font-bold mb-4 text-center text-lg">Welcome back!</h2>
-                      <div className="space-y-4">
-                        <Button className="w-full" onClick={() => {
-                          const member = JSON.parse(localStorage.getItem("anon_member")!);
-                          setAnonUser(member);
-                          setShowIdentityChoice(false);
-                        }}>
-                          I&apos;m {existingName}
-                        </Button>
-
-                        <Button
-                          className="w-full"
-                          variant="outline"
-                          onClick={() => setIsNewUser(true)}
-                        >
-                          Somebody else
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <h2 className="font-bold mb-4 text-center text-lg">What&apos;s your name?</h2>
-                      <input
-                        type="text"
-                        value={tempName}
-                        onChange={(e) => setTempName(e.target.value)}
-                        placeholder="Enter your name"
-                        className="border p-2 w-full rounded mb-4"
-                      />
-                      <Button
-                        variant="primaryDark"
-                        className="w-full"
-                        onClick={() => {
-                          if (!tempName.trim()) return;
-                          const id = getOrCreateUserId();
-                          const member: Member = {
-                            id,
-                            email: "",
-                            firstName: tempName.trim(),
-                            authProvider: "anon",
-                          };
-                          
-                          localStorage.setItem("anon_member", JSON.stringify(member));
-                          setAnonUser(member);
-                          
-                          const avatarIndex = Math.floor(Math.random() * avatarUrls.length);
-                          const anonAvatar = avatarUrls[avatarIndex];
-                          localStorage.setItem('user_avatar', anonAvatar);
-                          setShowIdentityChoice(false);
-                        }}
-                      >
-                        Continue
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-          </Card>
-            </div>
-            {/* ── right / bottom column : hero illustration ───────────────── */}
-            {/* right / bottom column : hero */}
-            <div className="w-full md:flex-1 flex justify-center">
-              <Image
-                src="/images/hero-payout.png"
-                alt="Toodl Hero Illustration"
-                width={600}         /* <–– sets natural size */
-                height={600}
-                className="w-full max-w-[420px] lg:max-w-[540px] h-auto object-contain animate-float"
-                priority
-              />
-            </div>
-          </div>
-        </div>
+        <>
+          <LandingPage
+            onGoogle={handleGoogleSignIn}
+            onMicrosoft={handleMicrosoftSignIn}
+            onFacebook={handleFacebookSignIn}
+            onContinueWithoutSignIn={handleContinueWithoutSignIn}
+          />
+          <IdentityModal
+            open={showIdentityChoice}
+            existingName={existingName}
+            isNewUser={isNewUser}
+            tempName={tempName}
+            onSetTempName={setTempName}
+            onSetIsNewUser={setIsNewUser}
+            onClose={() => {
+              setShowIdentityChoice(false);
+              setIsNewUser(false);
+              setTempName("");
+            }}
+            onSelectExisting={handleSelectExistingIdentity}
+            onSubmitNew={handleSubmitIdentityName}
+          />
+        </>
       )}
     </div>
     </>
+  );
+}
+
+type LandingPageProps = {
+  onGoogle: () => void;
+  onMicrosoft: () => void;
+  onFacebook: () => void;
+  onContinueWithoutSignIn: () => void;
+};
+
+function LandingPage({
+  onGoogle,
+  onMicrosoft,
+  onFacebook,
+  onContinueWithoutSignIn,
+}: LandingPageProps) {
+  return (
+    <div className="flex flex-col bg-white text-slate-900">
+      <section className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-white to-sky-50">
+        <div className="absolute -top-40 left-20 h-80 w-80 rounded-full bg-amber-200/30 blur-3xl" />
+        <div className="absolute bottom-0 right-10 h-72 w-72 rounded-full bg-sky-200/30 blur-3xl" />
+        <div className="relative mx-auto max-w-6xl px-6 py-24 lg:py-28">
+          <div className="grid gap-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:items-center">
+            <div className="space-y-8">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 ring-1 ring-slate-100">
+                <Wand2 className="h-3.5 w-3.5 text-amber-500" />
+                Money, goals, and stories—together
+              </span>
+              <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
+                Give your money, memories, and crew one elegant home.
+              </h1>
+              <p className="text-lg text-slate-600 lg:text-xl">
+                Split the dinner bill, plan next month&apos;s budget, and capture the win—all without hopping apps. Toodl keeps every shared moment and dollar in rhythm.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  variant="primaryDark"
+                  onClick={onGoogle}
+                  className="flex items-center gap-2 bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+                >
+                  <Image src="/logos/google.svg" alt="Google" width={18} height={18} className="h-4 w-4" />
+                  Start with Google
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={onMicrosoft}
+                  className="flex items-center gap-2 border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-400 hover:text-slate-900"
+                >
+                  <Image src="/logos/microsoft.svg" alt="Microsoft" width={18} height={18} className="h-4 w-4" />
+                  Use Microsoft
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={onFacebook}
+                  className="flex items-center gap-2 border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-400 hover:text-slate-900"
+                >
+                  <Image src="/logos/facebook.svg" alt="Facebook" width={18} height={18} className="h-4 w-4" />
+                  Facebook login
+                </Button>
+              </div>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
+                <button
+                  type="button"
+                  onClick={onContinueWithoutSignIn}
+                  className="inline-flex items-center text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
+                >
+                  Continue without signing in
+                </button>
+                <span>It only takes a minute to invite teammates later.</span>
+              </div>
+            </div>
+            <div className="relative">
+              <div className="absolute -top-10 -right-6 h-64 w-64 rounded-full bg-emerald-200/30 blur-3xl" />
+              <div className="relative grid gap-4 rounded-3xl border border-slate-100 bg-white/80 p-6 shadow-2xl shadow-amber-200/40 backdrop-blur">
+                {PRODUCT_SPOTLIGHT.map((product) => (
+                  <div
+                    key={product.name}
+                    className="group relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                  >
+                    <div className={`pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br ${product.accent}`} />
+                    <div className="relative flex items-start gap-4">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-inner">
+                        <Image src={product.icon} alt={product.name} width={38} height={38} className="brand-logo" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
+                          {product.tagline}
+                        </p>
+                        <h3 className="text-xl font-semibold text-slate-900">{product.name}</h3>
+                        <p className="text-sm text-slate-600">{product.description}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-slate-100 bg-white">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <div className="space-y-4 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Three Studios · One Flow</p>
+            <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
+              Choose the tool you need today—jump to another tomorrow.
+            </h2>
+            <p className="mx-auto max-w-2xl text-base text-slate-600">
+              Each studio is powerful alone, but brilliantly connected. Dive into the experience that fits your moment.
+            </p>
+          </div>
+          <div className="mt-12 grid gap-6 lg:grid-cols-3">
+            {PRODUCT_SPOTLIGHT.map((product) => (
+              <Link
+                key={product.name}
+                href={
+                  product.name === "Expense Splitter"
+                    ? "/"
+                    : product.name === "Budget Studio"
+                    ? "/budget"
+                    : "/journal"
+                }
+                className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-slate-100 bg-slate-50/70 p-6 text-left shadow-sm transition hover:-translate-y-1.5 hover:border-slate-200 hover:shadow-xl"
+              >
+                <div className={`pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br ${product.accent}`} />
+                <div className="relative flex items-center gap-4">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-inner">
+                    <Image src={product.icon} alt={product.name} width={44} height={44} className="brand-logo" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">{product.name}</h3>
+                    <p className="text-xs uppercase tracking-[0.3em] text-slate-500">{product.tagline}</p>
+                  </div>
+                </div>
+                <p className="relative mt-4 flex-1 text-sm text-slate-600">{product.description}</p>
+                <span className="relative mt-6 inline-flex items-center gap-1 text-sm font-semibold text-slate-700 transition group-hover:text-slate-900">
+                  Peek inside <ArrowRight className="h-4 w-4" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-slate-900">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <div className="grid gap-10 md:grid-cols-[260px_1fr] md:items-start">
+            <div className="space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-300">How it feels</p>
+              <h2 className="text-3xl font-bold text-white md:text-4xl">
+                A simple rhythm from split, to plan, to reflect.
+              </h2>
+              <p className="text-sm text-slate-300">
+                Toodl keeps your crew in sync with a flow that mirrors real life. Follow the moments that repeat each month.
+              </p>
+            </div>
+            <div className="relative">
+              <div className="pointer-events-none absolute left-4 top-6 h-[calc(100%-3rem)] w-px bg-gradient-to-b from-emerald-400 via-emerald-300/20 to-transparent" />
+              <div className="space-y-8">
+                {WORKFLOW_STEPS.map((step, index) => {
+                  const Icon = step.icon;
+                  return (
+                    <div key={step.title} className="relative flex gap-4 rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-300/20 text-emerald-200">
+                        <Icon className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-200">
+                          Step {index + 1}
+                        </p>
+                        <h3 className="mt-2 text-lg font-semibold text-white">{step.title}</h3>
+                        <p className="mt-1 text-sm text-slate-200">{step.description}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-6 py-20">
+        <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] md:items-center">
+          <div className="space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Voices from the crew</p>
+            <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
+              People using Toodl feel calmer, more connected, and more on track.
+            </h2>
+            <p className="text-sm text-slate-600">
+              Transparent tabs, collaborative budgets, and private journals mean fewer surprises and more wins shared out loud.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {SOCIAL_PROOF.map((story) => (
+              <div
+                key={story.name}
+                className="flex h-full flex-col justify-between rounded-3xl border border-slate-100 bg-white p-6 shadow-sm"
+              >
+                <p className="text-sm text-slate-600">&ldquo;{story.quote}&rdquo;</p>
+                <div className="mt-6 space-y-1 text-sm font-medium text-slate-800">
+                  <p>{story.name}</p>
+                  <p className="text-xs uppercase tracking-[0.25em] text-slate-400">{story.role}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-slate-100 bg-slate-50/60">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <div className="space-y-4 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">What else you get</p>
+            <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">Thoughtful details that make Toodl yours.</h2>
+            <p className="mx-auto max-w-2xl text-base text-slate-600">
+              Control every workspace, keep history safe, and stay on top of targets with just the nudges you need.
+            </p>
+          </div>
+          <div className="mt-12 grid gap-6 md:grid-cols-2">
+            {FEATURE_CALLOUTS.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <div
+                  key={feature.title}
+                  className="flex h-full flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-6 text-left shadow-sm transition hover:-translate-y-1 hover:border-slate-200 hover:shadow-lg"
+                >
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">{feature.title}</h3>
+                    <p className="mt-1 text-sm text-slate-600">{feature.description}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.25),transparent_55%)]" />
+        <div className="relative mx-auto max-w-6xl px-6 py-24 text-center text-white">
+          <h2 className="text-3xl font-bold md:text-4xl">
+            Ready to turn money chores into a shared rhythm?
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-base text-slate-200">
+            Sign in with your favorite provider, invite your crew, and have your first budget or journal ready in minutes.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Button
+              variant="primaryDark"
+              onClick={onGoogle}
+              className="flex items-center gap-2 bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-100"
+            >
+              <Image src="/logos/google.svg" alt="Google" width={18} height={18} className="h-4 w-4" />
+              Start with Google
+            </Button>
+            <Button
+              variant="outline"
+              onClick={onMicrosoft}
+              className="flex items-center gap-2 border-white/40 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+            >
+              <Image src="/logos/microsoft.svg" alt="Microsoft" width={18} height={18} className="h-4 w-4" />
+              Use Microsoft
+            </Button>
+            <Button
+              variant="outline"
+              onClick={onFacebook}
+              className="flex items-center gap-2 border-white/40 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+            >
+              <Image src="/logos/facebook.svg" alt="Facebook" width={18} height={18} className="h-4 w-4" />
+              Facebook login
+            </Button>
+          </div>
+          <button
+            type="button"
+            onClick={onContinueWithoutSignIn}
+            className="mt-6 inline-flex items-center text-sm text-slate-300 underline-offset-2 hover:text-white hover:underline"
+          >
+            Prefer to explore without signing in
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+type IdentityModalProps = {
+  open: boolean;
+  existingName: string | null;
+  isNewUser: boolean;
+  tempName: string;
+  onSetTempName: (value: string) => void;
+  onSetIsNewUser: (value: boolean) => void;
+  onSelectExisting: () => void;
+  onSubmitNew: () => void;
+  onClose: () => void;
+};
+
+function IdentityModal({
+  open,
+  existingName,
+  isNewUser,
+  tempName,
+  onSetTempName,
+  onSetIsNewUser,
+  onSelectExisting,
+  onSubmitNew,
+  onClose,
+}: IdentityModalProps) {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4">
+      <div className="w-full max-w-sm rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl">
+        {existingName && !isNewUser ? (
+          <div className="space-y-6 text-center">
+            <div className="space-y-2">
+              <h2 className="text-lg font-semibold text-slate-900">Welcome back!</h2>
+              <p className="text-sm text-slate-600">
+                We spotted your earlier session. Continue as {existingName} or choose a different name.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <Button className="w-full" onClick={onSelectExisting}>
+                I&apos;m {existingName}
+              </Button>
+              <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => {
+                  onSetIsNewUser(true);
+                }}
+              >
+                Somebody else
+              </Button>
+              <Button variant="ghost" className="w-full text-slate-500 hover:text-slate-700" onClick={onClose}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="space-y-2 text-center">
+              <h2 className="text-lg font-semibold text-slate-900">Who should we call you?</h2>
+              <p className="text-sm text-slate-600">We&apos;ll use this name in shared tabs until you sign in.</p>
+            </div>
+            <div className="space-y-3">
+              <label className="sr-only" htmlFor="anon-name">
+                Your name
+              </label>
+              <input
+                id="anon-name"
+                type="text"
+                value={tempName}
+                onChange={(event) => onSetTempName(event.target.value)}
+                placeholder="Enter your name"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              />
+              <Button className="w-full" onClick={onSubmitNew}>
+                Continue
+              </Button>
+              <Button variant="ghost" className="w-full text-slate-500 hover:text-slate-700" onClick={onClose}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
