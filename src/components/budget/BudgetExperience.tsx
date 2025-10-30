@@ -612,7 +612,7 @@ const BudgetExperience = () => {
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [invalidBudget, setInvalidBudget] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [activeMonthKey, setActiveMonthKey] = useState<string>(() =>
     getMonthKey()
@@ -703,17 +703,26 @@ const BudgetExperience = () => {
         tags: normaliseTags(Array.isArray(entry.tags) ? entry.tags : []),
       };
       if (!memberRules.length) {
-        return normalizedEntry;
+        return {
+          ...normalizedEntry,
+          date: formatDateParts(normalizeDraftDate(normalizedEntry.date)),
+        };
       }
       for (const rule of memberRules) {
         if (ruleMatches(rule, entry.merchant)) {
           return {
             ...normalizedEntry,
             category: normaliseCategory(rule.categoryValue, availableCategories),
+            date: formatDateParts(
+              normalizeDraftDate(normalizedEntry.date)
+            ),
           };
         }
       }
-      return normalizedEntry;
+      return {
+        ...normalizedEntry,
+        date: formatDateParts(normalizeDraftDate(normalizedEntry.date)),
+      };
     },
     [availableCategories, memberRules]
   );
@@ -723,7 +732,12 @@ const BudgetExperience = () => {
       incomes: month.incomes.length ? month.incomes : defaultState().incomes,
       fixeds: month.fixeds.length ? month.fixeds : defaultState().fixeds,
       entries: sortLedgerEntries(
-        (month.entries ?? []).map(applyCategoryRulesToEntry)
+        (month.entries ?? [])
+          .map(applyCategoryRulesToEntry)
+          .filter((entry) => {
+            const monthKey = getMonthKey(normalizeDraftDate(entry.date));
+            return monthKey === month.month;
+          })
       ),
       customCategories: doc?.customCategories ? [...doc.customCategories] : [],
       categoryRules: doc?.categoryRules ? [...doc.categoryRules] : [],
@@ -1165,7 +1179,7 @@ const BudgetExperience = () => {
         setLastSavedAt(month.updatedAt);
         setActiveMonthKey(nextMonthKey);
         setCategoryFilter(null);
-        setTagFilter(null);
+        setTagFilters([]);
         setAvailableMonths((prev) => sortMonthKeys([...prev, nextMonthKey]));
         persistBudgetToUrl(budgetId, nextMonthKey);
         lastHydrated.current = { budgetId, month: nextMonthKey };
@@ -1209,7 +1223,7 @@ const BudgetExperience = () => {
         setActiveMonthKey(targetMonthKey);
         setState(deriveStateFromMonth(month, doc));
         setCategoryFilter(null);
-        setTagFilter(null);
+        setTagFilters([]);
         setMonthMeta({
           id: month.id,
           createdAt: month.createdAt,
@@ -1537,6 +1551,7 @@ const BudgetExperience = () => {
         adjusted.category,
         availableCategories
       );
+      const dayString = formatDateParts(safeDate);
       const tags = normaliseTags(
         Array.isArray(adjusted.tags) ? adjusted.tags : []
       );
@@ -1545,7 +1560,7 @@ const BudgetExperience = () => {
         amount,
         category: categoryValue,
         merchant: source ? source : undefined,
-        date: safeDate.toISOString(),
+        date: dayString,
         isOneTime: Boolean(adjusted.isOneTime),
         tags,
       };
@@ -1581,7 +1596,7 @@ const BudgetExperience = () => {
       const grouped = drafts.reduce<Map<string, LedgerEntryDraft[]>>(
         (acc, draft) => {
           const monthKey = draft.date
-            ? getMonthKey(new Date(draft.date))
+            ? getMonthKey(normalizeDraftDate(draft.date))
             : activeMonthKey;
           const list = acc.get(monthKey) ?? [];
           list.push(draft);
@@ -1633,7 +1648,7 @@ const BudgetExperience = () => {
           });
           setLastSavedAt(payload.updatedAt);
           setCategoryFilter(null);
-          setTagFilter(null);
+          setTagFilters([]);
           setMode("ledger");
           lastHydrated.current = { budgetId, month: monthKey };
         } else {
@@ -1687,7 +1702,7 @@ const BudgetExperience = () => {
       });
       setLastSavedAt(payload.updatedAt);
       setCategoryFilter(null);
-      setTagFilter(null);
+      setTagFilters([]);
       lastHydrated.current = { budgetId, month: activeMonthKey };
     } catch (error) {
       console.error("Failed to delete entries:", error);
@@ -1809,7 +1824,7 @@ const BudgetExperience = () => {
             availableTags={availableTags}
             categorySummaries={categorySummaries}
             categoryFilter={categoryFilter}
-            tagFilter={tagFilter}
+            tagFilters={tagFilters}
             flexBudget={flexBudget}
             monthSpend={monthSpend}
             recurringSpend={recurringSpend}
@@ -1824,10 +1839,10 @@ const BudgetExperience = () => {
             onCreateCategory={upsertCustomCategory}
             onCreateRule={createCategoryRule}
             onSelectCategory={setCategoryFilter}
-            onSelectTag={setTagFilter}
+            onUpdateTagFilters={setTagFilters}
             onClearFilters={() => {
               setCategoryFilter(null);
-              setTagFilter(null);
+              setTagFilters([]);
             }}
             onDeleteAllEntries={handleDeleteAllEntries}
             savingsTarget={state.savingsTarget}
@@ -2254,7 +2269,7 @@ function Ledger({
   availableTags,
   categorySummaries,
   categoryFilter,
-  tagFilter,
+  tagFilters,
   flexBudget,
   monthSpend,
   recurringSpend,
@@ -2269,7 +2284,7 @@ function Ledger({
   onCreateCategory,
   onCreateRule,
   onSelectCategory,
-  onSelectTag,
+  onUpdateTagFilters,
   onClearFilters,
   onDeleteAllEntries,
   savingsTarget,
@@ -2286,7 +2301,7 @@ function Ledger({
   availableTags: string[];
   categorySummaries: CategorySummary[];
   categoryFilter: string | null;
-  tagFilter: string | null;
+  tagFilters: string[];
   flexBudget: number;
   monthSpend: number;
   recurringSpend: number;
@@ -2301,7 +2316,7 @@ function Ledger({
   onCreateCategory: (label: string, emoji?: string | null) => CategoryOption | null;
   onCreateRule: (input: CategoryRuleInput) => BudgetCategoryRule | null;
   onSelectCategory: (categoryValue: string) => void;
-  onSelectTag: (tagValue: string) => void;
+  onUpdateTagFilters: (tags: string[]) => void;
   onClearFilters: () => void;
   onDeleteAllEntries: () => Promise<void> | void;
   savingsTarget: number;
@@ -2319,6 +2334,7 @@ function Ledger({
     useState<BudgetLedgerEntry | null>(null);
   const [tagEditorEntry, setTagEditorEntry] =
     useState<BudgetLedgerEntry | null>(null);
+  const [tagFilterDialogOpen, setTagFilterDialogOpen] = useState(false);
   const [showSpendDetails, setShowSpendDetails] = useState(false);
 
   const {
@@ -2336,9 +2352,9 @@ function Ledger({
     [categoryFilter]
   );
 
-  const normalizedTagFilter = useMemo(
-    () => tagFilter?.toLowerCase() ?? null,
-    [tagFilter]
+  const normalizedTagFilters = useMemo(
+    () => tagFilters.map((tag) => tag.toLowerCase()),
+    [tagFilters]
   );
 
   const visibleEntries = useMemo(() => {
@@ -2347,12 +2363,48 @@ function Ledger({
         ? entry.category.toLowerCase() === normalizedCategoryFilter
         : true;
       const tagList = Array.isArray(entry.tags) ? entry.tags : [];
-      const matchesTag = normalizedTagFilter
-        ? tagList.some((tag) => tag.toLowerCase() === normalizedTagFilter)
+      const normalizedEntryTags = tagList.map((tag) => tag.toLowerCase());
+      const matchesTag = normalizedTagFilters.length
+        ? normalizedTagFilters.every((filterTag) =>
+            normalizedEntryTags.includes(filterTag)
+          )
         : true;
       return matchesCategory && matchesTag;
     });
-  }, [entries, normalizedCategoryFilter, normalizedTagFilter]);
+  }, [entries, normalizedCategoryFilter, normalizedTagFilters]);
+
+  const tagFilteredTotal = useMemo(
+    () =>
+      visibleEntries.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0),
+    [visibleEntries]
+  );
+
+  const [tagFilterDraft, setTagFilterDraft] = useState<string[]>(tagFilters);
+
+  useEffect(() => {
+    if (tagFilterDialogOpen) {
+      setTagFilterDraft(tagFilters);
+    }
+  }, [tagFilterDialogOpen, tagFilters]);
+
+  const toggleDraftTag = (tag: string) => {
+    setTagFilterDraft((prev) => {
+      const exists = prev.some(
+        (value) => value.toLowerCase() === tag.toLowerCase()
+      );
+      if (exists) {
+        return prev.filter(
+          (value) => value.toLowerCase() !== tag.toLowerCase()
+        );
+      }
+      return normaliseTags([...prev, tag]);
+    });
+  };
+
+  const applyTagFilters = () => {
+    onUpdateTagFilters(normaliseTags(tagFilterDraft));
+    setTagFilterDialogOpen(false);
+  };
 
   const hasDetailMetrics =
     recurringSpend > 0 || oneTimeSpend > 0 || savingsTarget > 0;
@@ -2568,23 +2620,21 @@ function Ledger({
             <span>Ledger</span>
             <div className="flex items-center gap-2">
               {availableTags.length > 0 && (
-                <Select
-                  value={tagFilter ?? undefined}
-                  onValueChange={(value) => onSelectTag(value)}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTagFilterDialogOpen(true)}
+                  className="gap-1"
                 >
-                  <SelectTrigger className="w-36">
-                    <SelectValue placeholder="Filter tags" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableTags.map((tag) => (
-                      <SelectItem key={tag.toLowerCase()} value={tag}>
-                        #{tag}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  Filter tags
+                  {tagFilters.length > 0 && (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                      {tagFilters.length}
+                    </span>
+                  )}
+                </Button>
               )}
-              {(categoryFilter || tagFilter) && (
+              {(categoryFilter || tagFilters.length > 0) && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -2640,6 +2690,35 @@ function Ledger({
             </div>
           </CardTitle>
         </CardHeader>
+        {tagFilters.length > 0 && (
+          <div className="px-6 pb-2">
+            <div className="rounded-2xl border border-indigo-200 bg-indigo-50/80 px-4 py-3">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                    Tag filter total
+                  </div>
+                  <div className="text-2xl font-semibold text-indigo-700">
+                    {currency(tagFilteredTotal)}
+                  </div>
+                  <div className="text-xs text-indigo-600">
+                    Combined spend across selected tags this month
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {tagFilters.map((tag) => (
+                    <span
+                      key={`active-tag-${tag.toLowerCase()}`}
+                      className="rounded-full border border-indigo-200 bg-white/80 px-3 py-1 text-xs font-medium text-indigo-700"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <CardContent>
           <EntryList
             entries={visibleEntries}
@@ -2660,6 +2739,64 @@ function Ledger({
           }}
         />
       </Card>
+      <Dialog open={tagFilterDialogOpen} onOpenChange={setTagFilterDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Filter by tags</DialogTitle>
+            <DialogDescription>
+              Select one or more tags to narrow the ledger list.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {availableTags.length ? (
+              <div className="space-y-3">
+                {availableTags.map((tag) => {
+                  const checked = tagFilterDraft.some(
+                    (value) => value.toLowerCase() === tag.toLowerCase()
+                  );
+                  const tagId = `tag-filter-${tag.toLowerCase()}`;
+                  return (
+                    <div key={tag.toLowerCase()} className="flex items-center gap-3">
+                      <Checkbox
+                        id={tagId}
+                        checked={checked}
+                        onCheckedChange={() => toggleDraftTag(tag)}
+                      />
+                      <Label htmlFor={tagId} className="text-sm font-medium text-slate-700">
+                        #{tag}
+                      </Label>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                No tags recorded yet. Add tags to expenses to filter here.
+              </p>
+            )}
+          </div>
+          <DialogFooter className="mt-2 gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setTagFilterDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTagFilterDraft([])}
+              disabled={!tagFilterDraft.length}
+            >
+              Clear selection
+            </Button>
+            <Button type="button" onClick={applyTagFilters}>
+              Apply filters
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <CategoryEditorDialog
         entry={categoryEditorEntry}
         open={Boolean(categoryEditorEntry)}
