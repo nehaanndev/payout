@@ -24,6 +24,7 @@ export type BudgetLedgerEntry = {
   merchant?: string | null;
   date: string;
   isOneTime?: boolean;
+  tags?: string[];
 };
 
 export type BudgetGoal = {

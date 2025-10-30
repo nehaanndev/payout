@@ -11,11 +11,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Camera,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Plus,
   Receipt,
   Trash2,
   Wallet,
+  X,
   Upload,
 } from "lucide-react";
 import { User, onAuthStateChanged } from "firebase/auth";
@@ -77,7 +80,7 @@ import {
 
 type Mode = "wizard" | "ledger";
 
-type WizardStep = 0 | 1 | 2 | 3;
+type WizardStep = 0 | 1 | 2 | 3 | 4;
 
 type BudgetState = {
   incomes: BudgetIncome[];
@@ -95,6 +98,7 @@ type LedgerEntryDraft = {
   merchant?: string;
   date?: string;
   isOneTime?: boolean;
+  tags?: string[];
 };
 
 type CategoryOption = {
@@ -288,6 +292,7 @@ const normaliseCategory = (
 
 const SUPPORTED_IMPORT_EXTENSIONS = [".csv", ".tsv", ".xlsx", ".xls"];
 const NO_DATE_COLUMN_VALUE = "__no_date_column__";
+const NO_TAG_COLUMN_VALUE = "__no_tag_column__";
 
 const guessHeader = (headers: string[], keywords: string[]) => {
   const lower = headers.map((header) => header.toLowerCase());
@@ -472,6 +477,36 @@ const sortLedgerEntries = (entries: BudgetLedgerEntry[]) =>
         normalizeDraftDate(a.date).getTime()
     );
 
+const normaliseTags = (
+  tags: Array<string | null | undefined>
+): string[] => {
+  const map = new Map<string, string>();
+  for (const tag of tags) {
+    if (!tag) continue;
+    const trimmed = tag.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (!map.has(key)) {
+      map.set(key, trimmed);
+    }
+  }
+  return Array.from(map.values());
+};
+
+const formatGoalCompletionDate = (iso: string | null): string | null => {
+  if (!iso) {
+    return null;
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+  });
+};
+
 const normalizeGoalRecord = (goal: BudgetGoal): BudgetGoal => {
   const targetAmount = Math.max(0, Number(goal.targetAmount) || 0);
   const currentBalance = Number(goal.currentBalance) || 0;
@@ -513,6 +548,7 @@ const defaultState = (): BudgetState => ({
       category: "Dining",
       merchant: "Starbucks",
       date: new Date().toISOString(),
+      tags: ["Morning"],
     },
     {
       id: generateId(),
@@ -520,6 +556,7 @@ const defaultState = (): BudgetState => ({
       category: "Groceries",
       merchant: "Grocery Outlet",
       date: new Date().toISOString(),
+      tags: ["Weekly"],
     },
   ]),
   customCategories: [],
@@ -575,6 +612,7 @@ const BudgetExperience = () => {
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [invalidBudget, setInvalidBudget] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [activeMonthKey, setActiveMonthKey] = useState<string>(() =>
     getMonthKey()
@@ -662,6 +700,7 @@ const BudgetExperience = () => {
       const normalizedEntry: BudgetLedgerEntry = {
         ...entry,
         isOneTime: Boolean(entry.isOneTime),
+        tags: normaliseTags(Array.isArray(entry.tags) ? entry.tags : []),
       };
       if (!memberRules.length) {
         return normalizedEntry;
@@ -750,6 +789,16 @@ const BudgetExperience = () => {
         return b.recurringTotal - a.recurringTotal;
       });
   }, [availableCategories, state.entries]);
+
+  const availableTags = useMemo(
+    () =>
+      normaliseTags(
+        state.entries.flatMap((entry) =>
+          Array.isArray(entry.tags) ? entry.tags : []
+        )
+      ),
+    [state.entries]
+  );
 
   const nextMonthTargets = useMemo<NextMonthTarget[]>(() => {
     if (!categorySummaries.length) {
@@ -893,6 +942,16 @@ const BudgetExperience = () => {
       ...prev,
       entries: prev.entries.map((entry) =>
         entry.id === entryId ? { ...entry, isOneTime } : entry
+      ),
+    }));
+  }, []);
+
+  const updateEntryTags = useCallback((entryId: string, tags: string[]) => {
+    const normalised = normaliseTags(tags);
+    setState((prev) => ({
+      ...prev,
+      entries: prev.entries.map((entry) =>
+        entry.id === entryId ? { ...entry, tags: normalised } : entry
       ),
     }));
   }, []);
@@ -1106,6 +1165,7 @@ const BudgetExperience = () => {
         setLastSavedAt(month.updatedAt);
         setActiveMonthKey(nextMonthKey);
         setCategoryFilter(null);
+        setTagFilter(null);
         setAvailableMonths((prev) => sortMonthKeys([...prev, nextMonthKey]));
         persistBudgetToUrl(budgetId, nextMonthKey);
         lastHydrated.current = { budgetId, month: nextMonthKey };
@@ -1148,6 +1208,8 @@ const BudgetExperience = () => {
         setAvailableMonths(monthKeys);
         setActiveMonthKey(targetMonthKey);
         setState(deriveStateFromMonth(month, doc));
+        setCategoryFilter(null);
+        setTagFilter(null);
         setMonthMeta({
           id: month.id,
           createdAt: month.createdAt,
@@ -1475,6 +1537,9 @@ const BudgetExperience = () => {
         adjusted.category,
         availableCategories
       );
+      const tags = normaliseTags(
+        Array.isArray(adjusted.tags) ? adjusted.tags : []
+      );
       return {
         id: generateId(),
         amount,
@@ -1482,6 +1547,7 @@ const BudgetExperience = () => {
         merchant: source ? source : undefined,
         date: safeDate.toISOString(),
         isOneTime: Boolean(adjusted.isOneTime),
+        tags,
       };
     },
     [applyCategoryRulesToDraft, availableCategories]
@@ -1567,6 +1633,7 @@ const BudgetExperience = () => {
           });
           setLastSavedAt(payload.updatedAt);
           setCategoryFilter(null);
+          setTagFilter(null);
           setMode("ledger");
           lastHydrated.current = { budgetId, month: monthKey };
         } else {
@@ -1620,6 +1687,7 @@ const BudgetExperience = () => {
       });
       setLastSavedAt(payload.updatedAt);
       setCategoryFilter(null);
+      setTagFilter(null);
       lastHydrated.current = { budgetId, month: activeMonthKey };
     } catch (error) {
       console.error("Failed to delete entries:", error);
@@ -1726,14 +1794,22 @@ const BudgetExperience = () => {
             savingsTarget={state.savingsTarget}
             setSavingsTarget={updateSavingsTarget}
             flexBudget={flexBudget}
+            goalProjections={goalProjections}
+            goalContributionTotal={goalContributionTotal}
+            goalAllocationDelta={goalAllocationDelta}
+            onCreateGoal={createGoal}
+            onUpdateGoal={updateGoal}
+            onDeleteGoal={deleteGoal}
             onFinish={() => setMode("ledger")}
           />
         ) : (
           <Ledger
             entries={state.entries}
             categories={availableCategories}
+            availableTags={availableTags}
             categorySummaries={categorySummaries}
             categoryFilter={categoryFilter}
+            tagFilter={tagFilter}
             flexBudget={flexBudget}
             monthSpend={monthSpend}
             recurringSpend={recurringSpend}
@@ -1748,16 +1824,19 @@ const BudgetExperience = () => {
             onCreateCategory={upsertCustomCategory}
             onCreateRule={createCategoryRule}
             onSelectCategory={setCategoryFilter}
-            onClearCategoryFilter={() => setCategoryFilter(null)}
+            onSelectTag={setTagFilter}
+            onClearFilters={() => {
+              setCategoryFilter(null);
+              setTagFilter(null);
+            }}
             onDeleteAllEntries={handleDeleteAllEntries}
             savingsTarget={state.savingsTarget}
             goalProjections={goalProjections}
             goalContributionTotal={goalContributionTotal}
             goalAllocationDelta={goalAllocationDelta}
             onToggleOneTime={setEntryOneTime}
-            onCreateGoal={createGoal}
-            onUpdateGoal={updateGoal}
-            onDeleteGoal={deleteGoal}
+            onUpdateTags={updateEntryTags}
+            onOpenWizard={() => setMode("wizard")}
             paceStats={paceStats}
           />
         )}
@@ -1839,6 +1918,12 @@ function Wizard({
   savingsTarget,
   setSavingsTarget,
   flexBudget,
+  goalProjections,
+  goalContributionTotal,
+  goalAllocationDelta,
+  onCreateGoal,
+  onUpdateGoal,
+  onDeleteGoal,
   onFinish,
 }: {
   step: WizardStep;
@@ -1856,9 +1941,20 @@ function Wizard({
   savingsTarget: number;
   setSavingsTarget: (value: number) => void;
   flexBudget: number;
+  goalProjections: GoalProjection[];
+  goalContributionTotal: number;
+  goalAllocationDelta: number;
+  onCreateGoal: (input: {
+    name: string;
+    targetAmount: number;
+    currentBalance?: number;
+    monthlyContribution?: number;
+  }) => BudgetGoal | null;
+  onUpdateGoal: (goalId: string, patch: Partial<BudgetGoal>) => void;
+  onDeleteGoal: (goalId: string) => void;
   onFinish: () => void;
 }) {
-  const progress = ((step + 1) / 4) * 100;
+  const progress = ((step + 1) / 5) * 100;
   const remainingAfterBills = Math.max(0, totalIncome - totalFixed);
   const projectedLeftover = Math.max(0, flexBudget);
 
@@ -2073,6 +2169,38 @@ function Wizard({
 
         {step === 3 && (
           <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-medium">Goals & payoff plan</h3>
+              <p className="text-sm text-slate-500">
+                Direct your monthly savings toward goals and forecast when you will finish them.
+              </p>
+            </div>
+            <SavingsGoalPlanner
+              goalProjections={goalProjections}
+              savingsTarget={savingsTarget}
+              goalContributionTotal={goalContributionTotal}
+              goalAllocationDelta={goalAllocationDelta}
+              onCreateGoal={onCreateGoal}
+              onUpdateGoal={onUpdateGoal}
+              onDeleteGoal={onDeleteGoal}
+            />
+            <div className="flex items-center justify-between">
+              <Button
+                variant="ghost"
+                onClick={() => setStep(2)}
+                className="gap-1"
+              >
+                <ArrowLeft className="h-4 w-4" /> Back
+              </Button>
+              <Button onClick={() => setStep(4)} className="gap-1">
+                Continue <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="space-y-6">
             <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-6">
               <div className="text-sm text-slate-600">
                 Based on what you entered
@@ -2106,7 +2234,7 @@ function Wizard({
             <div className="flex items-center justify-between">
               <Button
                 variant="ghost"
-                onClick={() => setStep(2)}
+                onClick={() => setStep(3)}
                 className="gap-1"
               >
                 <ArrowLeft className="h-4 w-4" /> Back
@@ -2123,8 +2251,10 @@ function Wizard({
 function Ledger({
   entries,
   categories,
+  availableTags,
   categorySummaries,
   categoryFilter,
+  tagFilter,
   flexBudget,
   monthSpend,
   recurringSpend,
@@ -2139,22 +2269,24 @@ function Ledger({
   onCreateCategory,
   onCreateRule,
   onSelectCategory,
-  onClearCategoryFilter,
+  onSelectTag,
+  onClearFilters,
   onDeleteAllEntries,
   savingsTarget,
   goalProjections,
   goalContributionTotal,
   goalAllocationDelta,
   onToggleOneTime,
-  onCreateGoal,
-  onUpdateGoal,
-  onDeleteGoal,
+  onUpdateTags,
+  onOpenWizard,
   paceStats,
 }: {
   entries: BudgetLedgerEntry[];
   categories: CategoryOption[];
+  availableTags: string[];
   categorySummaries: CategorySummary[];
   categoryFilter: string | null;
+  tagFilter: string | null;
   flexBudget: number;
   monthSpend: number;
   recurringSpend: number;
@@ -2169,27 +2301,25 @@ function Ledger({
   onCreateCategory: (label: string, emoji?: string | null) => CategoryOption | null;
   onCreateRule: (input: CategoryRuleInput) => BudgetCategoryRule | null;
   onSelectCategory: (categoryValue: string) => void;
-  onClearCategoryFilter: () => void;
+  onSelectTag: (tagValue: string) => void;
+  onClearFilters: () => void;
   onDeleteAllEntries: () => Promise<void> | void;
   savingsTarget: number;
   goalProjections: GoalProjection[];
   goalContributionTotal: number;
   goalAllocationDelta: number;
   onToggleOneTime: (entryId: string, isOneTime: boolean) => void;
-  onCreateGoal: (input: {
-    name: string;
-    targetAmount: number;
-    currentBalance?: number;
-    monthlyContribution?: number;
-  }) => BudgetGoal | null;
-  onUpdateGoal: (goalId: string, patch: Partial<BudgetGoal>) => void;
-  onDeleteGoal: (goalId: string) => void;
+  onUpdateTags: (entryId: string, tags: string[]) => void;
+  onOpenWizard: () => void;
   paceStats: PaceStats;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [categoryEditorEntry, setCategoryEditorEntry] =
     useState<BudgetLedgerEntry | null>(null);
+  const [tagEditorEntry, setTagEditorEntry] =
+    useState<BudgetLedgerEntry | null>(null);
+  const [showSpendDetails, setShowSpendDetails] = useState(false);
 
   const {
     daysOnPace,
@@ -2201,19 +2331,31 @@ function Ledger({
     projectedMonthlySpend,
   } = paceStats;
 
-  const normalizedFilter = useMemo(
+  const normalizedCategoryFilter = useMemo(
     () => categoryFilter?.toLowerCase() ?? null,
     [categoryFilter]
   );
 
+  const normalizedTagFilter = useMemo(
+    () => tagFilter?.toLowerCase() ?? null,
+    [tagFilter]
+  );
+
   const visibleEntries = useMemo(() => {
-    if (!normalizedFilter) {
-      return entries;
-    }
-    return entries.filter(
-      (entry) => entry.category.toLowerCase() === normalizedFilter
-    );
-  }, [entries, normalizedFilter]);
+    return entries.filter((entry) => {
+      const matchesCategory = normalizedCategoryFilter
+        ? entry.category.toLowerCase() === normalizedCategoryFilter
+        : true;
+      const tagList = Array.isArray(entry.tags) ? entry.tags : [];
+      const matchesTag = normalizedTagFilter
+        ? tagList.some((tag) => tag.toLowerCase() === normalizedTagFilter)
+        : true;
+      return matchesCategory && matchesTag;
+    });
+  }, [entries, normalizedCategoryFilter, normalizedTagFilter]);
+
+  const hasDetailMetrics =
+    recurringSpend > 0 || oneTimeSpend > 0 || savingsTarget > 0;
 
   const topColor =
     progressPct < 60 ? "bg-emerald-100" : progressPct < 90 ? "bg-amber-100" : "bg-rose-100";
@@ -2237,20 +2379,35 @@ function Ledger({
               <div className="mt-1 text-xs text-slate-500">
                 Spent {currency(monthSpend)} ({progressPct}%)
               </div>
-              <div className="text-xs text-slate-500">
-                Recurring spend: {currency(recurringSpend)}
-              </div>
-              {oneTimeSpend > 0 && (
-                <div className="text-xs text-slate-500">
-                  One-time this month: {currency(oneTimeSpend)}
-                </div>
-              )}
-              <div className="text-xs text-slate-500">
-                Savings goal: {currency(Math.max(0, savingsTarget))}
-              </div>
               {evaluationEndDay > 0 && evaluationEndDay < daysInMonth && (
                 <div className="text-xs text-slate-500">
                   Projected spend: {currency(projectedMonthlySpend)}
+                </div>
+              )}
+              {hasDetailMetrics && (
+                <div className="mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowSpendDetails((prev) => !prev)}
+                    className="flex items-center gap-1 text-xs font-medium text-slate-500 transition hover:text-slate-700"
+                    aria-expanded={showSpendDetails}
+                  >
+                    {showSpendDetails ? "Hide spend details" : "Show spend details"}
+                    {showSpendDetails ? (
+                      <ChevronUp className="h-3 w-3" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" />
+                    )}
+                  </button>
+                  {showSpendDetails && (
+                    <div className="mt-1 space-y-1 text-xs text-slate-500">
+                      <div>Recurring spend: {currency(recurringSpend)}</div>
+                      {oneTimeSpend > 0 && (
+                        <div>One-time this month: {currency(oneTimeSpend)}</div>
+                      )}
+                      <div>Savings goal: {currency(Math.max(0, savingsTarget))}</div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2397,14 +2554,12 @@ function Ledger({
         onSelectCategory={onSelectCategory}
       />
 
-      <SavingsGoalPlanner
+      <GoalSummaryCard
         goalProjections={goalProjections}
         savingsTarget={savingsTarget}
         goalContributionTotal={goalContributionTotal}
         goalAllocationDelta={goalAllocationDelta}
-        onCreateGoal={onCreateGoal}
-        onUpdateGoal={onUpdateGoal}
-        onDeleteGoal={onDeleteGoal}
+        onOpenWizard={onOpenWizard}
       />
 
       <Card className="border-slate-200">
@@ -2412,11 +2567,28 @@ function Ledger({
           <CardTitle className="flex items-center justify-between">
             <span>Ledger</span>
             <div className="flex items-center gap-2">
-              {categoryFilter && (
+              {availableTags.length > 0 && (
+                <Select
+                  value={tagFilter ?? undefined}
+                  onValueChange={(value) => onSelectTag(value)}
+                >
+                  <SelectTrigger className="w-36">
+                    <SelectValue placeholder="Filter tags" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTags.map((tag) => (
+                      <SelectItem key={tag.toLowerCase()} value={tag}>
+                        #{tag}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {(categoryFilter || tagFilter) && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={onClearCategoryFilter}
+                  onClick={onClearFilters}
                   className="gap-1"
                 >
                   Clear filters
@@ -2475,6 +2647,8 @@ function Ledger({
             onDelete={onRemoveEntry}
             onEditCategory={(entry) => setCategoryEditorEntry(entry)}
             onToggleOneTime={onToggleOneTime}
+            onEditTags={(entry) => setTagEditorEntry(entry)}
+            onUpdateTags={onUpdateTags}
           />
         </CardContent>
         <ImportExpenses
@@ -2495,6 +2669,15 @@ function Ledger({
         onCreateRule={onCreateRule}
         onClose={() => setCategoryEditorEntry(null)}
       />
+      <TagEditorDialog
+        entry={tagEditorEntry}
+        open={Boolean(tagEditorEntry)}
+        availableTags={availableTags}
+        onSave={(entryId, tags) => {
+          onUpdateTags(entryId, tags);
+        }}
+        onClose={() => setTagEditorEntry(null)}
+      />
     </div>
   );
 }
@@ -2505,12 +2688,16 @@ function EntryList({
   onDelete,
   onEditCategory,
   onToggleOneTime,
+  onEditTags,
+  onUpdateTags,
 }: {
   entries: BudgetLedgerEntry[];
   categories: CategoryOption[];
   onDelete: (id: string) => void;
   onEditCategory: (entry: BudgetLedgerEntry) => void;
   onToggleOneTime: (entryId: string, isOneTime: boolean) => void;
+  onEditTags: (entry: BudgetLedgerEntry) => void;
+  onUpdateTags: (entryId: string, tags: string[]) => void;
 }) {
   const categoryLookup = useMemo(() => {
     const map = new Map<string, CategoryOption>();
@@ -2584,6 +2771,7 @@ function EntryList({
                   : "🏷️";
               const categoryLabel = categoryInfo?.label ?? entry.category;
               const isOneTime = Boolean(entry.isOneTime);
+              const tags = Array.isArray(entry.tags) ? entry.tags : [];
               return (
                 <div
                   key={entry.id}
@@ -2612,6 +2800,42 @@ function EntryList({
                         <div className="text-xs font-medium text-amber-600">
                           One-time expense
                         </div>
+                      )}
+                      {tags.length > 0 ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-1">
+                          {tags.map((tag) => (
+                            <button
+                              key={`${entry.id}-tag-${tag.toLowerCase()}`}
+                              type="button"
+                              onClick={() => {
+                                const nextTags = tags.filter(
+                                  (value) => value.toLowerCase() !== tag.toLowerCase()
+                                );
+                                onUpdateTags(entry.id, nextTags);
+                              }}
+                              className="flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 transition hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+                              aria-label={`Remove tag ${tag}`}
+                            >
+                              #{tag}
+                              <X className="h-3 w-3" />
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => onEditTags(entry)}
+                            className="text-[10px] font-medium text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
+                          >
+                            Manage tags
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onEditTags(entry)}
+                          className="mt-1 text-[10px] font-medium text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
+                        >
+                          Add tags
+                        </button>
                       )}
                     </div>
                   </div>
@@ -3009,6 +3233,118 @@ function NextMonthPlanner({
   );
 }
 
+function GoalSummaryCard({
+  goalProjections,
+  savingsTarget,
+  goalContributionTotal,
+  goalAllocationDelta,
+  onOpenWizard,
+}: {
+  goalProjections: GoalProjection[];
+  savingsTarget: number;
+  goalContributionTotal: number;
+  goalAllocationDelta: number;
+  onOpenWizard: () => void;
+}) {
+  const hasGoals = goalProjections.length > 0;
+  const topGoals = goalProjections.slice(0, 2);
+  const remainingSavings = Math.max(0, goalAllocationDelta);
+  const overAllocation = goalAllocationDelta < 0;
+
+  return (
+    <Card className="border-slate-200">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base font-semibold">
+            Goals snapshot
+          </CardTitle>
+          <Button variant="outline" size="sm" onClick={onOpenWizard}>
+            Edit in wizard
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div
+          className={cn(
+            "rounded-lg border px-3 py-2 text-xs",
+            overAllocation
+              ? "border-amber-200 bg-amber-50 text-amber-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700"
+          )}
+        >
+          <div>
+            Allocating
+            <span className="ml-1 font-semibold">
+              {currency(goalContributionTotal)}
+            </span>
+            of
+            <span className="ml-1 font-semibold">
+              {currency(Math.max(0, savingsTarget))}
+            </span>
+            planned savings.
+          </div>
+          {remainingSavings > 0 && !overAllocation && (
+            <div>Unassigned savings available: {currency(remainingSavings)}</div>
+          )}
+          {overAllocation && (
+            <div>
+              Over-allocated by {currency(Math.abs(goalAllocationDelta))}. Adjust a goal next.
+            </div>
+          )}
+          {!overAllocation && remainingSavings === 0 && (
+            <div>Every saved dollar is spoken for. Nicely balanced!</div>
+          )}
+        </div>
+
+        {hasGoals ? (
+          <div className="space-y-3">
+            {topGoals.map((projection) => {
+              const { normalized, remainingAmount, monthsToGoal } = projection;
+              const formattedDate = formatGoalCompletionDate(
+                projection.projectedCompletionDate
+              );
+              const timelineMessage =
+                remainingAmount === 0
+                  ? "Completed!"
+                  : monthsToGoal === null
+                  ? "Set a contribution to project finish date."
+                  : formattedDate
+                  ? `≈${monthsToGoal} months (by ${formattedDate})`
+                  : `≈${monthsToGoal} months`;
+              return (
+                <div
+                  key={projection.goal.id}
+                  className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-xs"
+                >
+                  <div>
+                    <div className="font-medium text-slate-700">
+                      {normalized.name || "Untitled goal"}
+                    </div>
+                    <div className="text-slate-500">
+                      Need {currency(remainingAmount)}
+                    </div>
+                  </div>
+                  <div className="text-right text-slate-500">{timelineMessage}</div>
+                </div>
+              );
+            })}
+            {goalProjections.length > topGoals.length && (
+              <div className="text-xs text-slate-500">
+                +{goalProjections.length - topGoals.length} more goal
+                {goalProjections.length - topGoals.length === 1 ? "" : "s"} tracked.
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">
+            Add a payoff or savings goal in the wizard to see projections here.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function SavingsGoalPlanner({
   goalProjections,
   savingsTarget,
@@ -3082,20 +3418,6 @@ function SavingsGoalPlanner({
     setShowForm(false);
   };
 
-  const formatProjectionDate = (iso: string | null) => {
-    if (!iso) {
-      return null;
-    }
-    const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) {
-      return null;
-    }
-    return date.toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "long",
-    });
-  };
-
   return (
     <Card className="border-slate-200">
       <CardHeader className="pb-2">
@@ -3139,7 +3461,7 @@ function SavingsGoalPlanner({
             {goalProjections.map((projection) => {
               const { goal, normalized, remainingAmount, monthsToGoal } =
                 projection;
-              const formattedDate = formatProjectionDate(
+              const formattedDate = formatGoalCompletionDate(
                 projection.projectedCompletionDate
               );
               const timeline =
@@ -3329,6 +3651,175 @@ function SavingsGoalPlanner({
   );
 }
 
+function TagEditorDialog({
+  entry,
+  open,
+  availableTags,
+  onSave,
+  onClose,
+}: {
+  entry: BudgetLedgerEntry | null;
+  open: boolean;
+  availableTags: string[];
+  onSave: (entryId: string, tags: string[]) => void;
+  onClose: () => void;
+}) {
+  const [selected, setSelected] = useState<string[]>([]);
+  const [draftTag, setDraftTag] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open && entry) {
+      setSelected(
+        normaliseTags(Array.isArray(entry.tags) ? entry.tags : [])
+      );
+      setDraftTag("");
+      setError(null);
+    } else if (!open) {
+      setSelected([]);
+      setDraftTag("");
+      setError(null);
+    }
+  }, [entry, open]);
+
+  const handleAddDraftTag = () => {
+    const next = draftTag.trim();
+    if (!next) {
+      setError("Enter a tag before adding.");
+      return;
+    }
+    const updated = normaliseTags([...selected, next]);
+    setSelected(updated);
+    setDraftTag("");
+    setError(null);
+  };
+
+  const handleToggleTag = (tag: string) => {
+    const exists = selected.some(
+      (value) => value.toLowerCase() === tag.toLowerCase()
+    );
+    if (exists) {
+      setSelected((prev) =>
+        prev.filter((value) => value.toLowerCase() !== tag.toLowerCase())
+      );
+    } else {
+      setSelected((prev) => normaliseTags([...prev, tag]));
+    }
+  };
+
+  const handleSave = () => {
+    if (!entry) {
+      onClose();
+      return;
+    }
+    onSave(entry.id, selected);
+    onClose();
+  };
+
+  const remainingSuggestions = availableTags.filter(
+    (tag) =>
+      !selected.some((value) => value.toLowerCase() === tag.toLowerCase())
+  );
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (!value) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit tags</DialogTitle>
+          <DialogDescription>
+            Organize this expense with short keywords like
+            <span className="ml-1 font-semibold text-slate-700">#groceries</span>.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium">Tags</Label>
+            {selected.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {selected.map((tag) => (
+                  <button
+                    key={tag.toLowerCase()}
+                    type="button"
+                    onClick={() => handleToggleTag(tag)}
+                    className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-slate-500">
+                No tags yet. Add a few below to slice expenses later.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="draft-tag-input">Add tag</Label>
+            <div className="flex gap-2">
+              <Input
+                id="draft-tag-input"
+                value={draftTag}
+                onChange={(event) => setDraftTag(event.target.value)}
+                placeholder="Travel, Work Lunch…"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    handleAddDraftTag();
+                  }
+                }}
+              />
+              <Button type="button" onClick={handleAddDraftTag}>
+                Add
+              </Button>
+            </div>
+            {error && (
+              <p className="text-xs text-rose-600" role="alert">
+                {error}
+              </p>
+            )}
+          </div>
+
+          {remainingSuggestions.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Suggestions
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {remainingSuggestions.map((tag) => (
+                  <button
+                    key={`suggestion-${tag.toLowerCase()}`}
+                    type="button"
+                    onClick={() => handleToggleTag(tag)}
+                    className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <DialogFooter className="mt-2">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleSave}>
+            Save tags
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ImportExpenses({
   open,
   onOpenChange,
@@ -3347,11 +3838,13 @@ function ImportExpenses({
     description: string;
     category: string;
     date: string;
+    tags: string;
   }>({
     amount: "",
     description: "",
     category: "",
     date: "",
+    tags: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -3365,6 +3858,7 @@ function ImportExpenses({
       description: "",
       category: "",
       date: "",
+      tags: "",
     });
     setError(null);
     if (fileInputRef.current) {
@@ -3392,11 +3886,14 @@ function ImportExpenses({
       availableHeaders[2] ||
       "";
     const dateGuess = guessHeader(availableHeaders, ["date", "posted", "transaction"]);
+    const tagsGuess =
+      guessHeader(availableHeaders, ["tag", "label", "keyword"]) || "";
     setMapping({
       amount: amountGuess,
       description: descriptionGuess,
       category: categoryGuess,
       date: dateGuess,
+      tags: tagsGuess,
     });
   };
 
@@ -3449,6 +3946,10 @@ function ImportExpenses({
       mapping.date && mapping.date !== NO_DATE_COLUMN_VALUE
         ? headers.indexOf(mapping.date)
         : -1;
+    const tagsIndex =
+      mapping.tags && mapping.tags !== NO_TAG_COLUMN_VALUE
+        ? headers.indexOf(mapping.tags)
+        : -1;
 
     if (amountIndex === -1 || descriptionIndex === -1 || categoryIndex === -1) {
       setError("Your column selections are no longer available. Re-select them.");
@@ -3475,6 +3976,17 @@ function ImportExpenses({
       }
       if (normalizedDate) {
         draft.date = normalizedDate;
+      }
+      if (tagsIndex >= 0) {
+        const rawTags = row[tagsIndex] ?? "";
+        const parsedTags = normaliseTags(
+          rawTags
+            .split(/[;,|]/)
+            .map((tag) => tag.trim())
+        );
+        if (parsedTags.length) {
+          draft.tags = parsedTags;
+        }
       }
       acc.push(draft);
       return acc;
@@ -3538,7 +4050,7 @@ function ImportExpenses({
             {headers.length > 0 && (
               <div className="space-y-3">
                 <h4 className="text-sm font-medium text-slate-700">Column mapping</h4>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <div className="space-y-1">
                     <Label>Amount</Label>
                     <Select
@@ -3621,6 +4133,33 @@ function ImportExpenses({
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-1">
+                    <Label>Tags (optional)</Label>
+                    <Select
+                      value={mapping.tags === "" ? NO_TAG_COLUMN_VALUE : mapping.tags}
+                      onValueChange={(value) =>
+                        setMapping((prev) => ({
+                          ...prev,
+                          tags: value === NO_TAG_COLUMN_VALUE ? "" : value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select tags column" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NO_TAG_COLUMN_VALUE}>No tags column</SelectItem>
+                        {headers.map((header) => (
+                          <SelectItem key={header} value={header}>
+                            {header}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-slate-500">
+                      Provide comma-separated tags per row if available.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -3696,6 +4235,7 @@ function QuickAdd({
   const [showCamera, setShowCamera] = useState(false);
   const [dateStr, setDateStr] = useState(() => formatDateInput(new Date()));
   const [isOneTime, setIsOneTime] = useState(false);
+  const [tagsInput, setTagsInput] = useState("");
 
   const amount = Number(amountStr || 0);
 
@@ -3715,12 +4255,18 @@ function QuickAdd({
       merchant: merchant || undefined,
       date: dateStr,
       isOneTime,
+      tags: normaliseTags(
+        tagsInput
+          .split(",")
+          .map((tag) => tag.trim())
+      ),
     });
     setAmountStr("");
     setCategory(categories[0]?.value ?? null);
     setMerchant("");
     setDateStr(formatDateInput(new Date()));
     setIsOneTime(false);
+    setTagsInput("");
   };
 
   return (
@@ -3788,6 +4334,18 @@ function QuickAdd({
             Add a category from the ledger view to get started.
           </p>
         )}
+      </div>
+
+      <div className="space-y-2">
+        <Label>Tags (optional)</Label>
+        <Input
+          placeholder="groceries, travel, work"
+          value={tagsInput}
+          onChange={(event) => setTagsInput(event.target.value)}
+        />
+        <p className="text-xs text-slate-500">
+          Separate tags with commas. Use them later to filter expenses.
+        </p>
       </div>
 
       <div className="space-y-2">
