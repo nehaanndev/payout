@@ -14,8 +14,10 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  Home,
   Plus,
   Receipt,
+  Share2,
   Trash2,
   X,
   Upload,
@@ -30,13 +32,7 @@ import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   Dialog,
   DialogContent,
@@ -604,9 +600,9 @@ const BudgetExperience = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newBudgetName, setNewBudgetName] = useState("");
   const [creatingBudget, setCreatingBudget] = useState(false);
-  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
-  const [renameValue, setRenameValue] = useState("");
   const [renamingBudget, setRenamingBudget] = useState(false);
+  const [isRenamingTitle, setIsRenamingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
   const [monthMeta, setMonthMeta] = useState<Pick<
     BudgetMonth,
     "id" | "createdAt" | "updatedAt" | "initializedFrom"
@@ -1154,11 +1150,35 @@ const BudgetExperience = () => {
     }
   }, [member, newBudgetName, refreshBudgetList]);
 
-  const handleRenameBudget = useCallback(async () => {
-    if (!budgetId || !member) {
+  useEffect(() => {
+    if (!isRenamingTitle) {
+      setTitleDraft(budgetDoc?.title ?? GENERIC_BUDGET_TITLE);
+    }
+  }, [budgetDoc, isRenamingTitle]);
+
+  const beginTitleRename = useCallback(() => {
+    if (renamingBudget) {
       return;
     }
-    const desiredName = renameValue.trim();
+    setTitleDraft(budgetDoc?.title ?? GENERIC_BUDGET_TITLE);
+    setIsRenamingTitle(true);
+  }, [budgetDoc, renamingBudget]);
+
+  const cancelTitleRename = useCallback(() => {
+    setTitleDraft(budgetDoc?.title ?? GENERIC_BUDGET_TITLE);
+    setIsRenamingTitle(false);
+  }, [budgetDoc]);
+
+  const commitTitleRename = useCallback(async () => {
+    if (!budgetId || !member) {
+      cancelTitleRename();
+      return;
+    }
+    const desiredName = titleDraft.trim() || GENERIC_BUDGET_TITLE;
+    if (budgetDoc && desiredName === (budgetDoc.title || GENERIC_BUDGET_TITLE)) {
+      setIsRenamingTitle(false);
+      return;
+    }
     setRenamingBudget(true);
     try {
       await renameBudget(budgetId, desiredName);
@@ -1167,20 +1187,20 @@ const BudgetExperience = () => {
         prev
           ? {
               ...prev,
-              title: desiredName || GENERIC_BUDGET_TITLE,
+              title: desiredName,
               updatedAt: new Date().toISOString(),
             }
           : prev
       );
-      setRenameDialogOpen(false);
-      setRenameValue("");
     } catch (error) {
       console.error("Failed to rename budget:", error);
       setBudgetListError("We couldn't rename the budget. Please try again.");
+      setTitleDraft(budgetDoc?.title ?? GENERIC_BUDGET_TITLE);
     } finally {
       setRenamingBudget(false);
+      setIsRenamingTitle(false);
     }
-  }, [budgetId, member, refreshBudgetList, renameValue]);
+  }, [budgetDoc, budgetId, cancelTitleRename, member, refreshBudgetList, titleDraft]);
 
   // Track auth state
   useEffect(() => {
@@ -1498,6 +1518,43 @@ const BudgetExperience = () => {
 
   const displayName = member?.name ?? user?.displayName ?? "Member";
 
+  const headingNode = isRenamingTitle ? (
+    <div className="flex items-center gap-2">
+      <Input
+        value={titleDraft}
+        onChange={(event) => setTitleDraft(event.target.value)}
+        onBlur={() => {
+          if (!renamingBudget) {
+            void commitTitleRename();
+          }
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            void commitTitleRename();
+          }
+          if (event.key === "Escape") {
+            event.preventDefault();
+            cancelTitleRename();
+          }
+        }}
+        autoFocus
+        disabled={renamingBudget}
+        placeholder="Budget name"
+        className="h-9 max-w-xs"
+      />
+      {renamingBudget ? <Spinner size="sm" /> : null}
+    </div>
+  ) : (
+    <button
+      type="button"
+      onClick={beginTitleRename}
+      className="inline-flex items-center gap-2 text-left font-semibold text-slate-900 transition hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+    >
+      <span>{budgetDoc?.title || GENERIC_BUDGET_TITLE}</span>
+    </button>
+  );
+
   const handleCopyShareLink = useCallback(() => {
     if (!shareLink) {
       return;
@@ -1515,12 +1572,6 @@ const BudgetExperience = () => {
     setBudgetListError(null);
     setCreateDialogOpen(true);
   }, []);
-
-  const openRenameDialog = useCallback(() => {
-    setBudgetListError(null);
-    setRenameValue(budgetDoc?.title ?? "");
-    setRenameDialogOpen(true);
-  }, [budgetDoc]);
 
   const handleSwitchBudgetView = useCallback(() => {
     setBudgetId(null);
@@ -1560,7 +1611,7 @@ const BudgetExperience = () => {
             disabled: !shareLink,
           },
           {
-            label: mode === "wizard" ? "Go to ledger" : "Run budget wizard",
+            label: mode === "wizard" ? "Go to ledger" : "Run wizard",
             onClick: toggleMode,
           },
           {
@@ -1570,11 +1621,6 @@ const BudgetExperience = () => {
           {
             label: "Create new budget",
             onClick: openCreateBudgetDialog,
-          },
-          {
-            label: "Rename budget",
-            onClick: openRenameDialog,
-            disabled: !budgetDoc,
           },
         ],
       });
@@ -1590,7 +1636,7 @@ const BudgetExperience = () => {
       });
     }
     return sections;
-  }, [budgetId, handleCopyShareLink, handleSwitchBudgetView, mode, openCreateBudgetDialog, openRenameDialog, shareLink, budgetDoc, toggleMode]);
+  }, [budgetId, handleCopyShareLink, handleSwitchBudgetView, mode, openCreateBudgetDialog, shareLink, toggleMode]);
 
   const createBudgetDialog = (
     <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -1623,43 +1669,6 @@ const BudgetExperience = () => {
             disabled={creatingBudget}
           >
             {creatingBudget ? <Spinner size="sm" /> : "Create budget"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-
-  const renameBudgetDialog = (
-    <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Rename budget</DialogTitle>
-          <DialogDescription>
-            Update the title that appears across your Budget Studio workspace.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <Label htmlFor="rename-budget-input">Budget name</Label>
-          <Input
-            id="rename-budget-input"
-            value={renameValue}
-            onChange={(event) => setRenameValue(event.target.value)}
-            placeholder={GENERIC_BUDGET_TITLE}
-          />
-          {renameDialogOpen && budgetListError ? (
-            <p className="text-sm text-rose-600">{budgetListError}</p>
-          ) : null}
-        </div>
-        <DialogFooter className="mt-6">
-          <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            className="bg-emerald-600 text-white hover:bg-emerald-500"
-            onClick={() => void handleRenameBudget()}
-            disabled={renamingBudget}
-          >
-            {renamingBudget ? <Spinner size="sm" /> : "Save name"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2205,7 +2214,7 @@ const BudgetExperience = () => {
       <div className="mx-auto max-w-3xl">
         <AppTopBar
           product="budget"
-          heading={budgetDoc?.title || GENERIC_BUDGET_TITLE}
+          heading={headingNode}
           subheading={
             budgetDoc
               ? `Updated ${formatUpdatedLabel(budgetDoc.updatedAt ?? budgetDoc.createdAt)}`
@@ -2213,36 +2222,33 @@ const BudgetExperience = () => {
           }
           actions={
             <div className="flex flex-col items-stretch gap-2 sm:items-end">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
-                  className="border-slate-300"
+                  size="icon"
+                  className="h-10 w-10 border-slate-300"
                   onClick={handleSwitchBudgetView}
+                  aria-label="View my budgets"
                 >
-                  Switch budget
-                </Button>
-                <Button
-                  variant="outline"
-                  className="border-slate-300"
-                  onClick={openRenameDialog}
-                >
-                  Rename budget
+                  <Home className="h-4 w-4" />
                 </Button>
                 {shareLink ? (
                   <Button
                     variant="outline"
+                    size="icon"
+                    className="h-10 w-10 border-slate-300"
                     onClick={handleCopyShareLink}
-                    className="border-slate-300"
-                    disabled={!shareLink}
+                    aria-label="Copy budget share link"
                   >
-                    Copy share link
+                    <Share2 className="h-4 w-4" />
                   </Button>
                 ) : null}
                 <Button
                   variant="secondary"
                   onClick={toggleMode}
+                  className="whitespace-nowrap"
                 >
-                  {mode === "wizard" ? "Go to Ledger" : "Run Budget Wizard"}
+                  {mode === "wizard" ? "Go to Ledger" : "Run Wizard"}
                 </Button>
               </div>
               <span className="text-xs text-slate-500">{saveStatus}</span>
@@ -2350,7 +2356,6 @@ const BudgetExperience = () => {
           />
         )}
       </div>
-      {renameBudgetDialog}
       {createBudgetDialog}
     </div>
   );
