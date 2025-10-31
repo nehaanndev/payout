@@ -20,14 +20,13 @@ import {
   X,
   Upload,
 } from "lucide-react";
-import { User, onAuthStateChanged } from "firebase/auth";
+import { User, onAuthStateChanged, signOut } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
-import Link from "next/link";
 import { AppTopBar } from "@/components/AppTopBar";
+import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -638,8 +637,6 @@ const BudgetExperience = () => {
     }
   );
 
-  const [showProfileCard, setShowProfileCard] = useState(false);
-  const profileRef = useRef<HTMLDivElement | null>(null);
 
   const availableCategories = useMemo(() => {
     const seen = new Set<string>();
@@ -1499,6 +1496,49 @@ const BudgetExperience = () => {
     return `${window.location.origin}/budget?budget_id=${budgetId}&month=${activeMonthKey}`;
   }, [budgetId, activeMonthKey]);
 
+  const displayName = member?.name ?? user?.displayName ?? "Member";
+
+  const handleCopyShareLink = useCallback(() => {
+    if (!shareLink) {
+      return;
+    }
+    navigator.clipboard
+      .writeText(shareLink)
+      .catch(() => console.warn("Failed to copy share link"));
+  }, [shareLink]);
+
+  const toggleMode = useCallback(() => {
+    setMode((prev) => (prev === "wizard" ? "ledger" : "wizard"));
+  }, []);
+
+  const openCreateBudgetDialog = useCallback(() => {
+    setBudgetListError(null);
+    setCreateDialogOpen(true);
+  }, []);
+
+  const openRenameDialog = useCallback(() => {
+    setBudgetListError(null);
+    setRenameValue(budgetDoc?.title ?? "");
+    setRenameDialogOpen(true);
+  }, [budgetDoc]);
+
+  const handleSwitchBudgetView = useCallback(() => {
+    setBudgetId(null);
+    setBudgetListError(null);
+    lastHydrated.current = { budgetId: null, month: null };
+    lastUrlStateRef.current = { id: null, month: null };
+    initialMonthFromUrl.current = null;
+    router.replace("/budget");
+  }, [router]);
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Failed to sign out", error);
+    }
+  }, []);
+
   const saveStatus = saving
     ? "Saving..."
     : lastSavedAt
@@ -1508,126 +1548,49 @@ const BudgetExperience = () => {
       })}`
     : "Ready when you are";
 
-  useEffect(() => {
-    if (!showProfileCard) {
-      return;
+  const budgetMenuSections: AppUserMenuSection[] = useMemo(() => {
+    const sections: AppUserMenuSection[] = [];
+    if (budgetId) {
+      sections.push({
+        title: "Budget tools",
+        items: [
+          {
+            label: "Copy share link",
+            onClick: handleCopyShareLink,
+            disabled: !shareLink,
+          },
+          {
+            label: mode === "wizard" ? "Go to ledger" : "Run budget wizard",
+            onClick: toggleMode,
+          },
+          {
+            label: "Switch budget",
+            onClick: handleSwitchBudgetView,
+          },
+          {
+            label: "Create new budget",
+            onClick: openCreateBudgetDialog,
+          },
+          {
+            label: "Rename budget",
+            onClick: openRenameDialog,
+            disabled: !budgetDoc,
+          },
+        ],
+      });
+    } else {
+      sections.push({
+        title: "Workspace",
+        items: [
+          {
+            label: "Create budget",
+            onClick: openCreateBudgetDialog,
+          },
+        ],
+      });
     }
-    const handler = (event: MouseEvent) => {
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setShowProfileCard(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showProfileCard]);
-
-  const userProfileSlot = (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setShowProfileCard((prev) => !prev)}
-        className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm transition hover:border-slate-300"
-      >
-        <Image className="brand-logo" src="/brand/toodl-budget.svg" alt="Budget avatar" width={18} height={18} />
-        <span className="text-sm font-medium text-slate-700">
-          {member?.name ?? user?.displayName ?? "Member"}
-        </span>
-      </button>
-      {showProfileCard && (
-        <div ref={profileRef} className="absolute right-0 mt-3 w-72 rounded-2xl bg-white/95 shadow-xl ring-1 ring-slate-200">
-          <Card className="border-0 bg-transparent p-6">
-            <CardHeader className="flex flex-col items-center gap-3">
-              <CardTitle className="text-lg">
-                {budgetId ? "Budget navigation" : "Toodl navigation"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-2xl bg-slate-50 p-3">
-                <p className="text-xs font-medium uppercase tracking-[0.25em] text-slate-400">Jump to</p>
-                <div className="mt-3 grid gap-2">
-                  <Link
-                    href="/"
-                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
-                    onClick={() => setShowProfileCard(false)}
-                  >
-                    <Image className="brand-logo" src="/brand/toodl-expense.svg" alt="Expense" width={20} height={20} />
-                    Expense Splitter
-                  </Link>
-                  <Link
-                    href="/budget"
-                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
-                    onClick={() => setShowProfileCard(false)}
-                  >
-                    <Image className="brand-logo" src="/brand/toodl-budget.svg" alt="Budget" width={20} height={20} />
-                    Budget Studio
-                  </Link>
-                  <Link
-                    href="/journal"
-                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
-                    onClick={() => setShowProfileCard(false)}
-                  >
-                    <Image className="brand-logo" src="/brand/toodl-journal.svg" alt="Journal" width={20} height={20} />
-                    Journal Studio
-                  </Link>
-                </div>
-              </div>
-              {budgetId ? (
-                <div className="grid gap-2">
-                  <Button
-                    variant="outline"
-                    className="w-full border-slate-200"
-                    onClick={() => {
-                      if (!shareLink) return;
-                      navigator.clipboard
-                        .writeText(shareLink)
-                        .catch(() => console.warn("Failed to copy share link"));
-                      setShowProfileCard(false);
-                    }}
-                    disabled={!shareLink}
-                  >
-                    Copy share link
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full border-slate-200"
-                    onClick={() => {
-                      setMode(mode === "wizard" ? "ledger" : "wizard");
-                      setShowProfileCard(false);
-                    }}
-                  >
-                    {mode === "wizard" ? "Go to ledger" : "Run budget wizard"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full border-slate-200"
-                    onClick={() => {
-                      setBudgetListError(null);
-                      setCreateDialogOpen(true);
-                      setShowProfileCard(false);
-                    }}
-                  >
-                    New budget
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full border-slate-200"
-                    onClick={() => {
-                      setBudgetListError(null);
-                      setRenameValue(budgetDoc?.title ?? "");
-                      setRenameDialogOpen(true);
-                      setShowProfileCard(false);
-                    }}
-                  >
-                    Rename budget
-                  </Button>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </div>
-  );
+    return sections;
+  }, [budgetId, handleCopyShareLink, handleSwitchBudgetView, mode, openCreateBudgetDialog, openRenameDialog, shareLink, budgetDoc, toggleMode]);
 
   const createBudgetDialog = (
     <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -2100,28 +2063,27 @@ const BudgetExperience = () => {
           <p className="text-sm leading-relaxed text-slate-600">
             The share link might be mistyped or the budget is no longer shared with you. Jump back to your budget list or spin up a new space.
           </p>
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setBudgetId(null);
-                setInvalidBudget(false);
-                router.replace("/budget");
-              }}
-            >
-              View my budgets
-            </Button>
-            <Button
-              className="bg-emerald-600 text-white hover:bg-emerald-500"
-              onClick={() => {
-                setInvalidBudget(false);
-                setBudgetId(null);
-                setCreateDialogOpen(true);
-              }}
-            >
-              Create new budget
-            </Button>
-          </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setInvalidBudget(false);
+              handleSwitchBudgetView();
+            }}
+          >
+            View my budgets
+          </Button>
+          <Button
+            className="bg-emerald-600 text-white hover:bg-emerald-500"
+            onClick={() => {
+              setInvalidBudget(false);
+              handleSwitchBudgetView();
+              openCreateBudgetDialog();
+            }}
+          >
+            Create new budget
+          </Button>
+        </div>
         </Card>
       </div>
     );
@@ -2139,16 +2101,20 @@ const BudgetExperience = () => {
               <div className="flex items-center justify-end">
                 <Button
                   className="bg-emerald-600 text-white hover:bg-emerald-500"
-                  onClick={() => {
-                    setBudgetListError(null);
-                    setCreateDialogOpen(true);
-                  }}
+                  onClick={openCreateBudgetDialog}
                 >
                   New budget
                 </Button>
               </div>
             }
-            userSlot={userProfileSlot}
+            userSlot={
+              <AppUserMenu
+                product="budget"
+                displayName={displayName}
+                sections={budgetMenuSections}
+                onSignOut={user ? handleSignOut : undefined}
+              />
+            }
           />
           <Card className="border-none bg-white/85 p-6 shadow-xl shadow-emerald-200/40 backdrop-blur">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -2161,10 +2127,7 @@ const BudgetExperience = () => {
               <Button
                 variant="outline"
                 className="border-emerald-200"
-                onClick={() => {
-                  setBudgetListError(null);
-                  setCreateDialogOpen(true);
-                }}
+                onClick={openCreateBudgetDialog}
               >
                 Create budget
               </Button>
@@ -2216,15 +2179,12 @@ const BudgetExperience = () => {
                   <p className="mt-2 text-sm text-slate-500">
                     Start with a blank slate and invite teammates once you&apos;re ready.
                   </p>
-                  <Button
-                    className="mt-4 bg-emerald-600 text-white hover:bg-emerald-500"
-                    onClick={() => {
-                      setBudgetListError(null);
-                      setCreateDialogOpen(true);
-                    }}
-                  >
-                    Create your first budget
-                  </Button>
+          <Button
+            className="mt-4 bg-emerald-600 text-white hover:bg-emerald-500"
+            onClick={openCreateBudgetDialog}
+          >
+            Create your first budget
+          </Button>
                 </div>
               )}
             </div>
@@ -2257,44 +2217,30 @@ const BudgetExperience = () => {
                 <Button
                   variant="outline"
                   className="border-slate-300"
-                  onClick={() => {
-                    setBudgetId(null);
-                    setBudgetListError(null);
-                    lastHydrated.current = { budgetId: null, month: null };
-                    lastUrlStateRef.current = { id: null, month: null };
-                    initialMonthFromUrl.current = null;
-                    router.replace("/budget");
-                  }}
+                  onClick={handleSwitchBudgetView}
                 >
                   Switch budget
                 </Button>
                 <Button
                   variant="outline"
                   className="border-slate-300"
-                  onClick={() => {
-                    setBudgetListError(null);
-                    setRenameValue(budgetDoc?.title ?? "");
-                    setRenameDialogOpen(true);
-                  }}
+                  onClick={openRenameDialog}
                 >
                   Rename budget
                 </Button>
                 {shareLink ? (
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      navigator.clipboard
-                        .writeText(shareLink)
-                        .catch(() => console.warn("Failed to copy share link"));
-                    }}
+                    onClick={handleCopyShareLink}
                     className="border-slate-300"
+                    disabled={!shareLink}
                   >
                     Copy share link
                   </Button>
                 ) : null}
                 <Button
                   variant="secondary"
-                  onClick={() => setMode(mode === "wizard" ? "ledger" : "wizard")}
+                  onClick={toggleMode}
                 >
                   {mode === "wizard" ? "Go to Ledger" : "Run Budget Wizard"}
                 </Button>
@@ -2302,7 +2248,14 @@ const BudgetExperience = () => {
               <span className="text-xs text-slate-500">{saveStatus}</span>
             </div>
           }
-          userSlot={userProfileSlot}
+          userSlot={
+            <AppUserMenu
+              product="budget"
+              displayName={displayName}
+              sections={budgetMenuSections}
+              onSignOut={user ? handleSignOut : undefined}
+            />
+          }
         />
         {budgetListError ? (
           <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm text-rose-600">

@@ -10,11 +10,10 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import Link from "next/link";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import Image from "next/image";
 import { AppTopBar } from "@/components/AppTopBar";
+import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
@@ -28,7 +27,7 @@ import {
   listJournalEntrySummaries,
   fetchJournalEntryById,
 } from "@/lib/journalService";
-import { auth, onAuthStateChanged } from "@/lib/firebase";
+import { auth, onAuthStateChanged, signOut } from "@/lib/firebase";
 import { generateId } from "@/lib/id";
 import { cn } from "@/lib/utils";
 import type { User } from "@/lib/firebase";
@@ -290,8 +289,6 @@ const JournalExperience = () => {
   const [libraryEntries, setLibraryEntries] = useState<JournalEntrySummary[]>([]);
   const [libraryError, setLibraryError] = useState<string | null>(null);
   const [entryLoading, setEntryLoading] = useState(false);
-  const [showProfileCard, setShowProfileCard] = useState(false);
-  const profileRef = useRef<HTMLDivElement | null>(null);
 
   const groupedLibraryEntries = useMemo(() => {
     if (!libraryEntries.length) {
@@ -466,18 +463,6 @@ const JournalExperience = () => {
     return () => clearTimeout(timeout);
   }, [copyStatus]);
 
-  useEffect(() => {
-    if (showProfileCard) {
-      const handler = (event: MouseEvent) => {
-        if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-          setShowProfileCard(false);
-        }
-      };
-      document.addEventListener("mousedown", handler);
-      return () => document.removeEventListener("mousedown", handler);
-    }
-  }, [showProfileCard]);
-
   const shareUrl = useMemo(() => {
     if (!journalId) {
       return "";
@@ -495,6 +480,8 @@ const JournalExperience = () => {
     : lastSavedAt
     ? `Last saved ${formatTimestamp(lastSavedAt)}`
     : "Ready to capture";
+
+  const displayName = member?.name ?? user?.displayName ?? "Writer";
 
   useEffect(() => {
     setCopyStatus("idle");
@@ -632,14 +619,14 @@ const JournalExperience = () => {
     }
   };
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setAnswers(initialAnswers);
     setSelectedMood(null);
     setCurrentStep(0);
     setHasUnsavedChanges(true);
     setLastSavedAt(null);
     setSaveError(null);
-  };
+  }, []);
 
   const handleSelectMood = (moodValue: string) => {
     setSelectedMood((prev) => {
@@ -687,7 +674,7 @@ const JournalExperience = () => {
     }
   };
 
-  const handleCopyLink = async () => {
+  const handleCopyLink = useCallback(async () => {
     if (!shareUrl) {
       return;
     }
@@ -702,16 +689,50 @@ const JournalExperience = () => {
       console.error("Failed to copy journal link:", error);
       setCopyStatus("failed");
     }
-  };
+  }, [shareUrl]);
 
-  const handleStartFresh = () => {
+  const handleStartFresh = useCallback(() => {
     lastUrlIdRef.current = null;
     setJournalId(null);
     setJournalDoc(null);
     setInvalidJournal(false);
     router.replace("/journal");
     handleReset();
-  };
+  }, [handleReset, router]);
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Failed to sign out", error);
+    }
+  }, []);
+
+  const journalMenuSections: AppUserMenuSection[] = useMemo(
+    () => [
+      {
+        title: "Journal tools",
+        items: [
+          {
+            label: "Copy journal link",
+            onClick: () => {
+              void handleCopyLink();
+            },
+            disabled: !shareUrl,
+          },
+          {
+            label: "Browse entries",
+            onClick: () => setLibraryOpen(true),
+          },
+          {
+            label: "Start new entry",
+            onClick: handleStartFresh,
+          },
+        ],
+      },
+    ],
+    [handleCopyLink, handleStartFresh, shareUrl]
+  );
 
   const loadLibraryEntries = useCallback(async () => {
     if (!journalId) {
@@ -859,78 +880,12 @@ const JournalExperience = () => {
           </div>
         }
         userSlot={
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowProfileCard((prev) => !prev)}
-              className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm transition hover:border-slate-300"
-            >
-              <Image className="brand-logo" src="/brand/toodl-journal.svg" alt="Journal avatar" width={18} height={18} />
-              <span className="text-sm font-medium text-slate-700">
-                {member?.name ?? user?.displayName ?? "Writer"}
-              </span>
-            </button>
-            {showProfileCard && (
-              <div ref={profileRef} className="absolute right-0 mt-3 w-72 rounded-2xl bg-white/95 shadow-xl ring-1 ring-slate-200">
-                <Card className="border-0 bg-transparent p-6">
-                  <CardHeader className="flex flex-col items-center gap-3">
-                    <CardTitle className="text-lg">Journal navigation</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="rounded-2xl bg-slate-50 p-3">
-                      <p className="text-xs font-medium uppercase tracking-[0.25em] text-slate-400">Jump to</p>
-                      <div className="mt-3 grid gap-2">
-                        <Link
-                          href="/"
-                          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
-                          onClick={() => setShowProfileCard(false)}
-                        >
-                          <Image className="brand-logo" src="/brand/toodl-expense.svg" alt="Expense" width={20} height={20} />
-                          Expense Splitter
-                        </Link>
-                        <Link
-                          href="/budget"
-                          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
-                          onClick={() => setShowProfileCard(false)}
-                        >
-                          <Image className="brand-logo" src="/brand/toodl-budget.svg" alt="Budget" width={20} height={20} />
-                          Budget Studio
-                        </Link>
-                        <Link
-                          href="/journal"
-                          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
-                          onClick={() => setShowProfileCard(false)}
-                        >
-                          <Image className="brand-logo" src="/brand/toodl-journal.svg" alt="Journal" width={20} height={20} />
-                          Journal Studio
-                        </Link>
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => {
-                        void handleCopyLink();
-                        setShowProfileCard(false);
-                      }}
-                      variant="outline"
-                      className="w-full border-slate-200"
-                    >
-                      Copy journal link
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        setLibraryOpen(true);
-                        setShowProfileCard(false);
-                      }}
-                      variant="outline"
-                      className="w-full border-slate-200"
-                    >
-                      Browse entries
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </div>
+          <AppUserMenu
+            product="journal"
+            displayName={displayName}
+            sections={journalMenuSections}
+            onSignOut={user ? handleSignOut : undefined}
+          />
         }
       />
       <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-16">

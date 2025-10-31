@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { cloneElement, isValidElement, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
 const PRODUCT_META: Record<
@@ -48,37 +49,65 @@ export function AppTopBar({
   className?: string;
 }) {
   const meta = PRODUCT_META[product];
+  const mobileUserSlot = useMemo(() => {
+    if (!userSlot) {
+      return null;
+    }
+    if (isValidElement(userSlot)) {
+      return cloneElement(userSlot, { key: "mobile" });
+    }
+    return userSlot;
+  }, [userSlot]);
+
+  const desktopUserSlot = useMemo(() => {
+    if (!userSlot) {
+      return null;
+    }
+    if (isValidElement(userSlot)) {
+      return cloneElement(userSlot, { key: "desktop" });
+    }
+    return userSlot;
+  }, [userSlot]);
 
   return (
     <header
       className={cn(
-        "relative mb-6 overflow-visible rounded-3xl border border-slate-200 bg-white/80 px-6 py-5 shadow-[0_15px_45px_-25px_rgba(15,23,42,0.45)] backdrop-blur",
+        "relative z-[30] mb-6 overflow-visible rounded-3xl border border-slate-200 bg-white/80 px-4 py-5 shadow-[0_15px_45px_-25px_rgba(15,23,42,0.45)] backdrop-blur md:px-6",
         className
       )}
     >
       <div className="absolute inset-0 bg-gradient-to-r from-white/70 via-white/40 to-white/10" />
-      <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-4">
-          <Image
-            src={meta.icon}
-            alt={`${product} icon`}
-            width={64}
-            height={64}
-            className="h-16 w-16 shrink-0"
-            priority
-          />
-          <div className="space-y-1">
-            <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">
-              {heading ?? meta.title}
-            </h1>
-            <p className="text-sm text-slate-500 md:text-base">
-              {subheading ?? meta.subtitle}
-            </p>
+      <div className="relative flex flex-col gap-4">
+        {mobileUserSlot ? (
+          <div className="flex items-center justify-start md:hidden">
+            {mobileUserSlot}
           </div>
-        </div>
-        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-          {actions ? <div className="flex flex-col gap-2 sm:flex-row sm:items-center">{actions}</div> : null}
-          {userSlot}
+        ) : null}
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <Image
+              src={meta.icon}
+              alt={`${product} icon`}
+              width={64}
+              height={64}
+              className="h-16 w-16 shrink-0"
+              priority
+            />
+            <div className="space-y-1">
+              <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">
+                {heading ?? meta.title}
+              </h1>
+              <p className="text-sm text-slate-500 md:text-base">
+                {subheading ?? meta.subtitle}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center md:justify-end">
+            {actions ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">{actions}</div>
+            ) : null}
+            {desktopUserSlot ? <div className="hidden md:flex">{desktopUserSlot}</div> : null}
+          </div>
         </div>
       </div>
     </header>

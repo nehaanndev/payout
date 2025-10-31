@@ -120,6 +120,20 @@
   }
 }
 
+@media (max-width: 767px) {
+  #__next {
+    transition: transform 300ms ease;
+  }
+
+  body.app-user-menu-open {
+    overflow: hidden;
+  }
+
+  body.app-user-menu-open #__next {
+    transform: translateX(85vw);
+  }
+}
+
 .brand-logo:hover {
   filter: saturate(1.5);
   transform: translateY(-1px);

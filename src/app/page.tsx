@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect, useRef } from "react";
+import { Suspense, useState, useEffect } from "react";
 import type { ComponentType, SVGProps } from "react";
 import SearchParamsClient from '@/components/SearchParamsClient'
 import {
@@ -16,7 +16,6 @@ import {
 import ExpenseSplitter from "./expense_splitter";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { getOrCreateUserId } from "@/lib/userUtils";
 import { avatarUrls } from "@/lib/avatars";
 import { Member } from "@/types/group"; // assuming Member is defined there
@@ -28,6 +27,7 @@ import Link from "next/link";
 import { CurrencyCode } from "@/lib/currency_core";
 import { DEFAULT_CURRENCY, getGroupCurrency } from "@/lib/currency";
 import { AppTopBar } from "@/components/AppTopBar";
+import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
 import {
   ArrowRight,
   BarChart3,
@@ -156,8 +156,6 @@ export default function Home() {
   const [session, setSession] = useState<User | null>(null);
   const [group, setGroup] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showProfileCard, setShowProfileCard] = useState(false);
-  const profileRef = useRef<HTMLDivElement>(null);
   const [showIdentityChoice, setShowIdentityChoice] = useState(false);
   const [sharedMembers, setSharedMembers] = useState<Member[] | null>(null);
   const [currency, setCurrency] = useState<CurrencyCode>(DEFAULT_CURRENCY);
@@ -179,21 +177,6 @@ export default function Home() {
   
     return () => unsubscribe();
   }, [groupId]);  // Add `group_id` as a dependency
-
-  // Close the profile card when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setShowProfileCard(false);
-      }
-    };
-
-    if (showProfileCard) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showProfileCard]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && !session) {
@@ -261,6 +244,15 @@ export default function Home() {
     }
   };
 
+  const handleResetIdentity = () => {
+    try {
+      localStorage.clear();
+    } catch (error) {
+      console.warn("Failed to clear stored identity", error);
+    }
+    location.reload();
+  };
+
   const handleContinueWithoutSignIn = () => {
     const existing_name = localStorage.getItem('user_name');
     if (existing_name) {
@@ -315,6 +307,19 @@ export default function Home() {
     setTempName("");
   };
 
+  const expenseMenuSections: AppUserMenuSection[] = [];
+  if (!session && anonUser) {
+    expenseMenuSections.push({
+      title: "Identity",
+      items: [
+        {
+          label: "Reset guest identity",
+          onClick: handleResetIdentity,
+        },
+      ],
+    });
+  }
+
   
   if (loading) {
     return (
@@ -338,81 +343,13 @@ export default function Home() {
           <AppTopBar
             product="expense"
             userSlot={
-              <div className="relative">
-                {avatar && (
-                  <Image
-                    src={avatar}
-                    alt="User Avatar"
-                    width={40}
-                    height={40}
-                    className="rounded-full border cursor-pointer"
-                    onClick={() => setShowProfileCard((prev) => !prev)}
-                  />
-                )}
-                {showProfileCard && (
-                  <div ref={profileRef} className="absolute right-0 mt-2 w-72 rounded-2xl bg-white/95 shadow-xl ring-1 ring-slate-200">
-                    <Card className="border-0 bg-transparent p-6">
-                      <CardHeader className="flex flex-col items-center gap-3">
-                        <Image
-                          src={avatar}
-                          alt="User"
-                          width={80}
-                          height={80}
-                          className="rounded-full border"
-                        />
-                        <CardTitle className="text-lg">Hi, {displayName}! 👋</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="rounded-2xl bg-slate-50 p-3">
-                          <p className="text-xs font-medium uppercase tracking-[0.25em] text-slate-400">Jump to</p>
-                          <div className="mt-3 grid gap-2">
-                            <Link
-                              href="/"
-                              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
-                              onClick={() => setShowProfileCard(false)}
-                            >
-                              <Image className="brand-logo" src="/brand/toodl-expense.svg" alt="Expense" width={20} height={20} />
-                              Expense Splitter
-                            </Link>
-                            <Link
-                              href="/budget"
-                              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
-                              onClick={() => setShowProfileCard(false)}
-                            >
-                              <Image className="brand-logo" src="/brand/toodl-budget.svg" alt="Budget" width={20} height={20} />
-                              Budget Studio
-                            </Link>
-                            <Link
-                              href="/journal"
-                              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
-                              onClick={() => setShowProfileCard(false)}
-                            >
-                              <Image className="brand-logo" src="/brand/toodl-journal.svg" alt="Journal" width={20} height={20} />
-                              Journal Studio
-                            </Link>
-                          </div>
-                        </div>
-                        {session ? (
-                          <Button onClick={handleSignOut} variant="outline" className="w-full">
-                            Sign Out
-                          </Button>
-                        ) : (
-                          <Button
-                            onClick={() => {
-                              localStorage.clear();
-                              location.reload();
-                            }}
-                            variant="outline"
-                            className="w-full"
-                          >
-                            Reset Identity
-                          </Button>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
-              </div>
+              <AppUserMenu
+                product="expense"
+                displayName={displayName}
+                avatarSrc={avatar}
+                onSignOut={session ? handleSignOut : undefined}
+                sections={expenseMenuSections}
+              />
             }
           />
           <div className="flex-grow p-8">
