@@ -70,12 +70,14 @@ import {
   BudgetDocument,
   BudgetCategoryRule,
   BudgetCustomCategory,
+  BudgetCustomTag,
   BudgetFixedExpense,
   BudgetIncome,
   BudgetLedgerEntry,
   BudgetMember,
   BudgetMonth,
   BudgetGoal,
+  BudgetTagRule,
 } from "@/types/budget";
 
 type Mode = "wizard" | "ledger";
@@ -88,6 +90,8 @@ type BudgetState = {
   entries: BudgetLedgerEntry[];
   customCategories: BudgetCustomCategory[];
   categoryRules: BudgetCategoryRule[];
+  customTags: BudgetCustomTag[];
+  tagRules: BudgetTagRule[];
   savingsTarget: number;
   goals: BudgetGoal[];
 };
@@ -117,6 +121,12 @@ type CategoryRuleInput = {
   pattern: string;
   operator: CategoryRuleOperator;
   categoryValue: string;
+};
+
+type TagRuleInput = {
+  pattern: string;
+  operator: CategoryRuleOperator;
+  tags: string[];
 };
 
 type CategorySummary = {
@@ -508,6 +518,40 @@ const normaliseTags = (
   return Array.from(map.values());
 };
 
+const applyTagRulesList = (
+  existingTags: string[],
+  merchant: string | null | undefined,
+  rules: readonly BudgetTagRule[]
+): string[] => {
+  const base = normaliseTags(existingTags);
+  if (!rules.length) {
+    return base;
+  }
+
+  const lowerSet = new Set(base.map((tag) => tag.toLowerCase()));
+  const additions: string[] = [];
+
+  for (const rule of rules) {
+    if (!ruleMatches(rule, merchant)) {
+      continue;
+    }
+    for (const tag of rule.tags) {
+      const trimmed = tag.trim();
+      if (!trimmed) {
+        continue;
+      }
+      const lower = trimmed.toLowerCase();
+      if (lowerSet.has(lower)) {
+        continue;
+      }
+      lowerSet.add(lower);
+      additions.push(trimmed);
+    }
+  }
+
+  return additions.length ? normaliseTags([...base, ...additions]) : base;
+};
+
 const formatGoalCompletionDate = (iso: string | null): string | null => {
   if (!iso) {
     return null;
@@ -576,6 +620,8 @@ const defaultState = (): BudgetState => ({
   ]),
   customCategories: [],
   categoryRules: [],
+  customTags: [],
+  tagRules: [],
   savingsTarget: 0,
   goals: [],
 });
@@ -611,6 +657,8 @@ const BudgetExperience = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const docUpdatedAt = budgetDoc?.updatedAt ?? null;
+  const docCreatedAt = budgetDoc?.createdAt ?? null;
   const [invalidBudget, setInvalidBudget] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [tagFilters, setTagFilters] = useState<string[]>([]);
@@ -682,27 +730,100 @@ const BudgetExperience = () => {
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }, [member?.id, state.categoryRules]);
 
+  const memberTagRules = useMemo(() => {
+    return state.tagRules
+      .filter((rule) => {
+        if (!rule.memberId) {
+          return true;
+        }
+        return rule.memberId === member?.id;
+      })
+      .slice()
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }, [member?.id, state.tagRules]);
+
+  const appendCustomTags = useCallback(
+    (current: BudgetCustomTag[], tagsToMerge: string[]): BudgetCustomTag[] => {
+      const normalized = normaliseTags(tagsToMerge);
+      if (!normalized.length) {
+        return current;
+      }
+      const existingLower = new Set<string>(
+        current.map((tag) => tag.value.toLowerCase())
+      );
+      const additions: BudgetCustomTag[] = [];
+      for (const tag of normalized) {
+        const lower = tag.toLowerCase();
+        if (existingLower.has(lower)) {
+          continue;
+        }
+        existingLower.add(lower);
+        additions.push({
+          id: generateId(),
+          value: tag,
+          memberId: member?.id ?? null,
+          createdAt: new Date().toISOString(),
+        });
+      }
+      return additions.length ? [...current, ...additions] : current;
+    },
+    [member?.id]
+  );
+
+  const applyTagRulesToDraft = useCallback(
+    (draft: LedgerEntryDraft): LedgerEntryDraft => {
+      const tags = applyTagRulesList(
+        Array.isArray(draft.tags) ? draft.tags : [],
+        draft.merchant,
+        memberTagRules
+      );
+      return {
+        ...draft,
+        tags,
+      };
+    },
+    [memberTagRules]
+  );
+
+  const applyTagRulesToEntry = useCallback(
+    (entry: BudgetLedgerEntry): BudgetLedgerEntry => {
+      const tags = applyTagRulesList(
+        Array.isArray(entry.tags) ? entry.tags : [],
+        entry.merchant,
+        memberTagRules
+      );
+      return {
+        ...entry,
+        isOneTime: Boolean(entry.isOneTime),
+        tags,
+      };
+    },
+    [memberTagRules]
+  );
+
   const applyCategoryRulesToDraft = useCallback(
     (draft: LedgerEntryDraft): LedgerEntryDraft => {
+      const withTags = applyTagRulesToDraft(draft);
       if (!memberRules.length) {
-        return draft;
+        return withTags;
       }
       for (const rule of memberRules) {
-        if (ruleMatches(rule, draft.merchant)) {
-          return { ...draft, category: rule.categoryValue };
+        if (ruleMatches(rule, withTags.merchant)) {
+          return { ...withTags, category: rule.categoryValue };
         }
       }
-      return draft;
+      return withTags;
     },
-    [memberRules]
+    [applyTagRulesToDraft, memberRules]
   );
 
   const applyCategoryRulesToEntry = useCallback(
     (entry: BudgetLedgerEntry): BudgetLedgerEntry => {
+      const taggedEntry = applyTagRulesToEntry(entry);
       const normalizedEntry: BudgetLedgerEntry = {
-        ...entry,
-        isOneTime: Boolean(entry.isOneTime),
-        tags: normaliseTags(Array.isArray(entry.tags) ? entry.tags : []),
+        ...taggedEntry,
+        isOneTime: Boolean(taggedEntry.isOneTime),
+        tags: normaliseTags(Array.isArray(taggedEntry.tags) ? taggedEntry.tags : []),
       };
       if (!memberRules.length) {
         return {
@@ -711,7 +832,7 @@ const BudgetExperience = () => {
         };
       }
       for (const rule of memberRules) {
-        if (ruleMatches(rule, entry.merchant)) {
+        if (ruleMatches(rule, normalizedEntry.merchant)) {
           return {
             ...normalizedEntry,
             category: normaliseCategory(rule.categoryValue, availableCategories),
@@ -726,27 +847,41 @@ const BudgetExperience = () => {
         date: formatDateParts(normalizeDraftDate(normalizedEntry.date)),
       };
     },
-    [availableCategories, memberRules]
+    [applyTagRulesToEntry, availableCategories, memberRules]
   );
 
   const deriveStateFromMonth = useCallback(
-    (month: BudgetMonth, doc: BudgetDocument | null): BudgetState => ({
-      incomes: month.incomes.length ? month.incomes : defaultState().incomes,
-      fixeds: month.fixeds.length ? month.fixeds : defaultState().fixeds,
-      entries: sortLedgerEntries(
+    (month: BudgetMonth, doc: BudgetDocument | null): BudgetState => {
+      const mappedEntries = sortLedgerEntries(
         (month.entries ?? [])
           .map(applyCategoryRulesToEntry)
           .filter((entry) => {
             const monthKey = getMonthKey(normalizeDraftDate(entry.date));
             return monthKey === month.month;
           })
-      ),
-      customCategories: doc?.customCategories ? [...doc.customCategories] : [],
-      categoryRules: doc?.categoryRules ? [...doc.categoryRules] : [],
-      savingsTarget: month.savingsTarget ?? 0,
-      goals: doc?.goals ? doc.goals.map(normalizeGoalRecord) : [],
-    }),
-    [applyCategoryRulesToEntry]
+      );
+
+      const baseCustomTags = doc?.customTags ? [...doc.customTags] : [];
+      const combinedTags = appendCustomTags(
+        baseCustomTags,
+        mappedEntries.flatMap((entry) =>
+          Array.isArray(entry.tags) ? entry.tags : []
+        )
+      );
+
+      return {
+        incomes: month.incomes.length ? month.incomes : defaultState().incomes,
+        fixeds: month.fixeds.length ? month.fixeds : defaultState().fixeds,
+        entries: mappedEntries,
+        customCategories: doc?.customCategories ? [...doc.customCategories] : [],
+        categoryRules: doc?.categoryRules ? [...doc.categoryRules] : [],
+        customTags: combinedTags,
+        tagRules: doc?.tagRules ? [...doc.tagRules] : [],
+        savingsTarget: month.savingsTarget ?? 0,
+        goals: doc?.goals ? doc.goals.map(normalizeGoalRecord) : [],
+      };
+    },
+    [appendCustomTags, applyCategoryRulesToEntry]
   );
 
   const categorySummaries = useMemo(() => {
@@ -808,13 +943,38 @@ const BudgetExperience = () => {
 
   const availableTags = useMemo(
     () =>
-      normaliseTags(
-        state.entries.flatMap((entry) =>
+      normaliseTags([
+        ...state.customTags.map((tag) => tag.value),
+        ...state.entries.flatMap((entry) =>
           Array.isArray(entry.tags) ? entry.tags : []
-        )
-      ),
-    [state.entries]
+        ),
+      ]),
+    [state.customTags, state.entries]
   );
+
+  const lastUpdatedMessage = useMemo(() => {
+    if (saving) {
+      return "Saving changes…";
+    }
+    const iso = lastSavedAt ?? docUpdatedAt ?? docCreatedAt;
+    if (!iso) {
+      return undefined;
+    }
+    const dateObj = new Date(iso);
+    if (Number.isNaN(dateObj.getTime())) {
+      return undefined;
+    }
+    const datePart = dateObj.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const timePart = dateObj.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return `Last updated ${datePart}, ${timePart}`;
+  }, [saving, lastSavedAt, docUpdatedAt, docCreatedAt]);
 
   const nextMonthTargets = useMemo<NextMonthTarget[]>(() => {
     if (!categorySummaries.length) {
@@ -962,15 +1122,32 @@ const BudgetExperience = () => {
     }));
   }, []);
 
-  const updateEntryTags = useCallback((entryId: string, tags: string[]) => {
-    const normalised = normaliseTags(tags);
-    setState((prev) => ({
-      ...prev,
-      entries: prev.entries.map((entry) =>
-        entry.id === entryId ? { ...entry, tags: normalised } : entry
-      ),
-    }));
-  }, []);
+  const updateEntryTags = useCallback(
+    (entryId: string, tags: string[]) => {
+      const normalised = normaliseTags(tags);
+      setState((prev) => {
+        const updatedEntries = prev.entries.map((entry) =>
+          entry.id === entryId ? { ...entry, tags: normalised } : entry
+        );
+        const updatedCustomTags = appendCustomTags(
+          prev.customTags,
+          normalised
+        );
+        if (updatedCustomTags !== prev.customTags) {
+          return {
+            ...prev,
+            entries: updatedEntries,
+            customTags: updatedCustomTags,
+          };
+        }
+        return {
+          ...prev,
+          entries: updatedEntries,
+        };
+      });
+    },
+    [appendCustomTags]
+  );
 
   const createCategoryRule = useCallback(
     ({ categoryValue, operator, pattern }: CategoryRuleInput): BudgetCategoryRule | null => {
@@ -1034,6 +1211,94 @@ const BudgetExperience = () => {
       return newRule;
     },
     [availableCategories, member?.id, state.categoryRules]
+  );
+
+  const createTagRule = useCallback(
+    ({ tags, operator, pattern }: TagRuleInput): BudgetTagRule | null => {
+      const normalizedPattern = pattern.trim().toLowerCase();
+      const normalizedTags = normaliseTags(tags);
+      if (!normalizedPattern || !normalizedTags.length) {
+        return null;
+      }
+
+      const memberId = member?.id ?? null;
+      const existing = state.tagRules.find(
+        (rule) =>
+          rule.memberId === memberId &&
+          rule.operator === operator &&
+          rule.pattern.toLowerCase() === normalizedPattern
+      );
+
+      if (existing) {
+        const combinedTags = normaliseTags([...existing.tags, ...normalizedTags]);
+        const existingSet = new Set(existing.tags.map((tag) => tag.toLowerCase()));
+        const combinedSet = new Set(combinedTags.map((tag) => tag.toLowerCase()));
+
+        const tagsChanged =
+          existingSet.size !== combinedSet.size ||
+          Array.from(combinedSet).some((tag) => !existingSet.has(tag));
+
+        if (!tagsChanged) {
+          return existing;
+        }
+
+        const updatedRule: BudgetTagRule = {
+          ...existing,
+          tags: combinedTags,
+        };
+
+        setState((prev) => {
+          const nextRules = prev.tagRules.map((rule) =>
+            rule.id === existing.id ? updatedRule : rule
+          );
+          const updatedEntries = prev.entries.map((entry) => {
+            const tagsWithRules = applyTagRulesList(
+              Array.isArray(entry.tags) ? entry.tags : [],
+              entry.merchant,
+              nextRules
+            );
+            return { ...entry, tags: tagsWithRules };
+          });
+          return {
+            ...prev,
+            tagRules: nextRules,
+            customTags: appendCustomTags(prev.customTags, combinedTags),
+            entries: updatedEntries,
+          };
+        });
+        return updatedRule;
+      }
+
+      const newRule: BudgetTagRule = {
+        id: generateId(),
+        memberId,
+        operator,
+        pattern: normalizedPattern,
+        tags: normalizedTags,
+        createdAt: new Date().toISOString(),
+      };
+
+      setState((prev) => {
+        const nextRules = [...prev.tagRules, newRule];
+        const updatedEntries = prev.entries.map((entry) => {
+          const tagsWithRules = applyTagRulesList(
+            Array.isArray(entry.tags) ? entry.tags : [],
+            entry.merchant,
+            nextRules
+          );
+          return { ...entry, tags: tagsWithRules };
+        });
+        return {
+          ...prev,
+          tagRules: nextRules,
+          customTags: appendCustomTags(prev.customTags, normalizedTags),
+          entries: updatedEntries,
+        };
+      });
+
+      return newRule;
+    },
+    [appendCustomTags, member?.id, state.tagRules]
   );
 
   const createGoal = useCallback(
@@ -1350,6 +1615,15 @@ const BudgetExperience = () => {
           return;
         }
 
+        const safeDoc: BudgetDocument = {
+          ...doc,
+          customCategories: doc.customCategories ?? [],
+          categoryRules: doc.categoryRules ?? [],
+          customTags: doc.customTags ?? [],
+          tagRules: doc.tagRules ?? [],
+          goals: doc.goals ?? [],
+        };
+
         await ensureMemberOnBudget(id, activeMember);
         let monthKeys = sortMonthKeys(await listBudgetMonthKeys(id));
         const targetMonthKey = preferredMonth || getMonthKey();
@@ -1358,10 +1632,10 @@ const BudgetExperience = () => {
         }
         const month = await fetchBudgetMonth(id, targetMonthKey);
         hasHydrated.current = false;
-        setBudgetDoc(doc);
+        setBudgetDoc(safeDoc);
         setAvailableMonths(monthKeys);
         setActiveMonthKey(targetMonthKey);
-        setState(deriveStateFromMonth(month, doc));
+        setState(deriveStateFromMonth(month, safeDoc));
         setCategoryFilter(null);
         setTagFilters([]);
         setMonthMeta({
@@ -1440,6 +1714,8 @@ const BudgetExperience = () => {
     const metadataPayload = {
       customCategories: state.customCategories,
       categoryRules: state.categoryRules,
+      customTags: state.customTags,
+      tagRules: state.tagRules,
       goals: state.goals,
       updatedAt,
     };
@@ -1461,6 +1737,8 @@ const BudgetExperience = () => {
                     ...prev,
                     customCategories: metadataPayload.customCategories,
                     categoryRules: metadataPayload.categoryRules,
+                    customTags: metadataPayload.customTags,
+                    tagRules: metadataPayload.tagRules,
                     goals: metadataPayload.goals,
                     updatedAt,
                   }
@@ -1488,6 +1766,8 @@ const BudgetExperience = () => {
     state.incomes,
     state.customCategories,
     state.categoryRules,
+    state.customTags,
+    state.tagRules,
     state.savingsTarget,
     state.goals,
   ]);
@@ -1589,15 +1869,6 @@ const BudgetExperience = () => {
       console.error("Failed to sign out", error);
     }
   }, []);
-
-  const saveStatus = saving
-    ? "Saving..."
-    : lastSavedAt
-    ? `Last saved ${new Date(lastSavedAt).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      })}`
-    : "Ready when you are";
 
   const budgetMenuSections: AppUserMenuSection[] = useMemo(() => {
     const sections: AppUserMenuSection[] = [];
@@ -1869,10 +2140,24 @@ const BudgetExperience = () => {
     if (!entry) {
       return;
     }
-    setState((prev) => ({
-      ...prev,
-      entries: sortLedgerEntries([entry, ...prev.entries]),
-    }));
+    setState((prev) => {
+      const nextEntries = sortLedgerEntries([entry, ...prev.entries]);
+      const updatedCustomTags = appendCustomTags(
+        prev.customTags,
+        Array.isArray(entry.tags) ? entry.tags : []
+      );
+      if (updatedCustomTags !== prev.customTags) {
+        return {
+          ...prev,
+          entries: nextEntries,
+          customTags: updatedCustomTags,
+        };
+      }
+      return {
+        ...prev,
+        entries: nextEntries,
+      };
+    });
     setMode("ledger");
   };
 
@@ -2215,43 +2500,36 @@ const BudgetExperience = () => {
         <AppTopBar
           product="budget"
           heading={headingNode}
-          subheading={
-            budgetDoc
-              ? `Updated ${formatUpdatedLabel(budgetDoc.updatedAt ?? budgetDoc.createdAt)}`
-              : undefined
-          }
+          subheading={lastUpdatedMessage ?? undefined}
           actions={
-            <div className="flex flex-col items-stretch gap-2 sm:items-end">
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 border-slate-300"
+                onClick={handleSwitchBudgetView}
+                aria-label="View my budgets"
+              >
+                <Home className="h-4 w-4" />
+              </Button>
+              {shareLink ? (
                 <Button
                   variant="outline"
                   size="icon"
                   className="h-10 w-10 border-slate-300"
-                  onClick={handleSwitchBudgetView}
-                  aria-label="View my budgets"
+                  onClick={handleCopyShareLink}
+                  aria-label="Copy budget share link"
                 >
-                  <Home className="h-4 w-4" />
+                  <Share2 className="h-4 w-4" />
                 </Button>
-                {shareLink ? (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-10 w-10 border-slate-300"
-                    onClick={handleCopyShareLink}
-                    aria-label="Copy budget share link"
-                  >
-                    <Share2 className="h-4 w-4" />
-                  </Button>
-                ) : null}
-                <Button
-                  variant="secondary"
-                  onClick={toggleMode}
-                  className="whitespace-nowrap"
-                >
-                  {mode === "wizard" ? "Go to Ledger" : "Run Wizard"}
-                </Button>
-              </div>
-              <span className="text-xs text-slate-500">{saveStatus}</span>
+              ) : null}
+              <Button
+                variant="secondary"
+                onClick={toggleMode}
+                className="whitespace-nowrap"
+              >
+                {mode === "wizard" ? "Go to Ledger" : "Run Wizard"}
+              </Button>
             </div>
           }
           userSlot={
@@ -2338,6 +2616,7 @@ const BudgetExperience = () => {
             onAssignCategory={assignCategoryToEntry}
             onCreateCategory={upsertCustomCategory}
             onCreateRule={createCategoryRule}
+            onCreateTagRule={createTagRule}
             onSelectCategory={setCategoryFilter}
             onUpdateTagFilters={setTagFilters}
             onClearFilters={() => {
@@ -2730,6 +3009,7 @@ function Ledger({
   onAssignCategory,
   onCreateCategory,
   onCreateRule,
+  onCreateTagRule,
   onSelectCategory,
   onUpdateTagFilters,
   onClearFilters,
@@ -2762,6 +3042,7 @@ function Ledger({
   onAssignCategory: (entryId: string, categoryValue: string) => void;
   onCreateCategory: (label: string, emoji?: string | null) => CategoryOption | null;
   onCreateRule: (input: CategoryRuleInput) => BudgetCategoryRule | null;
+  onCreateTagRule: (input: TagRuleInput) => BudgetTagRule | null;
   onSelectCategory: (categoryValue: string) => void;
   onUpdateTagFilters: (tags: string[]) => void;
   onClearFilters: () => void;
@@ -3257,6 +3538,7 @@ function Ledger({
         entry={tagEditorEntry}
         open={Boolean(tagEditorEntry)}
         availableTags={availableTags}
+        onCreateRule={onCreateTagRule}
         onSave={(entryId, tags) => {
           onUpdateTags(entryId, tags);
         }}
@@ -4239,18 +4521,24 @@ function TagEditorDialog({
   entry,
   open,
   availableTags,
+  onCreateRule,
   onSave,
   onClose,
 }: {
   entry: BudgetLedgerEntry | null;
   open: boolean;
   availableTags: string[];
+  onCreateRule: (input: TagRuleInput) => BudgetTagRule | null;
   onSave: (entryId: string, tags: string[]) => void;
   onClose: () => void;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [draftTag, setDraftTag] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [rememberRule, setRememberRule] = useState(false);
+  const [ruleOperator, setRuleOperator] =
+    useState<CategoryRuleOperator>("contains");
+  const [rulePattern, setRulePattern] = useState("");
 
   useEffect(() => {
     if (open && entry) {
@@ -4259,10 +4547,16 @@ function TagEditorDialog({
       );
       setDraftTag("");
       setError(null);
+      setRememberRule(false);
+      setRuleOperator("contains");
+      setRulePattern(entry.merchant ?? "");
     } else if (!open) {
       setSelected([]);
       setDraftTag("");
       setError(null);
+      setRememberRule(false);
+      setRuleOperator("contains");
+      setRulePattern("");
     }
   }, [entry, open]);
 
@@ -4289,6 +4583,7 @@ function TagEditorDialog({
     } else {
       setSelected((prev) => normaliseTags([...prev, tag]));
     }
+    setError(null);
   };
 
   const handleSave = () => {
@@ -4296,6 +4591,24 @@ function TagEditorDialog({
       onClose();
       return;
     }
+    if (!selected.length) {
+      setError("Add at least one tag before saving.");
+      return;
+    }
+    const trimmedPattern = rulePattern.trim();
+    if (rememberRule && !trimmedPattern) {
+      setError("Enter text to match when creating a tag rule.");
+      return;
+    }
+
+    if (rememberRule) {
+      onCreateRule({
+        tags: selected,
+        operator: ruleOperator,
+        pattern: trimmedPattern,
+      });
+    }
+
     onSave(entry.id, selected);
     onClose();
   };
@@ -4390,6 +4703,56 @@ function TagEditorDialog({
               </div>
             </div>
           )}
+
+          <div className="space-y-3 rounded-2xl border border-slate-200/70 bg-slate-50/60 p-3">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="remember-tag-rule"
+                checked={rememberRule}
+                onCheckedChange={(checked) =>
+                  setRememberRule(Boolean(checked))
+                }
+              />
+              <Label
+                htmlFor="remember-tag-rule"
+                className="text-sm font-medium text-slate-700"
+              >
+                Auto-tag similar expenses
+              </Label>
+            </div>
+            {rememberRule ? (
+              <div className="space-y-3 pl-6">
+                <p className="text-xs text-slate-500">
+                  When the description matches, we&apos;ll keep these tags in
+                  place automatically.
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Select
+                    value={ruleOperator}
+                    onValueChange={(value) =>
+                      setRuleOperator(value as CategoryRuleOperator)
+                    }
+                  >
+                    <SelectTrigger className="sm:w-44">
+                      <SelectValue placeholder="Match type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RULE_OPERATOR_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={rulePattern}
+                    onChange={(event) => setRulePattern(event.target.value)}
+                    placeholder="e.g. Starbucks"
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
         <DialogFooter className="mt-2">
           <Button type="button" variant="ghost" onClick={onClose}>

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { cloneElement, isValidElement, useMemo } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 const PRODUCT_META: Record<
@@ -42,8 +43,8 @@ export function AppTopBar({
   className,
 }: {
   product: "expense" | "budget" | "journal";
-  heading?: string;
-  subheading?: string;
+  heading?: ReactNode;
+  subheading?: ReactNode;
   actions?: React.ReactNode;
   userSlot?: React.ReactNode;
   className?: string;
@@ -77,38 +78,89 @@ export function AppTopBar({
       )}
     >
       <div className="absolute inset-0 bg-gradient-to-r from-white/70 via-white/40 to-white/10" />
-      <div className="relative flex flex-col gap-4">
-        {mobileUserSlot ? (
-          <div className="flex items-center justify-start md:hidden">
-            {mobileUserSlot}
-          </div>
-        ) : null}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            <Image
-              src={meta.icon}
-              alt={`${product} icon`}
-              width={64}
-              height={64}
-              className="h-16 w-16 shrink-0"
-              priority
-            />
-            <div className="space-y-1">
-              <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">
-                {heading ?? meta.title}
-              </h1>
-              <p className="text-sm text-slate-500 md:text-base">
-                {subheading ?? meta.subtitle}
-              </p>
+      <div className="relative flex flex-col gap-4 md:gap-6">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3 md:gap-4">
+              {mobileUserSlot ? (
+                <div className="flex-shrink-0 md:hidden">{mobileUserSlot}</div>
+              ) : null}
+              <div className="flex items-center gap-3 md:gap-4">
+                <Image
+                  src={meta.icon}
+                  alt={`${product} icon`}
+                  width={64}
+                  height={64}
+                  className="h-16 w-16 shrink-0"
+                  priority
+                />
+                <div className="space-y-1">
+                  {(() => {
+                    const headingContent = heading ?? meta.title;
+                    if (isValidElement(headingContent)) {
+                      return (
+                        <div className="text-lg font-semibold text-slate-900 md:text-2xl">
+                          {headingContent}
+                        </div>
+                      );
+                    }
+                    if (
+                      typeof headingContent === "string" ||
+                      typeof headingContent === "number"
+                    ) {
+                      return (
+                        <h1 className="text-lg font-semibold text-slate-900 md:text-2xl">
+                          {headingContent}
+                        </h1>
+                      );
+                    }
+                    return (
+                      <div className="text-lg font-semibold text-slate-900 md:text-2xl">
+                        {headingContent}
+                      </div>
+                    );
+                  })()}
+                  {(() => {
+                    const subheadingContent = subheading ?? meta.subtitle;
+                    if (!subheadingContent) {
+                      return null;
+                    }
+                    if (isValidElement(subheadingContent)) {
+                      return (
+                        <div className="text-xs text-slate-500 md:text-base">
+                          {subheadingContent}
+                        </div>
+                      );
+                    }
+                    if (
+                      typeof subheadingContent === "string" ||
+                      typeof subheadingContent === "number"
+                    ) {
+                      return (
+                        <p className="text-xs text-slate-500 md:text-base">
+                          {subheadingContent}
+                        </p>
+                      );
+                    }
+                    return (
+                      <div className="text-xs text-slate-500 md:text-base">
+                        {subheadingContent}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center md:justify-end">
-            {actions ? (
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">{actions}</div>
-            ) : null}
-            {desktopUserSlot ? <div className="hidden md:flex">{desktopUserSlot}</div> : null}
-          </div>
+          {desktopUserSlot ? (
+            <div className="hidden md:flex">{desktopUserSlot}</div>
+          ) : null}
         </div>
+        {actions ? (
+          <div className="flex flex-wrap items-center gap-2 md:justify-end">
+            {actions}
+          </div>
+        ) : null}
       </div>
     </header>
   );

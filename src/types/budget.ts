@@ -55,6 +55,22 @@ export type BudgetCategoryRule = {
   createdAt: string;
 };
 
+export type BudgetCustomTag = {
+  id: string;
+  value: string;
+  memberId: string | null;
+  createdAt: string;
+};
+
+export type BudgetTagRule = {
+  id: string;
+  memberId: string | null;
+  operator: "contains" | "starts_with" | "equals";
+  pattern: string;
+  tags: string[];
+  createdAt: string;
+};
+
 export type BudgetDocument = {
   id: string;
   title: string;
@@ -66,6 +82,8 @@ export type BudgetDocument = {
   updatedAt: string;
   customCategories?: BudgetCustomCategory[];
   categoryRules?: BudgetCategoryRule[];
+  customTags?: BudgetCustomTag[];
+  tagRules?: BudgetTagRule[];
   goals?: BudgetGoal[];
 };
 

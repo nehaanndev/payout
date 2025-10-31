@@ -16,12 +16,14 @@ import { generateId } from "./id";
 import {
   BudgetCategoryRule,
   BudgetCustomCategory,
+  BudgetCustomTag,
   BudgetDocument,
   BudgetFixedExpense,
   BudgetIncome,
   BudgetMember,
   BudgetMonth,
   BudgetGoal,
+  BudgetTagRule,
 } from "@/types/budget";
 
 export const GENERIC_BUDGET_TITLE = "Household Budget";
@@ -58,6 +60,8 @@ export const createBudgetDocument = async (
     updatedAt: nowIso,
     customCategories: [],
     categoryRules: [],
+    customTags: [],
+    tagRules: [],
     goals: [],
   };
 
@@ -191,6 +195,8 @@ export const saveBudgetMetadata = async (
   metadata: {
     customCategories: BudgetCustomCategory[];
     categoryRules: BudgetCategoryRule[];
+    customTags: BudgetCustomTag[];
+    tagRules: BudgetTagRule[];
     goals: BudgetGoal[];
     updatedAt: string;
   }
@@ -199,6 +205,8 @@ export const saveBudgetMetadata = async (
   await updateDoc(ref, {
     customCategories: metadata.customCategories,
     categoryRules: metadata.categoryRules,
+    customTags: metadata.customTags,
+    tagRules: metadata.tagRules,
     goals: metadata.goals,
     updatedAt: metadata.updatedAt,
     serverUpdatedAt: serverTimestamp(),
