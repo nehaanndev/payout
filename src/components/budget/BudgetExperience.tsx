@@ -163,8 +163,13 @@ type PaceStats = {
   projectedMonthlySpend: number;
 };
 
+type PatternRule = {
+  operator: CategoryRuleOperator;
+  pattern: string;
+};
+
 const ruleMatches = (
-  rule: BudgetCategoryRule,
+  rule: PatternRule,
   merchant: string | null | undefined
 ) => {
   if (!merchant) {
