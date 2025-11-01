@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-type ProductKey = "expense" | "budget" | "journal";
+type ProductKey = "expense" | "budget" | "journal" | "scratch";
 
 type MenuAction = {
   label: string;
@@ -60,6 +60,12 @@ const PRODUCT_DESTINATIONS: Array<{
     label: "Journal Studio",
     href: "/journal",
     icon: "/brand/toodl-journal.svg",
+  },
+  {
+    product: "scratch",
+    label: "Scratch Pad",
+    href: "/scratch-pad",
+    icon: "/brand/toodl-mark.svg",
   },
 ];
 

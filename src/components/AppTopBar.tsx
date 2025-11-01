@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 const PRODUCT_META: Record<
-  "expense" | "budget" | "journal",
+  "expense" | "budget" | "journal" | "scratch",
   {
     title: string;
     subtitle: string;
@@ -32,6 +32,12 @@ const PRODUCT_META: Record<
     icon: "/brand/toodl-journal.svg",
     accent: "from-rose-500 via-amber-400 to-sky-500",
   },
+  scratch: {
+    title: "Toodl Scratch Pad",
+    subtitle: "Collect links and drop them into your reading queue.",
+    icon: "/brand/toodl-mark.svg",
+    accent: "from-indigo-500 via-slate-700 to-indigo-500",
+  },
 };
 
 export function AppTopBar({
@@ -42,7 +48,7 @@ export function AppTopBar({
   userSlot,
   className,
 }: {
-  product: "expense" | "budget" | "journal";
+  product: "expense" | "budget" | "journal" | "scratch";
   heading?: ReactNode;
   subheading?: ReactNode;
   actions?: React.ReactNode;

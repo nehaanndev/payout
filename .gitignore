@@ -18,7 +18,7 @@
 /.next/
 /out/
 
-# production
+# production (web)
 /build
 
 # misc
@@ -40,3 +40,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# android build artifacts
+/android/toodl-share/.gradle/
+/android/toodl-share/.idea/
+/android/toodl-share/build/
+/android/toodl-share/app/build/
+/android/toodl-share/app/.cxx/
+/android/toodl-share/local.properties
+/android/toodl-share/*.iml

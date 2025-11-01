@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "197852096416",
+    "project_id": "payout-n",
+    "storage_bucket": "payout-n.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:197852096416:android:1e1420304d84b1a2a4a6c5",
+        "android_client_info": {
+          "package_name": "com.toodl.share"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "197852096416-fmotuk5a1nbk8ckl7cnae5qqe3mkd1o3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDykUuQ4N7Ud9LyvVHRSrXY-25o8WUWWIE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "197852096416-fmotuk5a1nbk8ckl7cnae5qqe3mkd1o3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
