@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   auth,
   provider,
@@ -22,6 +24,7 @@ import {
   type User,
 } from "@/lib/firebase";
 import {
+  createSharedLink,
   deleteSharedLink,
   observeSharedLinks,
   updateSharedLinkStatus,
@@ -65,6 +68,12 @@ export function ScratchPadExperience() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<ScratchPadFilter>("new");
   const [busyIds, setBusyIds] = useState<Record<string, boolean>>({});
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkNotes, setLinkNotes] = useState("");
+  const [linkTags, setLinkTags] = useState("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (current) => {
@@ -182,13 +191,72 @@ export function ScratchPadExperience() {
     [toggleBusy, user]
   );
 
+  const inferContentType = useCallback((url: string): SharedLink["contentType"] => {
+    const normalized = url.toLowerCase();
+    if (normalized.includes("youtube.com") || normalized.includes("youtu.be") || normalized.includes("vimeo.com")) {
+      return "video";
+    }
+    if (normalized.includes("spotify.com") || normalized.includes("music.apple.com") || normalized.includes("podcasts.apple.com")) {
+      return "audio";
+    }
+    if (
+      normalized.includes("medium.com") ||
+      normalized.includes("substack.com") ||
+      normalized.includes("news") ||
+      normalized.includes("blog")
+    ) {
+      return "article";
+    }
+    return "link";
+  }, []);
+
+  const handleCreateLink = useCallback(async () => {
+    if (!user) {
+      return;
+    }
+    const trimmedUrl = linkUrl.trim();
+    if (!trimmedUrl) {
+      setError("Enter a link before saving.");
+      return;
+    }
+    setError(null);
+    setCreateSuccess(null);
+    setCreateBusy(true);
+    try {
+      const tags = linkTags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+      await createSharedLink(user.uid, {
+        url: trimmedUrl,
+        title: linkTitle.trim() || null,
+        description: linkNotes.trim() || null,
+        tags,
+        contentType: inferContentType(trimmedUrl),
+        platform: "web",
+        status: "new",
+      });
+      setLinkUrl("");
+      setLinkTitle("");
+      setLinkNotes("");
+      setLinkTags("");
+      setCreateSuccess("Link saved to your scratch pad.");
+      setFilter("new");
+    } catch (err) {
+      console.error(err);
+      setError("We couldn't save that link. Please try again.");
+    } finally {
+      setCreateBusy(false);
+    }
+  }, [user, linkUrl, linkTitle, linkNotes, linkTags, inferContentType, setFilter]);
+
   return (
     <div className="min-h-screen bg-slate-50/80 p-4 pb-12 sm:p-6">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <AppTopBar
           product="scratch"
           heading="Scratch Pad"
-          subheading="Drop links from your phone and read them when you land back at your desk."
+          subheading="Drop links you discover anywhere and come back to them when it suits you."
           userSlot={
             user ? (
               <AppUserMenu
@@ -228,6 +296,86 @@ export function ScratchPadExperience() {
         ) : (
           <>
             <Card className="border-slate-200 bg-white/95 p-5 shadow-lg shadow-slate-200/40 backdrop-blur">
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">Drop a link</h2>
+                  <p className="text-sm text-slate-500">
+                    Paste a URL and add optional notes or tags. Anything you save lands in the queue below.
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-slate-700" htmlFor="scratch-url">
+                      Link URL<span className="text-rose-500">*</span>
+                    </label>
+                    <Input
+                      id="scratch-url"
+                      value={linkUrl}
+                      onChange={(event) => setLinkUrl(event.target.value)}
+                      placeholder="https://"
+                      disabled={createBusy}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700" htmlFor="scratch-title">
+                      Title (optional)
+                    </label>
+                    <Input
+                      id="scratch-title"
+                      value={linkTitle}
+                      onChange={(event) => setLinkTitle(event.target.value)}
+                      placeholder="A quick headline"
+                      disabled={createBusy}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700" htmlFor="scratch-tags">
+                      Tags (comma separated)
+                    </label>
+                    <Input
+                      id="scratch-tags"
+                      value={linkTags}
+                      onChange={(event) => setLinkTags(event.target.value)}
+                      placeholder="read later, video, trip"
+                      disabled={createBusy}
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-slate-700" htmlFor="scratch-notes">
+                      Notes (optional)
+                    </label>
+                    <Textarea
+                      id="scratch-notes"
+                      value={linkNotes}
+                      onChange={(event) => setLinkNotes(event.target.value)}
+                      placeholder="Why this link matters…"
+                      disabled={createBusy}
+                      className="min-h-[96px]"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    onClick={handleCreateLink}
+                    disabled={!linkUrl.trim() || createBusy}
+                    className="bg-indigo-500 text-white hover:bg-indigo-400"
+                  >
+                    {createBusy ? (
+                      <>
+                        <Spinner size="sm" className="mr-2" />
+                        Saving…
+                      </>
+                    ) : (
+                      "Save link"
+                    )}
+                  </Button>
+                  {createSuccess ? (
+                    <span className="text-sm text-emerald-600">{createSuccess}</span>
+                  ) : null}
+                </div>
+              </div>
+
+              <Separator className="my-5" />
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">Your links</h2>

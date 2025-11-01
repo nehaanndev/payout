@@ -72,6 +72,14 @@ const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
     description:
       "Reflect on wins, lessons, and family moments—then revisit them in a beautiful library.",
   },
+  {
+    name: "Scratch Pad",
+    tagline: "Save links to revisit anywhere",
+    icon: "/brand/toodl-mark.svg",
+    accent: "from-indigo-500/15 via-slate-500/10 to-indigo-500/0",
+    description:
+      "Capture articles, videos, and ideas from Android or desktop, then queue them up for when you have time.",
+  },
 ];
 
 const WORKFLOW_STEPS: Array<{
@@ -90,8 +98,8 @@ const WORKFLOW_STEPS: Array<{
     icon: Target,
   },
   {
-    title: "Celebrate progress",
-    description: "Log highlights in the journal so your team, family, or future self can look back.",
+    title: "Queue discoveries",
+    description: "Drop links into Scratch Pad so you can read, watch, or listen when it fits your rhythm.",
     icon: NotebookPen,
   },
 ];
