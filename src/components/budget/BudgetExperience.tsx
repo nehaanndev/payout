@@ -17,6 +17,7 @@ import {
   ChevronUp,
   Home,
   Plus,
+  Pencil,
   Receipt,
   Share2,
   Trash2,
@@ -1809,8 +1810,9 @@ const BudgetExperience = () => {
     if (!budgetId || !activeMonthKey || !isClient()) {
       return null;
     }
-    return `${window.location.origin}/budget?budget_id=${budgetId}&month=${activeMonthKey}`;
-  }, [budgetId, activeMonthKey]);
+    const code = budgetDoc?.shareCode ?? budgetId;
+    return `${window.location.origin}/budget/share/${code}?month=${activeMonthKey}`;
+  }, [activeMonthKey, budgetDoc?.shareCode, budgetId]);
 
   const displayName = member?.name ?? user?.displayName ?? "Member";
 
@@ -2208,6 +2210,74 @@ const BudgetExperience = () => {
     });
     setMode("ledger");
   };
+
+  const handleUpdateEntry = useCallback(
+    (entryId: string, draft: LedgerEntryDraft) => {
+      const nextAmount = Number(draft.amount);
+      if (!Number.isFinite(nextAmount) || nextAmount <= 0) {
+        return;
+      }
+      setState((prev) => {
+        const existing = prev.entries.find((entry) => entry.id === entryId);
+        if (!existing) {
+          return prev;
+        }
+        const normalizedCategory = normaliseCategory(
+          draft.category || existing.category,
+          availableCategories
+        );
+        const normalizedDate = formatDateParts(
+          normalizeDraftDate(draft.date || existing.date)
+        );
+        const merchant = draft.merchant?.trim() || "";
+        const merchantValue = merchant.length ? merchant : undefined;
+        const isOneTime =
+          typeof draft.isOneTime === "boolean"
+            ? draft.isOneTime
+            : Boolean(existing.isOneTime);
+        const inputTags = Array.isArray(draft.tags)
+          ? draft.tags
+          : Array.isArray(existing.tags)
+          ? existing.tags
+          : [];
+        const tagsWithRules = applyTagRulesList(
+          inputTags,
+          merchantValue ?? existing.merchant ?? null,
+          memberTagRules
+        );
+        const normalizedTags = normaliseTags(tagsWithRules);
+        const updated: BudgetLedgerEntry = {
+          ...existing,
+          amount: nextAmount,
+          category: normalizedCategory,
+          merchant: merchantValue,
+          date: normalizedDate,
+          isOneTime,
+          tags: normalizedTags,
+        };
+        const nextEntries = prev.entries.map((entry) =>
+          entry.id === entryId ? updated : entry
+        );
+        const sortedEntries = sortLedgerEntries(nextEntries);
+        const nextCustomTags = appendCustomTags(
+          prev.customTags,
+          normalizedTags
+        );
+        if (nextCustomTags !== prev.customTags) {
+          return {
+            ...prev,
+            entries: sortedEntries,
+            customTags: nextCustomTags,
+          };
+        }
+        return {
+          ...prev,
+          entries: sortedEntries,
+        };
+      });
+    },
+    [appendCustomTags, availableCategories, memberTagRules]
+  );
 
   const updateSavingsTarget = (value: number) => {
     setState((prev) => ({
@@ -2660,6 +2730,7 @@ const BudgetExperience = () => {
             progressPct={progressPct}
             onAddEntry={handleAddEntry}
             onRemoveEntry={handleRemoveEntry}
+            onUpdateEntry={handleUpdateEntry}
             onImportEntries={handleImportEntries}
             onAssignCategory={assignCategoryToEntry}
             onCreateCategory={upsertCustomCategory}
@@ -3311,6 +3382,7 @@ function Ledger({
   progressPct,
   onAddEntry,
   onRemoveEntry,
+  onUpdateEntry,
   onImportEntries,
   onAssignCategory,
   onCreateCategory,
@@ -3344,6 +3416,7 @@ function Ledger({
   progressPct: number;
   onAddEntry: (entry: LedgerEntryDraft) => void;
   onRemoveEntry: (id: string) => void;
+  onUpdateEntry: (entryId: string, draft: LedgerEntryDraft) => void;
   onImportEntries: (entries: LedgerEntryDraft[]) => Promise<void> | void;
   onAssignCategory: (entryId: string, categoryValue: string) => void;
   onCreateCategory: (label: string, emoji?: string | null) => CategoryOption | null;
@@ -3364,6 +3437,8 @@ function Ledger({
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [entryEditorEntry, setEntryEditorEntry] =
+    useState<BudgetLedgerEntry | null>(null);
   const [categoryEditorEntry, setCategoryEditorEntry] =
     useState<BudgetLedgerEntry | null>(null);
   const [tagEditorEntry, setTagEditorEntry] =
@@ -3767,6 +3842,7 @@ function Ledger({
             entries={visibleEntries}
             categories={categories}
             onDelete={onRemoveEntry}
+            onEditEntry={(entry) => setEntryEditorEntry(entry)}
             onEditCategory={(entry) => setCategoryEditorEntry(entry)}
             onToggleOneTime={onToggleOneTime}
             onEditTags={(entry) => setTagEditorEntry(entry)}
@@ -3782,6 +3858,15 @@ function Ledger({
           }}
         />
       </Card>
+      <EntryEditorDialog
+        entry={entryEditorEntry}
+        open={Boolean(entryEditorEntry)}
+        categories={categories}
+        onSave={(entryId, draft) => {
+          onUpdateEntry(entryId, draft);
+        }}
+        onClose={() => setEntryEditorEntry(null)}
+      />
       <Dialog open={tagFilterDialogOpen} onOpenChange={setTagFilterDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -3867,6 +3952,7 @@ function EntryList({
   entries,
   categories,
   onDelete,
+  onEditEntry,
   onEditCategory,
   onToggleOneTime,
   onEditTags,
@@ -3875,6 +3961,7 @@ function EntryList({
   entries: BudgetLedgerEntry[];
   categories: CategoryOption[];
   onDelete: (id: string) => void;
+  onEditEntry: (entry: BudgetLedgerEntry) => void;
   onEditCategory: (entry: BudgetLedgerEntry) => void;
   onToggleOneTime: (entryId: string, isOneTime: boolean) => void;
   onEditTags: (entry: BudgetLedgerEntry) => void;
@@ -4040,6 +4127,14 @@ function EntryList({
                     <Button
                       variant="ghost"
                       size="icon"
+                      onClick={() => onEditEntry(entry)}
+                      aria-label="Edit entry"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => onDelete(entry.id)}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -4063,6 +4158,240 @@ const RULE_OPERATOR_OPTIONS: Array<{
   { value: "starts_with", label: "Description starts with" },
   { value: "equals", label: "Description equals" },
 ];
+
+function EntryEditorDialog({
+  entry,
+  open,
+  categories,
+  onSave,
+  onClose,
+}: {
+  entry: BudgetLedgerEntry | null;
+  open: boolean;
+  categories: CategoryOption[];
+  onSave: (entryId: string, draft: LedgerEntryDraft) => void;
+  onClose: () => void;
+}) {
+  const [amountStr, setAmountStr] = useState("");
+  const [categoryValue, setCategoryValue] = useState("");
+  const [merchant, setMerchant] = useState("");
+  const [dateStr, setDateStr] = useState(() => formatDateInput(new Date()));
+  const [isOneTime, setIsOneTime] = useState(false);
+  const [tagsInput, setTagsInput] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const effectiveCategories = useMemo(() => {
+    if (!entry?.category) {
+      return categories;
+    }
+    const lower = entry.category.toLowerCase();
+    const exists = categories.some(
+      (category) => category.value.toLowerCase() === lower
+    );
+    if (exists) {
+      return categories;
+    }
+    return [
+      ...categories,
+      {
+        id: `existing-${entry.id}`,
+        value: entry.category,
+        label: entry.category,
+        emoji: null,
+      },
+    ];
+  }, [categories, entry]);
+
+  useEffect(() => {
+    if (open && entry) {
+      setAmountStr(entry.amount ? String(entry.amount) : "");
+      setCategoryValue(entry.category ?? "");
+      setMerchant(entry.merchant ?? "");
+      setDateStr(entry.date ?? formatDateInput(new Date()));
+      setIsOneTime(Boolean(entry.isOneTime));
+      const tagsList = Array.isArray(entry.tags) ? entry.tags : [];
+      setTagsInput(tagsList.join(", "));
+      setError(null);
+    } else if (!open) {
+      setAmountStr("");
+      setCategoryValue("");
+      setMerchant("");
+      setDateStr(formatDateInput(new Date()));
+      setIsOneTime(false);
+      setTagsInput("");
+      setError(null);
+    }
+  }, [entry, open]);
+
+  const handleSave = () => {
+    if (!entry) {
+      onClose();
+      return;
+    }
+    const parsedAmount = Number(amountStr);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setError("Enter an amount greater than zero.");
+      return;
+    }
+    const trimmedCategory = categoryValue.trim();
+    if (!trimmedCategory) {
+      setError("Pick a category.");
+      return;
+    }
+    if (!dateStr) {
+      setError("Select a purchase date.");
+      return;
+    }
+    const trimmedMerchant = merchant.trim();
+    const tags = normaliseTags(
+      tagsInput
+        .split(",")
+        .map((tag) => tag.trim())
+    );
+    onSave(entry.id, {
+      amount: parsedAmount,
+      category: trimmedCategory,
+      merchant: trimmedMerchant ? trimmedMerchant : undefined,
+      date: dateStr,
+      isOneTime,
+      tags,
+    });
+    onClose();
+  };
+
+  const parsedAmount = Number(amountStr);
+  const canSave =
+    Boolean(entry) &&
+    Number.isFinite(parsedAmount) &&
+    parsedAmount > 0 &&
+    Boolean(categoryValue) &&
+    Boolean(dateStr);
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (!value) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit expense</DialogTitle>
+          <DialogDescription>
+            Update the amount, category, and other details for this ledger entry.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="ledger-entry-amount">Amount</Label>
+            <Input
+              id="ledger-entry-amount"
+              inputMode="decimal"
+              value={amountStr}
+              onChange={(event) => {
+                setAmountStr(event.target.value);
+                setError(null);
+              }}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="ledger-entry-one-time"
+              checked={isOneTime}
+              onCheckedChange={(value) => {
+                setIsOneTime(Boolean(value));
+                setError(null);
+              }}
+            />
+            <Label htmlFor="ledger-entry-one-time" className="text-sm">
+              Mark as one-time expense
+            </Label>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ledger-entry-date">Date</Label>
+            <Input
+              id="ledger-entry-date"
+              type="date"
+              value={dateStr}
+              onChange={(event) => {
+                setDateStr(event.target.value);
+                setError(null);
+              }}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Category</Label>
+            <Select
+              value={categoryValue}
+              onValueChange={(value) => {
+                setCategoryValue(value);
+                setError(null);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                {effectiveCategories.map((category) => (
+                  <SelectItem key={category.id} value={category.value}>
+                    <div className="flex items-center gap-2">
+                      {category.emoji ? (
+                        <span aria-hidden>{category.emoji}</span>
+                      ) : null}
+                      <span>{category.label}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ledger-entry-merchant">Merchant (optional)</Label>
+            <Input
+              id="ledger-entry-merchant"
+              value={merchant}
+              onChange={(event) => {
+                setMerchant(event.target.value);
+                setError(null);
+              }}
+              placeholder="Starbucks, Target…"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ledger-entry-tags">Tags (optional)</Label>
+            <Input
+              id="ledger-entry-tags"
+              value={tagsInput}
+              onChange={(event) => {
+                setTagsInput(event.target.value);
+                setError(null);
+              }}
+              placeholder="groceries, travel"
+            />
+            <p className="text-xs text-slate-500">
+              Separate tags with commas. We’ll deduplicate and apply matching rules automatically.
+            </p>
+          </div>
+          {error ? (
+            <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+              {error}
+            </div>
+          ) : null}
+        </div>
+        <DialogFooter className="mt-6 gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={!canSave}>
+            Save changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function CategoryEditorDialog({
   entry,

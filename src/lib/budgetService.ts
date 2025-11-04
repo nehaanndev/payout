@@ -177,6 +177,18 @@ export const fetchBudgetMonth = async (
   return month;
 };
 
+export const fetchBudgetMonthSnapshot = async (
+  budgetId: string,
+  monthKey: string
+): Promise<BudgetMonth | null> => {
+  const monthRef = doc(db, "budgets", budgetId, "months", monthKey);
+  const snap = await getDoc(monthRef);
+  if (!snap.exists()) {
+    return null;
+  }
+  return { id: snap.id, ...(snap.data() as Omit<BudgetMonth, "id">) };
+};
+
 export const saveBudgetMonth = async (
   budgetId: string,
   month: BudgetMonth
