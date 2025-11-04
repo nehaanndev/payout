@@ -3,6 +3,7 @@
 import React, {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -153,6 +154,15 @@ type GoalProjection = {
   projectedCompletionDate: string | null;
 };
 
+type PaceChartPoint = {
+  day: number;
+  cumulative: number;
+  allowed: number;
+  daySpend: number;
+  status: "high" | "low";
+  hasData: boolean;
+};
+
 type PaceStats = {
   daysOnPace: number;
   currentStreak: number;
@@ -161,6 +171,7 @@ type PaceStats = {
   daysInMonth: number;
   onPaceToday: boolean;
   projectedMonthlySpend: number;
+  dailyPoints: PaceChartPoint[];
 };
 
 type PatternRule = {
@@ -1962,6 +1973,7 @@ const BudgetExperience = () => {
         daysInMonth: 0,
         onPaceToday: true,
         projectedMonthlySpend: 0,
+        dailyPoints: [],
       };
     }
     const { year, monthIndex, daysInMonth } = monthDetails;
@@ -1988,35 +2000,65 @@ const BudgetExperience = () => {
       }
     });
 
+    if (daysInMonth <= 0) {
+      return {
+        daysOnPace: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        evaluationEndDay,
+        daysInMonth,
+        onPaceToday: true,
+        projectedMonthlySpend: 0,
+        dailyPoints: [],
+      };
+    }
+
+    const dailyPoints: PaceChartPoint[] = [];
     let cumulative = 0;
     let daysOnPace = 0;
     let runningStreak = 0;
     let bestStreak = 0;
     let currentStreak = 0;
     let onPaceToday = true;
+    let cumulativeAtEvaluation = 0;
 
-    for (let day = 1; day <= evaluationEndDay; day++) {
-      cumulative += dailyTotals[day - 1];
-      const allowed = flexBudget * (day / daysInMonth);
+    for (let day = 1; day <= daysInMonth; day++) {
+      const daySpend = dailyTotals[day - 1];
+      cumulative += daySpend;
+      const allowed = (flexBudget * day) / daysInMonth;
       const onPace = cumulative <= allowed + 0.01;
+      const hasData = day <= evaluationEndDay;
 
-      if (onPace) {
-        daysOnPace += 1;
-        runningStreak += 1;
-        if (runningStreak > bestStreak) {
-          bestStreak = runningStreak;
+      if (hasData) {
+        if (onPace) {
+          daysOnPace += 1;
+          runningStreak += 1;
+          if (runningStreak > bestStreak) {
+            bestStreak = runningStreak;
+          }
+        } else {
+          runningStreak = 0;
         }
-      } else {
-        runningStreak = 0;
+        if (day === evaluationEndDay) {
+          onPaceToday = onPace;
+          currentStreak = runningStreak;
+          cumulativeAtEvaluation = cumulative;
+        }
       }
 
-      if (day === evaluationEndDay) {
-        onPaceToday = onPace;
-        currentStreak = runningStreak;
-      }
+      dailyPoints.push({
+        day,
+        cumulative,
+        allowed,
+        daySpend,
+        status: onPace ? "low" : "high",
+        hasData,
+      });
     }
 
-    const averageDailySpend = evaluationEndDay > 0 ? cumulative / evaluationEndDay : 0;
+    const evaluatedDays = evaluationEndDay > 0 ? evaluationEndDay : 0;
+    const averageDailySpend =
+      evaluatedDays > 0 ? cumulativeAtEvaluation / evaluatedDays : 0;
     const projectedMonthlySpend = averageDailySpend * daysInMonth;
 
     return {
@@ -2027,6 +2069,7 @@ const BudgetExperience = () => {
       daysInMonth,
       onPaceToday,
       projectedMonthlySpend,
+      dailyPoints,
     };
   }, [activeMonthKey, flexBudget, state.entries]);
 
@@ -2994,6 +3037,264 @@ function Wizard({
   );
 }
 
+function BudgetPaceSparkline({
+  points,
+  daysInMonth,
+  evaluationEndDay,
+  dailyBudget,
+}: {
+  points: PaceChartPoint[];
+  daysInMonth: number;
+  evaluationEndDay: number;
+  dailyBudget: number;
+}) {
+  const rawId = useId();
+  const safeId = rawId.replace(/:/g, "");
+  const glowFilterId = `${safeId}-glow`;
+  const [hoverState, setHoverState] = useState<{
+    day: number;
+    daySpend: number;
+    cumulative: number;
+    ratio: number;
+    color: string;
+  } | null>(null);
+  const [cursorX, setCursorX] = useState(0);
+
+  const width = 160;
+  const height = 48;
+  const baselineY = height / 2;
+
+  if (!points.length || daysInMonth <= 0) {
+    return (
+      <div className="relative" style={{ width: `${width}px`, height: `${height}px` }}>
+        <svg
+          className="h-full w-full"
+          viewBox={`0 0 ${width} ${height}`}
+          role="img"
+          aria-label="No spending data yet for this month"
+        >
+          <line
+            x1={0}
+            y1={baselineY}
+            x2={width}
+            y2={baselineY}
+            stroke="#94a3b8"
+            strokeWidth={0.5}
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
+    );
+  }
+
+  const chunkWidth = width / Math.max(daysInMonth, 1);
+  const safeEvaluationDay = Math.max(0, evaluationEndDay);
+
+  const minPeak = height * 0.1;
+  const maxPeak = height * 0.42;
+  const minDip = height * 0.08;
+  const maxDip = height * 0.32;
+
+  const coloredSegments: Array<{
+    path: string;
+    color: string;
+  }> = [];
+  const dayCenters: number[] = [];
+
+  for (let idx = 0; idx < daysInMonth; idx++) {
+    const point = points[idx];
+    const xStart = idx * chunkWidth;
+    const xEnd = xStart + chunkWidth;
+    dayCenters[idx] = xStart + chunkWidth / 2;
+
+    if (!point || !point.hasData || idx >= safeEvaluationDay) {
+      continue;
+    }
+
+    const daySpend = point.daySpend ?? 0;
+    const ratio = dailyBudget > 0 ? daySpend / dailyBudget : 0;
+    const clampedRatio = Math.min(2.5, Math.max(0, ratio));
+    const normalized = clampedRatio / 2.5;
+
+    const peakLift = minPeak + (maxPeak - minPeak) * normalized;
+    const peakDrop = minDip + (maxDip - minDip) * normalized;
+    const smallLift = peakLift * 0.4;
+    const smallDip = peakDrop * 0.45;
+
+    const segmentPoints = [
+      { x: xStart, y: baselineY },
+      { x: xStart + chunkWidth * 0.18, y: baselineY + smallDip },
+      { x: xStart + chunkWidth * 0.32, y: baselineY - smallLift },
+      { x: xStart + chunkWidth * 0.45, y: baselineY },
+      { x: xStart + chunkWidth * 0.55, y: baselineY - peakLift },
+      { x: xStart + chunkWidth * 0.67, y: baselineY + peakDrop },
+      { x: xStart + chunkWidth * 0.78, y: baselineY - smallLift * 0.75 },
+      { x: xEnd, y: baselineY },
+    ];
+
+    const segmentPath = segmentPoints
+      .map((pt, pointIdx) => {
+        const clampedY = Math.min(height - 4, Math.max(4, pt.y));
+        const command = pointIdx === 0 ? "M" : "L";
+        return `${command} ${pt.x.toFixed(2)} ${clampedY.toFixed(2)}`;
+      })
+      .join(" ");
+
+    let color = "#fbbf24";
+    if (ratio > 1.02) {
+      color = "#dc2626";
+    } else if (ratio < 0.98) {
+      color = "#047857";
+    }
+    coloredSegments.push({ path: segmentPath, color });
+    dayCenters[idx] = xStart + chunkWidth * 0.55;
+  }
+
+  const lastLoggedPoint = [...points]
+    .slice(0, Math.max(evaluationEndDay, 0))
+    .reverse()
+    .find((point) => point?.hasData && (point.daySpend ?? 0) > 0);
+
+  const description = lastLoggedPoint
+    ? `Day ${lastLoggedPoint.day}: ${currency(lastLoggedPoint.daySpend ?? 0)} spent`
+    : "No spending logged yet this month";
+
+  const handlePointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
+    const { left, width: rectWidth } = event.currentTarget.getBoundingClientRect();
+    const pointerX = event.clientX - left;
+    const clampedX = Math.max(0, Math.min(pointerX, rectWidth));
+    const ratio = rectWidth > 0 ? clampedX / rectWidth : 0;
+    const dayIndex =
+      daysInMonth > 1
+        ? Math.min(daysInMonth - 1, Math.max(0, Math.round(ratio * (daysInMonth - 1))))
+        : 0;
+    const point = points[dayIndex];
+    const dayNumber = point?.day ?? dayIndex + 1;
+    const daySpend = Number(point?.daySpend ?? 0);
+    const cumulative = Number(point?.cumulative ?? 0);
+    const spendRatio = dailyBudget > 0 ? daySpend / dailyBudget : 0;
+    const color = spendRatio > 1.02 ? "#dc2626" : "#047857";
+
+    setHoverState({
+      day: dayNumber,
+      daySpend,
+      cumulative,
+      ratio: spendRatio,
+      color,
+    });
+    setCursorX(dayCenters[dayIndex] ?? pointerX);
+  };
+
+  const handlePointerLeave = () => {
+    setHoverState(null);
+  };
+
+  const tooltipContent = (() => {
+    if (!hoverState) {
+      return description;
+    }
+    const actual = currency(hoverState.daySpend);
+    const total = currency(hoverState.cumulative);
+    if (dailyBudget <= 0) {
+      return (
+        <>
+          <div>Day {hoverState.day}: {actual}</div>
+          <div className="text-[10px] text-slate-300">Total {total}</div>
+        </>
+      );
+    }
+    const budget = currency(dailyBudget);
+    const diff = hoverState.daySpend - dailyBudget;
+    const absDiff = Math.abs(diff);
+    const isOver = diff > 0.5;
+    let statusColor = "text-amber-200";
+    if (diff > 0.5) {
+      statusColor = "text-rose-200";
+    } else if (diff < -0.5) {
+      statusColor = "text-emerald-200";
+    }
+    const statusLabel =
+      absDiff <= 0.5
+        ? "Right on budget"
+        : `${currency(absDiff)} ${isOver ? "over" : "under"}`;
+    return (
+      <>
+        <div>Day {hoverState.day}: {actual}</div>
+        <div className={`text-[10px] ${statusColor}`}>
+          Budget {budget} · {statusLabel}
+        </div>
+        <div className="text-[10px] text-slate-300">Month total {total}</div>
+      </>
+    );
+  })();
+
+  return (
+    <div className="relative" style={{ width: `${width}px`, height: `${height}px` }}>
+      <svg
+        className="h-full w-full"
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={`Daily spend heartbeat. ${description}`}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerLeave}
+      >
+        <title>{description}</title>
+        <defs>
+          <filter id={glowFilterId} x="-25%" y="-35%" width="150%" height="180%">
+            <feGaussianBlur stdDeviation="0.4" result="coloredBlur" />
+            <feMerge>
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <path
+          d={`M 0 ${baselineY.toFixed(2)} L ${width.toFixed(2)} ${baselineY.toFixed(2)}`}
+          stroke="#cbd5f5"
+          strokeWidth={0.5}
+          strokeLinecap="round"
+          fill="none"
+        />
+        {coloredSegments.map((segment, index) => (
+          <path
+            key={`segment-${index}`}
+            d={segment.path}
+            stroke={segment.color}
+            strokeWidth={1.25}
+            fill="none"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            filter={`url(#${glowFilterId})`}
+          />
+        ))}
+        {hoverState ? (
+          <line
+            x1={cursorX}
+            y1={4}
+            x2={cursorX}
+            y2={height - 4}
+            stroke={hoverState.color}
+            strokeWidth={0.75}
+            strokeDasharray="2 3"
+            opacity={0.7}
+          />
+        ) : null}
+      </svg>
+      {hoverState ? (
+        <div
+          className="pointer-events-none absolute -top-1 flex -translate-y-full flex-col items-center gap-1 text-[10px]"
+          style={{ left: `${Math.max(8, Math.min(cursorX, width - 8))}px` }}
+        >
+          <div className="rounded bg-slate-900/90 px-2 py-1 text-xs font-medium text-white shadow-lg">
+            {tooltipContent}
+          </div>
+          <div className="h-2 w-px bg-slate-900/60" />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function Ledger({
   entries,
   categories,
@@ -3078,6 +3379,7 @@ function Ledger({
     daysInMonth,
     onPaceToday,
     projectedMonthlySpend,
+    dailyPoints,
   } = paceStats;
 
   const normalizedCategoryFilter = useMemo(
@@ -3149,15 +3451,23 @@ function Ledger({
     <div className="space-y-4">
       <Card className="border-slate-200">
         <CardContent className={`rounded-xl p-4 md:p-6 ${topColor}`}>
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <div className="text-sm text-slate-600">Budget remaining</div>
-              <div className="text-3xl font-semibold">
-                {currency(remaining)}{" "}
-                <span className="text-base font-normal text-slate-500">
-                  / {currency(flexBudget)}
-                </span>
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:gap-6">
+              <div>
+                <div className="text-sm text-slate-600">Budget remaining</div>
+                <div className="text-3xl font-semibold">
+                  {currency(remaining)}{" "}
+                  <span className="text-base font-normal text-slate-500">
+                    / {currency(flexBudget)}
+                  </span>
+                </div>
               </div>
+              <BudgetPaceSparkline
+                points={dailyPoints}
+                daysInMonth={daysInMonth}
+                evaluationEndDay={evaluationEndDay}
+                dailyBudget={daysInMonth > 0 ? flexBudget / daysInMonth : 0}
+              />
             </div>
             <div className="min-w-[220px]">
               <Progress value={progressPct} />
