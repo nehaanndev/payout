@@ -1,8 +1,12 @@
-import type { PageProps } from "next";
 import { Suspense } from "react";
 
 import BudgetShareExperience from "@/components/budget/BudgetShareExperience";
 import { Spinner } from "@/components/ui/spinner";
+
+type BudgetSharePageProps = {
+  params: Promise<{ shareCode: string }>;
+  searchParams?: Promise<{ month?: string }>;
+};
 
 export const metadata = {
   title: "Shared Budget Ledger",
@@ -13,7 +17,7 @@ export const metadata = {
 const BudgetSharePage = async ({
   params,
   searchParams,
-}: PageProps<{ shareCode: string }, { month?: string }>) => {
+}: BudgetSharePageProps) => {
   const { shareCode } = await params;
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const initialMonth =
