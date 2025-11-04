@@ -1,12 +1,8 @@
+import type { PageProps } from "next";
 import { Suspense } from "react";
 
 import BudgetShareExperience from "@/components/budget/BudgetShareExperience";
 import { Spinner } from "@/components/ui/spinner";
-
-type BudgetSharePageProps = {
-  params: { shareCode: string };
-  searchParams?: { month?: string };
-};
 
 export const metadata = {
   title: "Shared Budget Ledger",
@@ -14,10 +10,15 @@ export const metadata = {
     "View a read-only snapshot of this shared budget ledger for the selected month.",
 };
 
-const BudgetSharePage = ({ params, searchParams }: BudgetSharePageProps) => {
+const BudgetSharePage = async ({
+  params,
+  searchParams,
+}: PageProps<{ shareCode: string }, { month?: string }>) => {
+  const { shareCode } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const initialMonth =
-    searchParams?.month && typeof searchParams.month === "string"
-      ? searchParams.month
+    resolvedSearchParams?.month && typeof resolvedSearchParams.month === "string"
+      ? resolvedSearchParams.month
       : undefined;
 
   return (
@@ -29,7 +30,7 @@ const BudgetSharePage = ({ params, searchParams }: BudgetSharePageProps) => {
       }
     >
       <BudgetShareExperience
-        shareCode={params.shareCode}
+        shareCode={shareCode}
         initialMonth={initialMonth}
       />
     </Suspense>
