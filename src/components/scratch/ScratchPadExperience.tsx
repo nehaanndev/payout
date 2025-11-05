@@ -766,7 +766,7 @@ export function ScratchPadExperience() {
                       </p>
                     ) : (
                       <p className="text-base font-medium">
-                        No {filter === "all" ? "matching" : STATUS_LABEL[filter as SharedLinkStatus].toLowerCase()} links right now.
+                        No {(filter === "all" ? "matching" : STATUS_LABEL[filter].toLowerCase())} links right now.
                       </p>
                     )}
                     <p className="mt-2 text-sm">
