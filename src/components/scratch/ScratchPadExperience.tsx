@@ -405,6 +405,13 @@ export function ScratchPadExperience() {
 
   const queryTags = useMemo(() => parseTagQuery(tagQuery), [tagQuery]);
 
+  const emptyStateLabel = useMemo(() => {
+    if (filter === "all") {
+      return "matching";
+    }
+    return STATUS_LABEL[filter as SharedLinkStatus].toLowerCase();
+  }, [filter]);
+
   const visibleLinks = useMemo(() => {
     const now = Date.now();
     const filteredByTags = queryTags.length
@@ -766,7 +773,7 @@ export function ScratchPadExperience() {
                       </p>
                     ) : (
                       <p className="text-base font-medium">
-                        No {(filter === "all" ? "matching" : STATUS_LABEL[filter].toLowerCase())} links right now.
+                        No {emptyStateLabel} links right now.
                       </p>
                     )}
                     <p className="mt-2 text-sm">
