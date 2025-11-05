@@ -8,7 +8,12 @@ export type FlowCategory =
 
 export type FlowTaskType = "priority" | "chore" | "flex";
 
-export type FlowTaskStatus = "pending" | "in_progress" | "done" | "skipped";
+export type FlowTaskStatus =
+  | "pending"
+  | "in_progress"
+  | "done"
+  | "skipped"
+  | "failed";
 
 export type FlowTask = {
   id: string;
@@ -17,6 +22,8 @@ export type FlowTask = {
   category: FlowCategory;
   estimateMinutes: number;
   sequence: number;
+  locked?: boolean;
+  templateId?: string | null;
   scheduledStart?: string | null;
   scheduledEnd?: string | null;
   status: FlowTaskStatus;
@@ -46,4 +53,30 @@ export type FlowPlan = {
   reflections: FlowReflection[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type FlowMealPreference = {
+  id: "lunch" | "dinner" | string;
+  label: string;
+  time: string;
+  durationMinutes: number;
+};
+
+export type FlowFixedEventPreference = {
+  id: string;
+  label: string;
+  category: FlowCategory;
+  startTime: string;
+  durationMinutes: number;
+};
+
+export type FlowSettings = {
+  workStart: string;
+  workEnd: string;
+  sleepStart: string;
+  sleepEnd: string;
+  meals: FlowMealPreference[];
+  fixedEvents: FlowFixedEventPreference[];
+  updatedAt: string;
+  timezone: string;
 };

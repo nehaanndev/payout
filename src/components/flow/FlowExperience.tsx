@@ -27,6 +27,15 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FlowWizard } from "@/components/flow/FlowWizard";
+import {
   auth,
   facebookProvider,
   microsoftProvider,
@@ -41,10 +50,16 @@ import {
   getFlowDateKey,
   saveFlowPlan,
 } from "@/lib/flowService";
+import {
+  fetchFlowSettings,
+  saveFlowSettings,
+  createDefaultFlowSettings,
+} from "@/lib/flowSettingsService";
 import { generateId } from "@/lib/id";
 import {
   FlowCategory,
   FlowPlan,
+  FlowSettings,
   FlowTask,
   FlowTaskStatus,
   FlowTaskType,
@@ -104,12 +119,6 @@ const TASK_TYPE_LABEL: Record<FlowTaskType, string> = {
   flex: "Flex block",
 };
 
-const TASK_TYPE_WEIGHT: Record<FlowTaskType, number> = {
-  priority: 0,
-  chore: 1,
-  flex: 2,
-};
-
 const MINUTE_OPTIONS = [15, 25, 45, 60, 90, 120];
 
 const formatTime = (iso?: string | null) => {
@@ -144,17 +153,38 @@ const parseIso = (value?: string | null) => {
   return date;
 };
 
-const orderTasksByTypeAndSequence = (tasks: FlowTask[]) =>
+const pad = (value: number) => String(value).padStart(2, "0");
+
+const toTimeInputValue = (iso: string | null | undefined) => {
+  if (!iso) {
+    return "";
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const sortTasksBySchedule = (tasks: FlowTask[]) =>
   tasks
     .slice()
     .sort((left, right) => {
-      const weightDiff =
-        TASK_TYPE_WEIGHT[left.type] - TASK_TYPE_WEIGHT[right.type];
-      if (weightDiff !== 0) {
-        return weightDiff;
+      const leftStart = left.scheduledStart
+        ? new Date(left.scheduledStart).getTime()
+        : Number.POSITIVE_INFINITY;
+      const rightStart = right.scheduledStart
+        ? new Date(right.scheduledStart).getTime()
+        : Number.POSITIVE_INFINITY;
+      if (leftStart !== rightStart) {
+        return leftStart - rightStart;
       }
       return left.sequence - right.sequence;
-    });
+    })
+    .map((task, index) => ({
+      ...task,
+      sequence: index,
+    }));
 
 const reindexSequence = (tasks: FlowTask[]) =>
   tasks.map((task, index) => ({
@@ -193,10 +223,13 @@ const computeSchedule = (
       startDate = new Date(actualStart);
       endDate = new Date(actualEnd);
     } else if (
-      (task.status === "done" || task.status === "skipped") &&
+      (task.status === "done" || task.status === "skipped" || task.status === "failed") &&
       scheduledStart &&
       scheduledEnd
     ) {
+      startDate = scheduledStart;
+      endDate = scheduledEnd;
+    } else if (task.locked && scheduledStart && scheduledEnd) {
       startDate = scheduledStart;
       endDate = scheduledEnd;
     } else {
@@ -219,7 +252,7 @@ const computeSchedule = (
     });
   });
 
-  return updated;
+  return sortTasksBySchedule(updated);
 };
 
 const generateAutoSchedule = (
@@ -227,9 +260,9 @@ const generateAutoSchedule = (
   dateKey: string,
   startTime: string
 ) => {
-  const ordered = orderTasksByTypeAndSequence(tasks);
-  const reindexed = reindexSequence(ordered);
-  return computeSchedule(reindexed, dateKey, startTime);
+  const reindexed = reindexSequence(tasks);
+  const scheduled = computeSchedule(reindexed, dateKey, startTime);
+  return sortTasksBySchedule(scheduled);
 };
 
 const reschedulePendingTasks = (
@@ -245,11 +278,19 @@ const reschedulePendingTasks = (
   const updated: FlowTask[] = [];
 
   ordered.forEach((task) => {
-    if (task.status === "done" || task.status === "skipped") {
+    if (task.status === "done" || task.status === "skipped" || task.status === "failed") {
       const end = parseIso(task.actualEnd) ?? parseIso(task.scheduledEnd);
       if (end) {
         cursor = new Date(Math.max(cursor.getTime(), end.getTime()));
       }
+      updated.push(task);
+      return;
+    }
+
+    if (task.locked && task.scheduledStart && task.scheduledEnd) {
+      const startDate = parseIso(task.scheduledStart) ?? cursor;
+      const endDate = parseIso(task.scheduledEnd) ?? startDate;
+      cursor = new Date(Math.max(cursor.getTime(), endDate.getTime()));
       updated.push(task);
       return;
     }
@@ -267,7 +308,90 @@ const reschedulePendingTasks = (
     });
   });
 
-  return updated;
+  return sortTasksBySchedule(updated);
+};
+
+const applySettingsToPlan = (
+  plan: FlowPlan,
+  settings: FlowSettings
+): FlowPlan => {
+  const dateKey = plan.date;
+  const manualTasks = plan.tasks.filter((task) => !task.templateId);
+  const existingTemplateMap = new Map(
+    plan.tasks
+      .filter((task) => task.templateId)
+      .map((task) => [task.templateId ?? "", task])
+  );
+
+  const buildLockedTask = (
+    templateId: string,
+    title: string,
+    category: FlowCategory,
+    type: FlowTaskType,
+    start: string,
+    durationMinutes: number
+  ): FlowTask => {
+    const startDate = parseTimeStringToDate(dateKey, start);
+    const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
+    const nowIso = new Date().toISOString();
+    const existing = existingTemplateMap.get(templateId) ?? null;
+    return {
+      id: existing?.id ?? generateId(),
+      title,
+      type,
+      category,
+      estimateMinutes: durationMinutes,
+      sequence: existing?.sequence ?? 0,
+      locked: true,
+      templateId,
+      status: existing?.status ?? "pending",
+      scheduledStart: startDate.toISOString(),
+      scheduledEnd: endDate.toISOString(),
+      notes: existing?.notes ?? null,
+      actualStart: existing?.actualStart ?? null,
+      actualEnd: existing?.actualEnd ?? null,
+      createdAt: existing?.createdAt ?? nowIso,
+      updatedAt: nowIso,
+    };
+  };
+
+  const templateTasks: FlowTask[] = [];
+
+  settings.meals.forEach((meal) => {
+    templateTasks.push(
+      buildLockedTask(
+        `meal:${meal.id}`,
+        meal.label,
+        "wellness",
+        "flex",
+        meal.time,
+        meal.durationMinutes
+      )
+    );
+  });
+
+  settings.fixedEvents.forEach((event) => {
+    templateTasks.push(
+      buildLockedTask(
+        `fixed:${event.id}`,
+        event.label,
+        event.category,
+        "chore",
+        event.startTime,
+        event.durationMinutes
+      )
+    );
+  });
+
+  const combined = [...manualTasks, ...templateTasks];
+  const sorted = sortTasksBySchedule(combined);
+
+  return {
+    ...plan,
+    startTime: settings.workStart,
+    timezone: settings.timezone || plan.timezone,
+    tasks: sorted,
+  };
 };
 
 const getCurrentTask = (plan: FlowPlan | null, nowMs: number) => {
@@ -319,6 +443,9 @@ export function FlowExperience() {
   const [authChecked, setAuthChecked] = useState(false);
   const [plan, setPlan] = useState<FlowPlan | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
+  const [settings, setSettings] = useState<FlowSettings | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsApplied, setSettingsApplied] = useState(false);
   const [activeDate, setActiveDate] = useState(getFlowDateKey());
   const [startTime, setStartTime] = useState("08:00");
   const [errors, setErrors] = useState<PlannerError[]>([]);
@@ -342,10 +469,38 @@ export function FlowExperience() {
   });
   const [now, setNow] = useState(() => Date.now());
   const [saving, setSaving] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<FlowTask | null>(null);
+  const [editStartTime, setEditStartTime] = useState<string>("");
+  const [editDuration, setEditDuration] = useState<number>(30);
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone,
     []
+  );
+
+  const persistPlan = useCallback(
+    async (nextPlan: FlowPlan) => {
+      if (!user) {
+        return;
+      }
+      setSaving(true);
+      try {
+        await saveFlowPlan(user.uid, nextPlan);
+      } catch (error) {
+        console.error("Failed to save plan", error);
+        setErrors((prev) => [
+          ...prev,
+          {
+            id: generateId(),
+            message: "We couldn't save your updates. They’ll retry shortly.",
+          },
+        ]);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [user]
   );
 
   useEffect(() => {
@@ -355,6 +510,45 @@ export function FlowExperience() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setSettings(null);
+      setSettingsApplied(false);
+      setSettingsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSettingsLoading(true);
+    fetchFlowSettings(user.uid, timezone)
+      .then((preferences) => {
+        if (!cancelled) {
+          setSettings(preferences);
+          setSettingsApplied(false);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load Flow settings", error);
+        if (!cancelled) {
+          setErrors((prev) => [
+            ...prev,
+            {
+              id: generateId(),
+              message: "We couldn't load your Flow defaults. You can still plan manually.",
+            },
+          ]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSettingsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [timezone, user]);
 
   useEffect(() => {
     if (!user) {
@@ -398,35 +592,27 @@ export function FlowExperience() {
   }, [activeDate, timezone, user]);
 
   useEffect(() => {
+    if (!plan || !settings || settingsApplied || !user) {
+      return;
+    }
+    setPlan((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      const applied = applySettingsToPlan(prev, settings);
+      setStartTime(applied.startTime);
+      void persistPlan(applied);
+      return applied;
+    });
+    setSettingsApplied(true);
+  }, [plan, persistPlan, settings, settingsApplied, user]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       setNow(Date.now());
     }, 60_000);
     return () => clearInterval(interval);
   }, []);
-
-  const persistPlan = useCallback(
-    async (nextPlan: FlowPlan) => {
-      if (!user) {
-        return;
-      }
-      setSaving(true);
-      try {
-        await saveFlowPlan(user.uid, nextPlan);
-      } catch (error) {
-        console.error("Failed to save plan", error);
-        setErrors((prev) => [
-          ...prev,
-          {
-            id: generateId(),
-            message: "We couldn't save your updates. They’ll retry shortly.",
-          },
-        ]);
-      } finally {
-        setSaving(false);
-      }
-    },
-    [user]
-  );
 
   const updatePlan = useCallback(
     (mutator: (plan: FlowPlan) => FlowPlan) => {
@@ -569,6 +755,10 @@ export function FlowExperience() {
           if (status === "skipped") {
             next.actualEnd = nowIso;
           }
+          if (status === "failed") {
+            next.actualStart = next.actualStart ?? task.scheduledStart ?? nowIso;
+            next.actualEnd = nowIso;
+          }
           if (status === "pending") {
             next.actualStart = null;
             next.actualEnd = null;
@@ -576,7 +766,7 @@ export function FlowExperience() {
           return next;
         });
         const tasksWithSchedule =
-          status === "done" || status === "skipped"
+          status === "done" || status === "skipped" || status === "failed"
             ? reschedulePendingTasks(updatedTasks, current.date, current.startTime)
             : updatedTasks;
         return {
@@ -595,12 +785,13 @@ export function FlowExperience() {
       }
       updatePlan((current) => ({
         ...current,
-        tasks: current.tasks
-          .filter((task) => task.id !== taskId)
-          .map((task, index) => ({
-            ...task,
-            sequence: index,
-          })),
+        tasks: reschedulePendingTasks(
+          sortTasksBySchedule(
+            current.tasks.filter((task) => task.id !== taskId)
+          ),
+          current.date,
+          current.startTime
+        ),
       }));
     },
     [plan, updatePlan]
@@ -624,10 +815,7 @@ export function FlowExperience() {
         const temp = nextTasks[idx];
         nextTasks[idx] = nextTasks[swapWith];
         nextTasks[swapWith] = temp;
-        const reindexed = nextTasks.map((task, index) => ({
-          ...task,
-          sequence: index,
-        }));
+        const reindexed = sortTasksBySchedule(nextTasks);
         return {
           ...current,
           tasks: reschedulePendingTasks(
@@ -640,6 +828,66 @@ export function FlowExperience() {
     },
     [plan, updatePlan]
   );
+
+  const handleWizardSave = useCallback(
+    async (draft: FlowSettings) => {
+      if (!user) {
+        return;
+      }
+      const normalizedMeals = draft.meals.map((meal) => ({
+        ...meal,
+        time: meal.time || "12:30",
+        durationMinutes: Math.max(5, meal.durationMinutes || 30),
+      }));
+      const normalizedEvents = draft.fixedEvents.map((event) => ({
+        ...event,
+        startTime: event.startTime || draft.workStart,
+        durationMinutes: Math.max(5, event.durationMinutes || 30),
+      }));
+      const payload: FlowSettings = {
+        ...draft,
+        timezone,
+        meals: normalizedMeals,
+        fixedEvents: normalizedEvents,
+        updatedAt: new Date().toISOString(),
+      };
+      await saveFlowSettings(user.uid, payload);
+      setSettings(payload);
+      setSettingsApplied(false);
+      setWizardOpen(false);
+    },
+    [timezone, user]
+  );
+
+  const handleSaveTaskEdits = useCallback(() => {
+    if (!plan || !editingTask) {
+      return;
+    }
+    const appliedStart = editStartTime || startTime;
+    const duration = Math.max(5, Number(editDuration) || editingTask.estimateMinutes);
+    const startDate = parseTimeStringToDate(plan.date, appliedStart);
+    const endDate = new Date(startDate.getTime() + duration * 60 * 1000);
+    const nowIso = new Date().toISOString();
+    updatePlan((current) => {
+      const updatedTasks = current.tasks.map((task) => {
+        if (task.id !== editingTask.id) {
+          return task;
+        }
+        return {
+          ...task,
+          estimateMinutes: duration,
+          scheduledStart: startDate.toISOString(),
+          scheduledEnd: endDate.toISOString(),
+          updatedAt: nowIso,
+        };
+      });
+      return {
+        ...current,
+        tasks: sortTasksBySchedule(updatedTasks),
+      };
+    });
+    setEditingTask(null);
+  }, [editDuration, editStartTime, editingTask, plan, startTime, updatePlan]);
 
   const currentTask = useMemo(
     () => getCurrentTask(plan, now),
@@ -716,6 +964,11 @@ export function FlowExperience() {
     return "Good evening";
   }, []);
 
+  const wizardSettings = useMemo(
+    () => settings ?? createDefaultFlowSettings(timezone),
+    [settings, timezone]
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-16 pt-6 md:px-6">
@@ -758,7 +1011,7 @@ export function FlowExperience() {
           </div>
         ) : null}
 
-        {!authChecked || loadingPlan ? (
+        {!authChecked || loadingPlan || settingsLoading ? (
           <div className="flex min-h-[40vh] items-center justify-center">
             <Spinner size="lg" />
           </div>
@@ -822,6 +1075,13 @@ export function FlowExperience() {
                         className="rounded-md border border-transparent bg-transparent focus:border-emerald-300 focus:outline-none focus:ring-0"
                       />
                     </div>
+                    <Button
+                      variant="outline"
+                      className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                      onClick={() => setWizardOpen(true)}
+                    >
+                      <Sparkles className="h-4 w-4" /> Day rhythm wizard
+                    </Button>
                   </div>
                 </div>
                 {currentTask ? (
@@ -914,6 +1174,16 @@ export function FlowExperience() {
                                   }
                                 >
                                   Skip
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-rose-600 hover:text-rose-700"
+                                  onClick={() =>
+                                    handleTaskStatusChange(task.id, "failed")
+                                  }
+                                >
+                                  Failed
                                 </Button>
                               </div>
                             </div>
@@ -1307,7 +1577,8 @@ export function FlowExperience() {
                                     "border-slate-200 bg-white",
                                     isActive && "border-emerald-300 shadow-lg shadow-emerald-200/40",
                                     task.status === "done" && "border-emerald-200 bg-emerald-50/60",
-                                    task.status === "skipped" && "border-rose-200 bg-rose-50/60"
+                                    task.status === "skipped" && "border-amber-200 bg-amber-50/60",
+                                    task.status === "failed" && "border-rose-300 bg-rose-50/70"
                                   )}
                                 >
                                   <div
@@ -1369,6 +1640,19 @@ export function FlowExperience() {
                                       </div>
                                       <Button
                                         size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setEditingTask(task);
+                                          setEditStartTime(
+                                            toTimeInputValue(task.scheduledStart) || startTime
+                                          );
+                                          setEditDuration(task.estimateMinutes);
+                                        }}
+                                      >
+                                        Edit
+                                      </Button>
+                                      <Button
+                                        size="sm"
                                         variant={task.status === "done" ? "secondary" : "outline"}
                                         onClick={() =>
                                           handleTaskStatusChange(
@@ -1386,6 +1670,24 @@ export function FlowExperience() {
                                       >
                                         Skip
                                       </Button>
+                                      {task.status !== "failed" ? (
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="text-rose-600 hover:text-rose-700"
+                                          onClick={() => handleTaskStatusChange(task.id, "failed")}
+                                        >
+                                          Failed
+                                        </Button>
+                                      ) : (
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => handleTaskStatusChange(task.id, "pending")}
+                                        >
+                                          Reset
+                                        </Button>
+                                      )}
                                       <Button
                                         size="sm"
                                         variant="ghost"
@@ -1400,6 +1702,9 @@ export function FlowExperience() {
                                   ) : null}
                                   {!isActive && isPast && task.status === "pending" ? (
                                     <div className="absolute -left-1 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-4 border-white bg-amber-400 shadow-lg" />
+                                  ) : null}
+                                  {task.status === "failed" ? (
+                                    <div className="absolute -left-1 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-4 border-white bg-rose-500 shadow-lg" />
                                   ) : null}
                                 </div>
                               );
@@ -1465,6 +1770,56 @@ export function FlowExperience() {
           </>
         )}
       </div>
+      <FlowWizard
+        open={wizardOpen}
+        settings={wizardSettings}
+        onClose={() => setWizardOpen(false)}
+        onSave={handleWizardSave}
+      />
+      <Dialog
+        open={Boolean(editingTask)}
+        onOpenChange={(value) => {
+          if (!value) {
+            setEditingTask(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit block</DialogTitle>
+            <DialogDescription>
+              Adjust the start time and duration. Flow keeps the rest of your timeline in sync.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-start">Start time</Label>
+              <Input
+                id="edit-start"
+                type="time"
+                value={editStartTime}
+                onChange={(event) => setEditStartTime(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-duration">Duration (minutes)</Label>
+              <Input
+                id="edit-duration"
+                type="number"
+                min={5}
+                value={editDuration}
+                onChange={(event) => setEditDuration(Number(event.target.value))}
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setEditingTask(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveTaskEdits}>Save changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
