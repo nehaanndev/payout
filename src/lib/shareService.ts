@@ -51,15 +51,11 @@ export const createSharedLink = async (
     throw new Error("User ID is required to create shared links");
   }
 
-  if (!payload.url) {
-    throw new Error("URL is required to create shared links");
-  }
-
   const nowIso = new Date().toISOString();
   const shareRef = doc(userSharesCollection(userId));
 
   const normalized = {
-    url: payload.url,
+    url: payload.url ?? null,
     title: payload.title ?? null,
     description: payload.description ?? null,
     sourceApp: payload.sourceApp ?? null,
@@ -83,7 +79,7 @@ const mapShareDoc = (snapshot: QueryDocumentSnapshot<DocumentData>) => {
   const data = snapshot.data();
   return {
     id: snapshot.id,
-    url: data.url,
+    url: typeof data.url === "string" && data.url.length ? data.url : null,
     title: data.title ?? null,
     description: data.description ?? null,
     sourceApp: data.sourceApp ?? null,

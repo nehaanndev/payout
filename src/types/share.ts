@@ -1,10 +1,10 @@
-export type SharedLinkContentType = "link" | "video" | "article" | "audio" | "unknown";
+export type SharedLinkContentType = "link" | "video" | "article" | "audio" | "note" | "unknown";
 
 export type SharedLinkStatus = "new" | "saved" | "archived";
 
 export type SharedLink = {
   id: string;
-  url: string;
+  url: string | null;
   title: string | null;
   description: string | null;
   sourceApp: string | null;
@@ -18,7 +18,7 @@ export type SharedLink = {
 };
 
 export type SharedLinkWritePayload = {
-  url: string;
+  url?: string | null;
   title?: string | null;
   description?: string | null;
   sourceApp?: string | null;
@@ -30,4 +30,3 @@ export type SharedLinkWritePayload = {
   createdAt?: string;
   updatedAt?: string;
 };
-

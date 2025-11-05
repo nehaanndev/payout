@@ -5,15 +5,7 @@ import { cloneElement, isValidElement, useMemo } from "react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-const PRODUCT_META: Record<
-  "expense" | "budget" | "journal" | "scratch",
-  {
-    title: string;
-    subtitle: string;
-    icon: string;
-    accent: string;
-  }
-> = {
+const PRODUCT_META = {
   expense: {
     title: "Toodl Expense Splitter",
     subtitle: "Invite friends, track what’s owed, and settle fast.",
@@ -32,13 +24,21 @@ const PRODUCT_META: Record<
     icon: "/brand/toodl-journal.svg",
     accent: "from-rose-500 via-amber-400 to-sky-500",
   },
-  scratch: {
-    title: "Toodl Scratch Pad",
-    subtitle: "Collect links and drop them into your reading queue.",
+  orbit: {
+    title: "Toodl Orbit",
+    subtitle: "Collect sparks of inspiration to revisit when it counts.",
     icon: "/brand/toodl-mark.svg",
-    accent: "from-indigo-500 via-slate-700 to-indigo-500",
+    accent: "from-indigo-500 via-violet-500 to-sky-500",
   },
-};
+  flow: {
+    title: "Toodl Flow",
+    subtitle: "Design your day, balance priorities, and stay on tempo.",
+    icon: "/brand/toodl-mark.svg",
+    accent: "from-emerald-500 via-teal-500 to-amber-400",
+  },
+} as const;
+
+type ProductKey = keyof typeof PRODUCT_META;
 
 export function AppTopBar({
   product,
@@ -48,7 +48,7 @@ export function AppTopBar({
   userSlot,
   className,
 }: {
-  product: "expense" | "budget" | "journal" | "scratch";
+  product: ProductKey;
   heading?: ReactNode;
   subheading?: ReactNode;
   actions?: React.ReactNode;

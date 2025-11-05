@@ -2,10 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Inbox, RefreshCcw, Sparkles, Trash2 } from "lucide-react";
+import {
+  CalendarDays,
+  ExternalLink,
+  Inbox,
+  ListChecks,
+  RefreshCcw,
+  Search,
+  Sparkles,
+  Tag,
+  Trash2,
+} from "lucide-react";
 
 import { AppTopBar } from "@/components/AppTopBar";
 import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
+import { OrbitFlowNav } from "@/components/OrbitFlowNav";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -57,14 +68,91 @@ const CONTENT_TYPE_LABEL: Record<string, string> = {
   video: "Video",
   article: "Article",
   audio: "Audio",
+  note: "Note",
   link: "Link",
   unknown: "Link",
+};
+
+const normaliseTags = (raw: string): string[] =>
+  raw
+    .split(/[,#]/)
+    .map((tag) => tag.trim().toLowerCase())
+    .filter(Boolean);
+
+const parseTagQuery = (query: string) => {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) {
+    return [];
+  }
+  return normalized
+    .split(/[,\s]+/)
+    .map((item) => item.replace(/^#/, "").trim())
+    .filter(Boolean);
+};
+
+const summariseLinkContent = (link: SharedLink): string => {
+  const sourcePieces: string[] = [];
+  if (link.description) {
+    sourcePieces.push(link.description);
+  }
+  if (link.title) {
+    sourcePieces.push(link.title);
+  }
+  if (link.tags?.length) {
+    sourcePieces.push(`Tags: ${link.tags.join(", ")}`);
+  }
+  if (!sourcePieces.length && link.url) {
+    sourcePieces.push(`Link: ${link.url}`);
+  }
+  const source = sourcePieces.join(". ");
+  if (!source) {
+    return "No additional context available yet.";
+  }
+  const sentences = source
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?])\s+/)
+    .filter(Boolean);
+
+  if (sentences.length <= 2) {
+    return source.length > 280 ? `${source.slice(0, 277)}…` : source;
+  }
+
+  const first = sentences[0];
+  const second = sentences[1];
+  const rest = sentences.slice(2).join(" ");
+  const restSnippet = rest.length > 140 ? `${rest.slice(0, 137)}…` : rest;
+  return `${first} ${second}${restSnippet ? ` ${restSnippet}` : ""}`;
+};
+
+const computeSmartScore = (
+  link: SharedLink,
+  now = Date.now(),
+  queryTags: string[]
+): number => {
+  const createdAt = new Date(link.createdAt).getTime();
+  const ageMs = Math.max(1, now - (Number.isFinite(createdAt) ? createdAt : now));
+  const daysSince = ageMs / (1000 * 60 * 60 * 24);
+  const recencyScore = Math.max(0, 30 - daysSince); // fresher links score higher
+  const statusWeight =
+    link.status === "new" ? 40 : link.status === "saved" ? 20 : 0;
+
+  const tagMatches = queryTags.length
+    ? (link.tags ?? []).reduce(
+        (matches, tag) =>
+          queryTags.includes(tag.toLowerCase()) ? matches + 1 : matches,
+        0
+      )
+    : 0;
+
+  const typeWeight = link.contentType === "note" ? 10 : 0;
+
+  return recencyScore + statusWeight + tagMatches * 15 + typeWeight;
 };
 
 export function ScratchPadExperience() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [links, setLinks] = useState<SharedLink[]>([]);
+  const [allLinks, setAllLinks] = useState<SharedLink[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<ScratchPadFilter>("new");
   const [busyIds, setBusyIds] = useState<Record<string, boolean>>({});
@@ -74,6 +162,12 @@ export function ScratchPadExperience() {
   const [linkTitle, setLinkTitle] = useState("");
   const [linkNotes, setLinkNotes] = useState("");
   const [linkTags, setLinkTags] = useState("");
+  const [noteBody, setNoteBody] = useState("");
+  const [noteTags, setNoteTags] = useState("");
+  const [tagQuery, setTagQuery] = useState("");
+  const [summaries, setSummaries] = useState<Record<string, string>>({});
+  const [summarizingIds, setSummarizingIds] = useState<Record<string, boolean>>({});
+  const [digestExpanded, setDigestExpanded] = useState<boolean>(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (current) => {
@@ -85,28 +179,28 @@ export function ScratchPadExperience() {
 
   useEffect(() => {
     if (!user) {
-      setLinks([]);
-       setLoading(false);
-       setError(null);
+      setAllLinks([]);
+      setLoading(false);
+      setError(null);
       return;
     }
     setLoading(true);
     setError(null);
     const unsubscribe = observeSharedLinks(
       user.uid,
-      filter === "all" ? {} : { status: filter },
+      {},
       (items) => {
-        setLinks(items);
+        setAllLinks(items);
         setLoading(false);
       },
       (err) => {
         console.error(err);
-        setError("We couldn't load your scratch pad right now.");
+        setError("We couldn't load your Orbit workspace right now.");
         setLoading(false);
       }
     );
     return () => unsubscribe();
-  }, [user, filter]);
+  }, [user]);
 
   const handleSignIn = useCallback(
     async (providerType: "google" | "microsoft" | "facebook") => {
@@ -136,18 +230,18 @@ export function ScratchPadExperience() {
     }
     return [
       {
-        title: "Scratch Pad",
+        title: "Orbit",
         items: [
           {
             label: "View archived items",
             onClick: () => setFilter("archived"),
             icon: <RefreshCcw className="h-4 w-4 text-slate-400" />,
-            disabled: !links.some((link) => link.status === "archived"),
+            disabled: !allLinks.some((link) => link.status === "archived"),
           },
         ],
       },
     ];
-  }, [user, links]);
+  }, [user, allLinks]);
 
   const toggleBusy = useCallback((id: string, value: boolean) => {
     setBusyIds((prev) => ({ ...prev, [id]: value }));
@@ -223,10 +317,7 @@ export function ScratchPadExperience() {
     setCreateSuccess(null);
     setCreateBusy(true);
     try {
-      const tags = linkTags
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean);
+      const tags = normaliseTags(linkTags);
       await createSharedLink(user.uid, {
         url: trimmedUrl,
         title: linkTitle.trim() || null,
@@ -240,7 +331,7 @@ export function ScratchPadExperience() {
       setLinkTitle("");
       setLinkNotes("");
       setLinkTags("");
-      setCreateSuccess("Link saved to your scratch pad.");
+      setCreateSuccess("Link saved to Orbit.");
       setFilter("new");
     } catch (err) {
       console.error(err);
@@ -250,17 +341,142 @@ export function ScratchPadExperience() {
     }
   }, [user, linkUrl, linkTitle, linkNotes, linkTags, inferContentType, setFilter]);
 
+  const handleCreateNote = useCallback(async () => {
+    if (!user) {
+      return;
+    }
+    const trimmed = noteBody.trim();
+    if (!trimmed) {
+      setError("Add a note before saving.");
+      return;
+    }
+    setError(null);
+    setCreateSuccess(null);
+    setCreateBusy(true);
+    try {
+      const tags = normaliseTags(noteTags);
+      const firstLine = trimmed.split("\n")[0]?.slice(0, 80) ?? "Note";
+      await createSharedLink(user.uid, {
+        url: null,
+        title: firstLine,
+        description: trimmed,
+        tags,
+        contentType: "note",
+        platform: "web",
+        status: "new",
+      });
+      setNoteBody("");
+      setNoteTags("");
+      setCreateSuccess("Note saved to Orbit.");
+      setFilter("new");
+    } catch (err) {
+      console.error(err);
+      setError("We couldn't save that note. Please try again.");
+    } finally {
+      setCreateBusy(false);
+    }
+  }, [noteBody, noteTags, setFilter, user]);
+
+  const handleGenerateSummary = useCallback(
+    async (link: SharedLink) => {
+      const sourceId = link.id;
+      if (summaries[sourceId]) {
+        return;
+      }
+      setSummarizingIds((prev) => ({ ...prev, [sourceId]: true }));
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      const summary = summariseLinkContent(link);
+      setSummaries((prev) => ({ ...prev, [sourceId]: summary }));
+      setSummarizingIds((prev) => {
+        const next = { ...prev };
+        delete next[sourceId];
+        return next;
+      });
+    },
+    [summaries]
+  );
+
+  const statusFilteredLinks = useMemo(() => {
+    if (filter === "all") {
+      return allLinks;
+    }
+    return allLinks.filter((link) => link.status === filter);
+  }, [allLinks, filter]);
+
+  const queryTags = useMemo(() => parseTagQuery(tagQuery), [tagQuery]);
+
+  const visibleLinks = useMemo(() => {
+    const now = Date.now();
+    const filteredByTags = queryTags.length
+      ? statusFilteredLinks.filter((link) =>
+          (link.tags ?? []).some((tag) =>
+            queryTags.includes(tag.toLowerCase())
+          )
+        )
+      : statusFilteredLinks;
+
+    return filteredByTags
+      .slice()
+      .sort(
+        (left, right) =>
+          computeSmartScore(right, now, queryTags) -
+          computeSmartScore(left, now, queryTags)
+      );
+  }, [statusFilteredLinks, queryTags]);
+
+  const weeklyDigest = useMemo(() => {
+    const now = Date.now();
+    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const recentSaved = allLinks.filter((link) => {
+      if (link.status !== "saved") {
+        return false;
+      }
+      const createdAt = new Date(link.createdAt).getTime();
+      return Number.isFinite(createdAt) && createdAt >= weekAgo;
+    });
+
+    if (!recentSaved.length) {
+      return null;
+    }
+
+    const tagCounts = new Map<string, number>();
+    for (const link of recentSaved) {
+      for (const tag of link.tags ?? []) {
+        const lower = tag.toLowerCase();
+        tagCounts.set(lower, (tagCounts.get(lower) ?? 0) + 1);
+      }
+    }
+    const topTags = Array.from(tagCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([tag, count]) => ({ tag, count }));
+
+    const highlights = recentSaved.slice(0, 5).map((item) => ({
+      id: item.id,
+      title: item.title || item.url || "Untitled",
+      url: item.url,
+      createdAt: item.createdAt,
+    }));
+
+    return {
+      total: recentSaved.length,
+      topTags,
+      highlights,
+    };
+  }, [allLinks]);
+
   return (
     <div className="min-h-screen bg-slate-50/80 p-4 pb-12 sm:p-6">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <AppTopBar
-          product="scratch"
-          heading="Scratch Pad"
-          subheading="Drop links you discover anywhere and come back to them when it suits you."
+          product="orbit"
+          heading="Orbit"
+          subheading="Collect sparks, links, and notes. Organize them when you’re ready."
+          actions={<OrbitFlowNav />}
           userSlot={
             user ? (
               <AppUserMenu
-                product="scratch"
+                product="orbit"
                 displayName={user.displayName ?? user.email ?? "You"}
                 avatarSrc={user.photoURL}
                 sections={menuSections}
@@ -274,11 +490,11 @@ export function ScratchPadExperience() {
             <Sparkles className="h-10 w-10 text-indigo-400" />
             <div className="space-y-2">
               <h2 className="text-2xl font-semibold text-slate-900">
-                Save links on the go
+                Save sparks on the go
               </h2>
               <p className="text-sm text-slate-500">
-                Install the Android companion app, share anything to Toodl, and it will show up
-                right here ready for you to read later.
+                Install the Android companion app, share anything to Toodl, and it will land in Orbit
+                ready for a calmer moment.
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-3">
@@ -376,6 +592,59 @@ export function ScratchPadExperience() {
               </div>
 
               <Separator className="my-5" />
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Paste a quick note</h3>
+                  <p className="text-sm text-slate-500">
+                    Drop meeting notes, reminders, or ideas without a link. They stay alongside your read-later queue.
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <Textarea
+                    value={noteBody}
+                    onChange={(event) => setNoteBody(event.target.value)}
+                    placeholder="What do you want to remember?"
+                    className="min-h-[120px]"
+                    disabled={createBusy}
+                  />
+                  <div className="space-y-1">
+                    <label
+                      className="text-sm font-medium text-slate-700"
+                      htmlFor="scratch-note-tags"
+                    >
+                      Tags (optional)
+                    </label>
+                    <Input
+                      id="scratch-note-tags"
+                      value={noteTags}
+                      onChange={(event) => setNoteTags(event.target.value)}
+                      placeholder="brainstorm, follow-up"
+                      disabled={createBusy}
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      onClick={handleCreateNote}
+                      disabled={!noteBody.trim() || createBusy}
+                      variant="outline"
+                    >
+                      {createBusy ? (
+                        <>
+                          <Spinner size="sm" className="mr-2" />
+                          Saving…
+                        </>
+                      ) : (
+                        "Save note"
+                      )}
+                    </Button>
+                    <span className="text-xs text-slate-400">
+                      Tip: paste text from your clipboard — we keep the formatting.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <Separator className="my-5" />
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">Your links</h2>
@@ -384,6 +653,27 @@ export function ScratchPadExperience() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      value={tagQuery}
+                      onChange={(event) => setTagQuery(event.target.value)}
+                      placeholder="Filter by #tag"
+                      className="pl-9 pr-8"
+                    />
+                    {tagQuery ? (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-slate-400"
+                        onClick={() => setTagQuery("")}
+                        aria-label="Clear tag search"
+                      >
+                        X
+                      </Button>
+                    ) : null}
+                  </div>
                   {FILTERS.map((option) => (
                     <Button
                       key={option.id}
@@ -401,17 +691,72 @@ export function ScratchPadExperience() {
                   ))}
                 </div>
               </div>
+              {weeklyDigest ? (
+                <div className="mt-4 rounded-3xl border border-indigo-200 bg-indigo-50/60 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-indigo-700">
+                      <CalendarDays className="h-5 w-5" />
+                      <div className="text-sm font-semibold uppercase tracking-wide">
+                        Weekly digest
+                      </div>
+                    </div>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="px-0 text-indigo-600"
+                      onClick={() => setDigestExpanded((prev) => !prev)}
+                    >
+                      {digestExpanded ? "Hide details" : "View highlights"}
+                    </Button>
+                  </div>
+                  <div className="mt-2 text-sm text-indigo-700">
+                    {weeklyDigest.total} saved link{weeklyDigest.total === 1 ? "" : "s"} in the last 7 days.
+                  </div>
+                  {weeklyDigest.topTags.length ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {weeklyDigest.topTags.map((tag) => (
+                        <Badge key={tag.tag} variant="outline" className="border-indigo-200 bg-white/80 text-[11px] uppercase tracking-wide text-indigo-600">
+                          <Tag className="mr-1 h-3 w-3" />#{tag.tag} · {tag.count}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : null}
+                  {digestExpanded && weeklyDigest.highlights.length ? (
+                    <ul className="mt-3 space-y-2 text-sm text-indigo-700">
+                      {weeklyDigest.highlights.map((item) => (
+                        <li key={item.id} className="flex items-start gap-2">
+                          <ListChecks className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                          <div>
+                            <div className="font-medium">
+                              {item.url ? (
+                                <Link href={item.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">
+                                  {item.title}
+                                </Link>
+                              ) : (
+                                item.title
+                              )}
+                            </div>
+                            <div className="text-xs text-indigo-500">
+                              Saved {new Date(item.createdAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
               <Separator className="my-5" />
               {loading ? (
                 <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-100/80 px-4 py-6 text-sm text-slate-600">
                   <Spinner size="sm" />
-                  <span>Loading your scratch pad…</span>
+                  <span>Aligning your Orbit…</span>
                 </div>
               ) : error ? (
                 <div className="rounded-2xl border border-rose-200 bg-rose-50/70 px-4 py-4 text-sm text-rose-600">
                   {error}
                 </div>
-              ) : links.length === 0 ? (
+              ) : visibleLinks.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-slate-200 bg-slate-100/50 p-10 text-center text-slate-500">
                   <Inbox className="h-8 w-8 text-slate-400" />
                   <div>
@@ -421,7 +766,7 @@ export function ScratchPadExperience() {
                       </p>
                     ) : (
                       <p className="text-base font-medium">
-                        No {STATUS_LABEL[filter as SharedLinkStatus].toLowerCase()} links right now.
+                        No {filter === "all" ? "matching" : STATUS_LABEL[filter as SharedLinkStatus].toLowerCase()} links right now.
                       </p>
                     )}
                     <p className="mt-2 text-sm">
@@ -431,8 +776,12 @@ export function ScratchPadExperience() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {links.map((link) => {
+                  {visibleLinks.map((link) => {
                     const busy = busyIds[link.id];
+                    const summary = summaries[link.id];
+                    const summarizing = summarizingIds[link.id];
+                    const hasUrl = Boolean(link.url);
+                    const isReadLater = link.status === "new";
                     return (
                       <article
                         key={link.id}
@@ -456,7 +805,16 @@ export function ScratchPadExperience() {
                               {CONTENT_TYPE_LABEL[link.contentType] ?? "Link"}
                             </Badge>
                           </div>
-                          <p className="text-sm text-slate-500">{link.url}</p>
+                          {hasUrl ? (
+                            <p className="text-sm text-slate-500 break-all">{link.url}</p>
+                          ) : null}
+                          {link.description ? (
+                            <p className="text-sm text-slate-600 whitespace-pre-line">
+                              {link.description.length > 220
+                                ? `${link.description.slice(0, 217)}…`
+                                : link.description}
+                            </p>
+                          ) : null}
                           <div className="flex flex-wrap items-center gap-2">
                             {link.tags?.map((tag) => (
                               <Badge key={tag} variant="outline" className="border-slate-200 text-xs">
@@ -468,13 +826,36 @@ export function ScratchPadExperience() {
                             Shared {new Date(link.createdAt).toLocaleString()}
                             {link.sourceApp ? ` · via ${link.sourceApp}` : ""}
                           </p>
+                          {isReadLater ? (
+                            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-xs text-indigo-600">
+                              <div className="flex items-center gap-2">
+                                <Sparkles className="h-3.5 w-3.5" /> AI summary
+                                {!summary ? (
+                                  <Button
+                                    size="sm"
+                                    variant="link"
+                                    className="px-0 text-indigo-500"
+                                    onClick={() => handleGenerateSummary(link)}
+                                    disabled={summarizing}
+                                  >
+                                    {summarizing ? "Thinking…" : "Generate"}
+                                  </Button>
+                                ) : null}
+                              </div>
+                              <div className="mt-1 text-[11px] leading-relaxed text-indigo-700">
+                                {summary ? summary : "Preview the key points before diving in."}
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={link.url} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="mr-1 h-4 w-4" /> Open
-                            </Link>
-                          </Button>
+                          {hasUrl ? (
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={link.url ?? "#"} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="mr-1 h-4 w-4" /> Open
+                              </Link>
+                            </Button>
+                          ) : null}
                           {link.status !== "saved" ? (
                             <Button
                               size="sm"

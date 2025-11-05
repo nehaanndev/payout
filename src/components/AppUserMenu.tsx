@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-type ProductKey = "expense" | "budget" | "journal" | "scratch";
+type ProductKey = "expense" | "budget" | "journal" | "orbit" | "flow";
 
 type MenuAction = {
   label: string;
@@ -62,9 +62,15 @@ const PRODUCT_DESTINATIONS: Array<{
     icon: "/brand/toodl-journal.svg",
   },
   {
-    product: "scratch",
-    label: "Scratch Pad",
-    href: "/scratch-pad",
+    product: "orbit",
+    label: "Orbit",
+    href: "/orbit",
+    icon: "/brand/toodl-mark.svg",
+  },
+  {
+    product: "flow",
+    label: "Flow",
+    href: "/flow",
     icon: "/brand/toodl-mark.svg",
   },
 ];
