@@ -47,6 +47,8 @@ import {
   ExpensePaymentPreferences,
   createDefaultExpensePaymentPreferences,
 } from "@/types/paymentPreferences";
+import { useToodlMind } from "@/components/mind/ToodlMindProvider";
+import { MindUserIdentity } from "@/lib/mind/types";
 
 type SpotlightProduct = {
   name: string;
@@ -169,6 +171,24 @@ const SOCIAL_PROOF: Array<{
   },
 ];
 
+const identitiesMatch = (
+  a: MindUserIdentity | null,
+  b: MindUserIdentity | null
+) => {
+  if (!a && !b) {
+    return true;
+  }
+  if (!a || !b) {
+    return false;
+  }
+  return (
+    a.userId === b.userId &&
+    a.email === b.email &&
+    a.displayName === b.displayName &&
+    a.timezone === b.timezone
+  );
+};
+
 export default function Home() {
   const [session, setSession] = useState<User | null>(null);
   const [group, setGroup] = useState<string | null>(null);
@@ -185,6 +205,7 @@ export default function Home() {
   const [paymentPreferences, setPaymentPreferences] = useState<ExpensePaymentPreferences | null>(null);
   const [paymentDialogMode, setPaymentDialogMode] = useState<"prompt" | "settings" | null>(null);
   const [hasPromptedForPaypal, setHasPromptedForPaypal] = useState(false);
+  const { setIdentity, identity } = useToodlMind();
     
 
   useEffect(() => {
@@ -230,6 +251,38 @@ export default function Home() {
         .catch(console.error);
     }
   }, [groupId, session, anonUser]);
+
+  useEffect(() => {
+    const timezone =
+      typeof Intl !== "undefined"
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone
+        : "UTC";
+
+    let nextIdentity: MindUserIdentity | null = null;
+    if (session) {
+      nextIdentity = {
+        userId: session.uid,
+        email: session.email ?? null,
+        displayName:
+          session.displayName ??
+          (session.email ? session.email.split("@")[0] : null),
+        timezone,
+      };
+    } else if (anonUser) {
+      nextIdentity = {
+        userId: anonUser.id,
+        email: anonUser.email ?? null,
+        displayName: anonUser.firstName ?? anonUser.email ?? null,
+        timezone,
+      };
+    }
+
+    if (identitiesMatch(identity, nextIdentity)) {
+      return;
+    }
+
+    setIdentity(nextIdentity);
+  }, [session, anonUser, identity, setIdentity]);
 
   useEffect(() => {
     if (!session) {

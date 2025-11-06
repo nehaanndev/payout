@@ -1,0 +1,325 @@
+import { planDeterministicAddBudget } from "./rules/addBudgetRule";
+import { planDeterministicAddExpense } from "./rules/addExpenseRule";
+import { planDeterministicAddFlowTask } from "./rules/addFlowTaskRule";
+import {
+  MindEditableMessage,
+  MindExperienceSnapshot,
+  MindIntent,
+  MindRequest,
+} from "./types";
+
+export type PlannerInput = {
+  request: MindRequest;
+  snapshot: MindExperienceSnapshot;
+};
+
+export type PlannerResult = {
+  intent: MindIntent;
+  message: string;
+  confidence?: number;
+  editableMessage?: MindEditableMessage;
+};
+
+export interface MindPlanner {
+  plan(input: PlannerInput): Promise<PlannerResult>;
+}
+
+const parseCurrencyAmount = (utterance: string): number | undefined => {
+  const match =
+    utterance.match(/([\d]+(?:[.,]\d{1,2})?)(?=\s?(?:usd|dollars|\$))/i) ??
+    utterance.match(/\$?\s*([\d]+(?:[.,]\d{1,2})?)/);
+  if (!match) {
+    return undefined;
+  }
+  const normalized = match[1].replace(",", "");
+  const value = Number.parseFloat(normalized);
+  return Number.isFinite(value) ? value : undefined;
+};
+
+const toMinorUnits = (amount: number | undefined) =>
+  typeof amount === "number" ? Math.round(amount * 100) : undefined;
+
+const extractGroupName = (utterance: string) => {
+  const forMatch = utterance.match(/for\s+(.+)/i);
+  if (forMatch) {
+    return forMatch[1].trim();
+  }
+  const inMatch = utterance.match(/in\s+group\s+([a-zA-Z0-9\s]+)/i);
+  if (inMatch) {
+    return inMatch[1].trim();
+  }
+  return undefined;
+};
+
+const extractMerchantOrNote = (utterance: string) => {
+  const atMatch = utterance.match(/at\s+([a-zA-Z0-9\s']+)/i);
+  if (atMatch) {
+    return atMatch[1].trim();
+  }
+  return undefined;
+};
+
+const parseDurationMinutes = (utterance: string): number | undefined => {
+  const minutesMatch = utterance.match(/(\d+)\s*(minutes|min)/i);
+  if (minutesMatch) {
+    return Number.parseInt(minutesMatch[1], 10);
+  }
+  const hoursMatch = utterance.match(/(\d+(?:\.\d+)?)\s*(hours|hrs|hour)/i);
+  if (hoursMatch) {
+    const hours = Number.parseFloat(hoursMatch[1]);
+    if (Number.isFinite(hours)) {
+      return Math.round(hours * 60);
+    }
+  }
+  return undefined;
+};
+
+const defaultSummarizeIntent: PlannerResult = {
+  intent: {
+    tool: "summarize_state",
+    input: { focus: "overview" },
+  },
+  message:
+    "I'll summarize your current expenses, budget, schedule, and saved links.",
+  confidence: 0.4,
+};
+
+class RuleBasedMindPlanner implements MindPlanner {
+  async plan({ request, snapshot }: PlannerInput): Promise<PlannerResult> {
+    const utterance = request.utterance ?? "";
+    const normalized = utterance.toLowerCase();
+
+    const deterministicBudget = planDeterministicAddBudget(
+      utterance,
+      snapshot
+    );
+    if (deterministicBudget) {
+      return deterministicBudget;
+    }
+
+    const deterministicExpense = planDeterministicAddExpense(
+      utterance,
+      snapshot
+    );
+    if (deterministicExpense) {
+      return deterministicExpense;
+    }
+
+    const deterministicFlow = planDeterministicAddFlowTask(
+      utterance,
+      snapshot
+    );
+    if (deterministicFlow) {
+      return deterministicFlow;
+    }
+
+    const amountMajor = parseCurrencyAmount(utterance);
+    const merchant = extractMerchantOrNote(utterance);
+    const durationMinutes = parseDurationMinutes(utterance);
+
+    const mentionsSchedule =
+      normalized.includes("schedule") ||
+      normalized.includes("calendar") ||
+      normalized.includes("flow") ||
+      normalized.includes("plan day") ||
+      normalized.includes("task for");
+
+    const mentionsBudget =
+      normalized.includes("budget") ||
+      normalized.includes("category") ||
+      normalized.includes("grocery") ||
+      normalized.includes("envelope") ||
+      normalized.includes("spending");
+
+    if (durationMinutes || mentionsSchedule) {
+      return {
+        intent: {
+          tool: "add_flow_task",
+          input: {
+            title: utterance,
+            durationMinutes: durationMinutes ?? 30,
+            scheduledFor: mentionsSchedule ? "today" : undefined,
+            category: normalized.includes("yoga") ? "wellness" : undefined,
+            startsAt: merchant ?? undefined,
+          },
+        },
+        message: "Planning to add a Flow task based on your request.",
+        confidence: 0.55,
+      };
+    }
+
+    if (mentionsBudget) {
+      const input = {
+        amountMinor: toMinorUnits(amountMajor),
+        merchant: merchant ?? null,
+        note: utterance,
+      };
+      return {
+        intent: {
+          tool: "add_budget_entry",
+          input,
+        },
+        message: "Looks like a budget entry. I'll prep it for your budget.",
+        confidence: 0.5,
+      };
+    }
+
+    if (amountMajor) {
+      return {
+        intent: {
+          tool: "add_expense",
+          input: {
+            amountMinor: toMinorUnits(amountMajor),
+            description: utterance,
+            groupName: extractGroupName(utterance),
+            paidByHint: merchant,
+            splitStrategy: "even",
+          },
+        },
+        message:
+          "Interpreting this as a new expense for your groups. Ready when you are.",
+        confidence: 0.45,
+      };
+    }
+
+    return defaultSummarizeIntent;
+  }
+}
+
+type OpenAIPlan = {
+  tool: MindIntent["tool"];
+  input: Record<string, unknown>;
+  message?: string;
+  confidence?: number;
+};
+
+const JSON_BLOCK_REGEX = /```json([\s\S]*?)```/i;
+
+const extractJson = (content: string): string => {
+  const trimmed = content.trim();
+  const fenced = trimmed.match(JSON_BLOCK_REGEX);
+  if (fenced) {
+    return fenced[1].trim();
+  }
+  if (trimmed.startsWith("```")) {
+    return trimmed.replace(/```/g, "").trim();
+  }
+  return trimmed;
+};
+
+const defaultModel = "gpt-4o-mini";
+
+class OpenAIMindPlanner implements MindPlanner {
+  constructor(
+    private readonly apiKey: string,
+    private readonly model: string = process.env.OPENAI_MIND_MODEL ?? defaultModel
+  ) {}
+
+  async plan(input: PlannerInput): Promise<PlannerResult> {
+    const payload = this.buildPayload(input);
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[mind] OpenAI response error", response.status, errorText);
+      return defaultSummarizeIntent;
+    }
+
+    const result = await response.json();
+    const content: string | undefined =
+      result?.choices?.[0]?.message?.content ?? "";
+    if (!content || typeof content !== "string") {
+      return defaultSummarizeIntent;
+    }
+
+    let parsed: OpenAIPlan | null = null;
+    try {
+      parsed = JSON.parse(extractJson(content)) as OpenAIPlan;
+    } catch (error) {
+      console.error("[mind] failed to parse planner json", error, content);
+      return defaultSummarizeIntent;
+    }
+
+    if (!parsed?.tool || !parsed?.input) {
+      return defaultSummarizeIntent;
+    }
+
+    return {
+      intent: {
+        tool: parsed.tool,
+        input: parsed.input as MindIntent["input"],
+      } as MindIntent,
+      message:
+        parsed.message ??
+        "LLM proposed an action. Review before we run it.",
+      confidence: parsed.confidence ?? 0.6,
+    };
+  }
+
+  private buildPayload({ request, snapshot }: PlannerInput) {
+    return {
+      model: this.model,
+      temperature: 0.2,
+      max_tokens: 600,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are Toodl Mind, an assistant that converts natural language requests into structured intents for expenses, budgets, and schedules. Respond ONLY with valid JSON describing the planned tool call.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            utterance: request.utterance,
+            user: request.user,
+            contextHints: request.contextHints,
+            snapshot: trimSnapshot(snapshot),
+          }),
+        },
+      ],
+    };
+  }
+}
+
+const trimSnapshot = (snapshot: MindExperienceSnapshot) => ({
+  expenses: {
+    groups: snapshot.expenses.groups
+      .slice(0, 3)
+      .map((group) => ({
+        ...group,
+        recentExpenses: group.recentExpenses.slice(0, 3),
+      })),
+  },
+  budget: {
+    ...snapshot.budget,
+    documents: snapshot.budget.documents?.slice(0, 5) ?? [],
+  },
+  flow: {
+    today: snapshot.flow.today
+      ? {
+          ...snapshot.flow.today,
+          tasks: snapshot.flow.today.tasks.slice(0, 5),
+        }
+      : null,
+    upcomingTasks: snapshot.flow.upcomingTasks.slice(0, 5),
+  },
+  shares: {
+    recent: snapshot.shares.recent.slice(0, 5),
+  },
+});
+
+export const createMindPlanner = (): MindPlanner => {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (apiKey) {
+    return new OpenAIMindPlanner(apiKey);
+  }
+  return new RuleBasedMindPlanner();
+};

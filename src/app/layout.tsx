@@ -1,5 +1,8 @@
 import "./globals.css";
-import Footer from '@/components/Footer' 
+import Footer from "@/components/Footer";
+import ToodlMindProvider from "@/components/mind/ToodlMindProvider";
+import MindIdentityBridge from "@/components/mind/MindIdentityBridge";
+import ToodlMindLauncher from "@/components/mind/ToodlMindLauncher";
 
 // app/layout.tsx
 export const metadata = {
@@ -26,14 +29,20 @@ export const metadata = {
 };
 
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <body className="flex flex-col min-h-screen">
-        <main className="flex-grow">
-          {children}
-        </main>
-        <Footer />
+        <ToodlMindProvider>
+          <MindIdentityBridge />
+          <main className="flex-grow">{children}</main>
+          <Footer />
+          <ToodlMindLauncher />
+        </ToodlMindProvider>
       </body>
     </html> 
   );
