@@ -309,7 +309,7 @@ const trimSnapshot = (snapshot: MindExperienceSnapshot) => ({
           tasks: snapshot.flow.today.tasks.slice(0, 5),
         }
       : null,
-    upcomingTasks: snapshot.flow.upcomingTasks.slice(0, 5),
+    upcomingTasks: (snapshot.flow.upcomingTasks ?? []).slice(0, 5),
   },
   shares: {
     recent: snapshot.shares.recent.slice(0, 5),
