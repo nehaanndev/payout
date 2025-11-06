@@ -19,6 +19,7 @@
       firstName: string;   // Add first name field
       id: string; // Unique identifier for the user (to support unauthenticated members)
       authProvider?: 'google' | 'microsoft' | 'facebook' | 'anon' | 'manual'; // Optional for clarity
+      paypalMeLink?: string | null;
     };
     
   export interface Group {

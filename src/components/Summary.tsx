@@ -1,23 +1,24 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Share2, Edit2 } from 'lucide-react';
-import Image from "next/image";
+import React, { useEffect, useMemo, useState } from "react";
+import { ArrowUpRight, ChevronDown, Edit2, Share2 } from "lucide-react";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   calculateOpenBalancesMinor,
-  getSettlementPlanMinor
-} from '@/lib/financeUtils';
-import { Settlement } from '@/types/settlement';
-import { Expense, Group } from '@/types/group';
-import { getGroupCurrency, formatMoneyWithMinor } from '@/lib/currency';
-import { formatMoney } from '@/lib/currency_core';
+  getSettlementPlanMinor,
+} from "@/lib/financeUtils";
+import { Settlement } from "@/types/settlement";
+import { Expense, Group } from "@/types/group";
+import { getGroupCurrency, formatMoneyWithMinor } from "@/lib/currency";
+import { CurrencyCode, formatMoney } from "@/lib/currency_core";
 
 interface SummaryProps {
   groups: Group[];
   expensesByGroup: Record<string, Expense[]>;
   settlementsByGroup: Record<string, Settlement[]>;
   fullUserId: string;
-  onSettleClick: (group: Group, totalOwe: number) => void;
+  onSettleClick: (group: Group) => void;
   onMarkSettledClick: (group: Group) => void;
   onSelectGroup: (group: Group) => void;
   onShareGroup: (group: Group) => void;
@@ -25,14 +26,46 @@ interface SummaryProps {
   onCreateGroup: () => void;
 }
 
+const memberLabel = (count: number) =>
+  `${count} ${count === 1 ? "member" : "members"}`;
 
+const statusBadge = (
+  totalOwe: number,
+  totalGotten: number,
+  currency: CurrencyCode
+) => {
+  if (totalOwe > 0) {
+    return (
+      <Badge variant="outline" className="border-amber-300/70 text-amber-700">
+        You owe {formatMoney(totalOwe, currency)}
+      </Badge>
+    );
+  }
+  if (totalGotten > 0) {
+    return (
+      <Badge variant="outline" className="border-emerald-300/70 text-emerald-700">
+        You’re owed {formatMoney(totalGotten, currency)}
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="border-slate-200 text-slate-600">
+      All settled 🎉
+    </Badge>
+  );
+};
 
-// ① List your 3–4 background images here:
-const BACKGROUNDS = [
-  '/images/hero1.png',
-  '/images/hero2.png',
-  '/images/hero3.png',
-];
+type GroupSummary = {
+  group: Group;
+  expenses: Expense[];
+  settlements: Settlement[];
+  currency: CurrencyCode;
+  totalSpentMajor: number;
+  totalSpentMinor: number;
+  totalOwe: number;
+  totalGotten: number;
+  status: "owed" | "owe" | "settled";
+};
 
 export default function Summary({
   groups,
@@ -46,171 +79,291 @@ export default function Summary({
   onEditGroup,
   onCreateGroup,
 }: SummaryProps) {
-  // ⬇︎ Empty‐state when no groups exist
-if (groups.length === 0) {
-  return (
-    <Card className="relative h-64 rounded-2xl overflow-hidden shadow-lg">
-      {/* Gradient header */}
-      <CardHeader className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
-        <CardTitle className="text-white text-xl font-semibold">
-          No groups yet!
-        </CardTitle>
-      </CardHeader>
+  const groupSummaries = useMemo<GroupSummary[]>(() => {
+    return groups.map((group) => {
+      const expenses = expensesByGroup[group.id] ?? [];
+      const settlements = settlementsByGroup[group.id] ?? [];
+      const currency = getGroupCurrency(group);
 
-      {/* Translucent overlay */}
-      <CardContent className="bg-white bg-opacity-80 backdrop-blur-sm p-6 flex flex-col items-center space-y-4">
-        <p className="text-black text-lg font-medium">
-          You don’t have any groups yet.
-        </p>
-        <p className="text-gray-600 text-sm text-center">
-          Create a group to start tracking expenses with friends.
-        </p>
-        <Button
-          className="bg-primary hover:bg-primary-dark text-white"
-          onClick={onCreateGroup}
-        >
-          Create Your First Group
-        </Button>
-      </CardContent>
-    </Card>
+      const openBalances = calculateOpenBalancesMinor(
+        group.members,
+        expenses,
+        settlements,
+        currency
+      );
+      const plan =
+        getSettlementPlanMinor(group.members, openBalances)[fullUserId] || {
+          owes: [],
+          receives: [],
+        };
+
+      const totalOwe = plan.owes.reduce((sum, entry) => sum + entry.amount, 0);
+      const totalGotten = plan.receives.reduce(
+        (sum, entry) => sum + entry.amount,
+        0
+      );
+
+      const totalSpentMajor = expenses.reduce(
+        (sum, expense) => sum + expense.amount,
+        0
+      );
+      const totalSpentMinor = expenses.reduce(
+        (sum, expense) => sum + (expense.amountMinor ?? 0),
+        0
+      );
+
+      const status: "owed" | "owe" | "settled" =
+        totalGotten > 0 ? "owed" : totalOwe > 0 ? "owe" : "settled";
+
+      return {
+        group,
+        expenses,
+        settlements,
+        currency,
+        totalSpentMajor,
+        totalSpentMinor,
+        totalOwe,
+        totalGotten,
+        status,
+      };
+    });
+  }, [groups, expensesByGroup, settlementsByGroup, fullUserId]);
+
+  const sortedSummaries = useMemo(() => {
+    const statusPriority: Record<GroupSummary["status"], number> = {
+      owed: 0,
+      owe: 1,
+      settled: 2,
+    };
+    return [...groupSummaries].sort((a, b) => {
+      if (statusPriority[a.status] !== statusPriority[b.status]) {
+        return statusPriority[a.status] - statusPriority[b.status];
+      }
+      if (a.status === "owed") {
+        return b.totalGotten - a.totalGotten;
+      }
+      if (a.status === "owe") {
+        return b.totalOwe - a.totalOwe;
+      }
+      return a.group.name.localeCompare(b.group.name);
+    });
+  }, [groupSummaries]);
+
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const summaryIds = useMemo(
+    () => sortedSummaries.map(({ group }) => group.id).join("|"),
+    [sortedSummaries]
   );
-}
+
+  useEffect(() => {
+    setExpandedGroups((prev) => {
+      const next: Record<string, boolean> = {};
+      let changed = false;
+      for (const summary of sortedSummaries) {
+        if (summary.group.id in prev) {
+          next[summary.group.id] = prev[summary.group.id];
+        } else {
+          next[summary.group.id] = summary.status !== "settled";
+          changed = true;
+        }
+      }
+      for (const key of Object.keys(prev)) {
+        if (!sortedSummaries.some(({ group }) => group.id === key)) {
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [summaryIds, sortedSummaries]);
+
+  const toggleGroupExpansion = (groupId: string) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [groupId]: !(prev[groupId] ?? false),
+    }));
+  };
+
+  if (sortedSummaries.length === 0) {
+    return (
+      <Card className="rounded-3xl border border-slate-200 bg-white/95 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-slate-900">
+            You don’t have any groups yet
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm text-slate-600">
+          <p>Spin up your first tab to start splitting expenses with friends.</p>
+          <Button onClick={onCreateGroup} className="bg-slate-900 hover:bg-slate-800">
+            Create a group
+          </Button>
+      </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <div className="space-y-8">
-      {groups.map((group, idx) => {
-        const bg = BACKGROUNDS[idx % BACKGROUNDS.length];
-        const expenses = expensesByGroup[group.id] ?? [];
-        const settlements = settlementsByGroup[group.id] ?? [];
-        const group_currency = getGroupCurrency(group);
+    <div className="space-y-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">
+            Your groups
+          </h2>
+          <p className="text-sm text-slate-500">
+            Track balances, share tabs, and jump back into expenses.
+          </p>
+        </div>
+        <Button
+          onClick={onCreateGroup}
+          variant="outline"
+          className="border-slate-200 text-slate-700 hover:bg-slate-50"
+        >
+          New group
+        </Button>
+      </div>
 
-        const openBalances = calculateOpenBalancesMinor(
-          group.members,
-          expenses,
-          settlements,
-          group_currency
-        );
-        const plan =
-          getSettlementPlanMinor(group.members, openBalances)[fullUserId] || {
-            owes: [],
-            receives: [],
-          };
-        const totalOwe = plan.owes.reduce((s, o) => s + o.amount, 0);
-        const totalGotten = plan.receives.reduce((s, r) => s + r.amount, 0);
+      <div className="space-y-4">
+        {sortedSummaries.map((summary) => {
+          const { group, currency, totalSpentMajor, totalSpentMinor, totalOwe, totalGotten } = summary;
+          const expanded = expandedGroups[group.id] ?? false;
+          const statusSummary =
+            totalGotten > 0
+              ? `Money owed to you: ${formatMoney(totalGotten, currency)}`
+              : totalOwe > 0
+              ? `You owe: ${formatMoney(totalOwe, currency)}`
+              : "Everything’s settled";
 
-        return (
-          <Card
-            key={group.id}
-            // ↑ make the card taller
-            className="relative h-80 rounded-2xl overflow-hidden shadow-lg cursor-pointer"
-            onClick={() => onSelectGroup(group)}
-          >
-            {/* Background image */}
-            <Image
-              src={bg}
-              alt=""
-              fill               // ← enables layout="fill"
-              className="absolute inset-0 w-full h-full object-cover"
-              priority           // ← optionally flag as high-priority for LCP
-            />
-
-            {/* 2️⃣ Purple gradient header */}
-            <div className="absolute top-0 left-0 right-0 flex items-center justify-between
-                            bg-gradient-to-r from-indigo-600 to-purple-600
-                            px-5 py-3">
-              <h3 className="text-white text-xl  font-semibold flex items-center justify-between">
-
-              <span>{group.name}</span>
-              
-              </h3>
-              <div className="flex space-x-2">
-              <span className="text-lg text-purple-300 font-sans tracking-tight font-medium">
-  {group.members.length} members
-</span>
-                <Button
-                  variant="ghost" size="sm"
-                  className="text-white hover:bg-white/20"
-                  onClick={e => { e.stopPropagation(); onShareGroup(group); }}
-                  aria-label="Share"
-                >
-                  <Share2 className="w-5 h-5" />
-                </Button>
-                <Button
-                  variant="ghost" size="sm"
-                  className="text-white hover:bg-white/20"
-                  onClick={e => { e.stopPropagation(); onEditGroup(group); }}
-                  aria-label="Edit"
-                >
-                  <Edit2 className="w-5 h-5" />
-                </Button>
-              </div>
-            </div>
-
-            {/* 3️⃣ Bottom‐aligned translucent panel */}
-            <div className="absolute inset-x-0 bottom-0 px-6 pb-8">
-              <div
-                className="bg-white bg-opacity-80 backdrop-blur-sm
-                          rounded-lg px-4 py-3 max-w-sm mx-auto
-                          flex items-center justify-between space-x-4"
+          return (
+            <Card
+              key={group.id}
+              className="overflow-hidden rounded-3xl border border-slate-200 bg-white/95 shadow-sm transition hover:shadow-md"
+            >
+              <button
+                type="button"
+                onClick={() => toggleGroupExpansion(group.id)}
+                className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
               >
-                {/* Left: text block */}
                 <div>
-                  <p className="text-gray-700">
-                    <span className="font-medium">Total spent:</span>{" "}
-                    <span className="font-semibold">
-                      {formatMoneyWithMinor(
-                        expenses.reduce((s, e) => s + e.amount, 0),
-                        expenses.reduce((s, e) => s + (e.amountMinor ?? 0), 0),
-                        group_currency
-                      )}
-                    </span>
-                  </p>
-
-                  {totalGotten > 0 ? (
-                    <p className="text-green-600 font-medium">
-                      You are owed {formatMoney(totalGotten, group_currency)}
-                    </p>
-                  ) : totalOwe > 0 ? (
-                    <p className="text-red-600 font-medium">
-                      You owe {formatMoney(totalOwe, group_currency)}
-                    </p>
-                  ) : (
-                    <p className="text-green-700 font-medium">
-                      All settled 🎉
-                    </p>
-                  )}
+                  <p className="text-base font-semibold text-slate-900">{group.name}</p>
                 </div>
+                <div className="flex items-center gap-3">
+                  {statusBadge(totalOwe, totalGotten, currency)}
+                  <ChevronDown
+                    className={`h-5 w-5 text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`}
+                  />
+                </div>
+              </button>
 
-                {/* Right: single button based on situation */}
-                {totalOwe > 0 && (
-                  <Button
-                    size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                    onClick={e => {
-                      e.stopPropagation();
-                      onSettleClick(group, totalOwe);
-                    }}
-                  >
-                    Pay Debts
-                  </Button>
-                )}
-                {totalGotten > 0 && totalOwe === 0 && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-gray-300 text-gray-700 hover:bg-gray-50"
-                    onClick={e => {
-                      e.stopPropagation();
-                      onMarkSettledClick(group);
-                    }}
-                  >
-                    Mark as Paid
-                  </Button>
-                )}
-              </div>
-            </div>
+              {expanded ? (
+                <CardContent className="space-y-6 border-t border-slate-100 px-6 py-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <p className="text-sm text-slate-600">{memberLabel(group.members.length)}</p>
+                      <p className="text-xs text-slate-500">{statusSummary}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-slate-600 hover:text-slate-900"
+                        onClick={() => onEditGroup(group)}
+                      >
+                        <Edit2 className="mr-2 h-4 w-4" />
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-slate-600 hover:text-slate-900"
+                        onClick={() => onShareGroup(group)}
+                      >
+                        <Share2 className="mr-2 h-4 w-4" />
+                        Share
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-slate-900 text-white hover:bg-slate-800"
+                        onClick={() => onSelectGroup(group)}
+                      >
+                        Open group
+                        <ArrowUpRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-6 sm:grid-cols-3">
+                    <div className="space-y-2">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Total spent
+                      </p>
+                      <p className="text-xl font-semibold text-slate-900">
+                        {formatMoneyWithMinor(totalSpentMajor, totalSpentMinor, currency)}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Includes all recorded expenses and receipts.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Your position
+                      </p>
+                      {totalOwe > 0 ? (
+                        <p className="text-lg font-semibold text-amber-600">
+                          You owe {formatMoney(totalOwe, currency)}
+                        </p>
+                      ) : totalGotten > 0 ? (
+                        <p className="text-lg font-semibold text-emerald-600">
+                          You’re owed {formatMoney(totalGotten, currency)}
+                        </p>
+                      ) : (
+                        <p className="text-lg font-semibold text-slate-700">Settled up</p>
+                      )}
+                      <p className="text-xs text-slate-500">
+                        Balances account for past settlements in this group.
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                        Quick actions
+                      </p>
+                      {totalOwe > 0 ? (
+                        <Button
+                          onClick={() => onSettleClick(group)}
+                          className="justify-start bg-slate-900 text-white hover:bg-slate-800"
+                        >
+                          Settle up now
+                        </Button>
+                      ) : totalGotten > 0 ? (
+                        <Button
+                          variant="outline"
+                          className="justify-start border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          onClick={() => onMarkSettledClick(group)}
+                        >
+                          Mark money received
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          className="justify-start border-slate-200 text-slate-600 hover:bg-slate-50"
+                          onClick={() => onMarkSettledClick(group)}
+                        >
+                          Record a settlement
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        className="justify-start text-slate-600 hover:text-slate-900"
+                        onClick={() => onSelectGroup(group)}
+                      >
+                        View expense history
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              ) : null}
             </Card>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -13,7 +13,8 @@ export const createGroup = async (
     email: member.email || null,
     firstName: member.firstName, // Include first name with fallback
     id: member.id, // Ensure id is included
-    authProvider: member.authProvider
+    authProvider: member.authProvider,
+    paypalMeLink: member.paypalMeLink ?? null,
   }));
 
   const formattedMemberEmails = members.map((member) => member.email || null);
@@ -51,15 +52,19 @@ export const updateGroupMembers = async (
   const groupRef = doc(db, "groups", groupId);
 
   try {
-    const memberEmails = members.map((member) => member.email);
-    const memberIds = members.map((member) => member.id);
-    console.log(memberEmails)
-    console.log(memberIds)
-    console.log(members)
-    console.log(groupId)
-    console.log(groupRef)
+    const formattedMembers = members.map((member) => ({
+      ...member,
+      paypalMeLink: member.paypalMeLink ?? null,
+    }));
+    const memberEmails = formattedMembers.map((member) => member.email);
+    const memberIds = formattedMembers.map((member) => member.id);
+    console.log(memberEmails);
+    console.log(memberIds);
+    console.log(members);
+    console.log(groupId);
+    console.log(groupRef);
     await updateDoc(groupRef, {
-      members,                    // Save the updated members array
+      members: formattedMembers,                    // Save the updated members array
       memberEmails,               // Save only emails for easier querying
       memberIds,                 // Save only IDs for easier querying
       lastUpdated: serverTimestamp(),
@@ -144,7 +149,7 @@ export const signInToFirebase = async (accessToken: string) => {
 
 
 import {  orderBy, Timestamp } from "firebase/firestore";
-import { Settlement } from "@/types/settlement";
+import { Settlement, SettlementMethod, SettlementStatus } from "@/types/settlement";
 import { CurrencyCode } from "./currency_core";
 
 // ✅ Add expense to Firestore
@@ -251,20 +256,37 @@ export async function deleteExpense(
 }
 
 /* Settlement functions */
+type AddSettlementOptions = {
+  method?: SettlementMethod;
+  createdBy?: string;
+  paymentNote?: string | null;
+  status?: SettlementStatus;
+};
+
 export async function addSettlement(
   groupId: string,
   payerId: string,
   payeeId: string,
   amount: number,
-  createdAt: Date = new Date()
+  createdAt: Date = new Date(),
+  options: AddSettlementOptions = {}
 ): Promise<string> {
   const colRef = collection(db, 'groups', groupId, 'settlements');
+  const status: SettlementStatus =
+    options.status ??
+    (options.createdBy && options.createdBy === payeeId ? "confirmed" : "pending");
   const docRef = await addDoc(colRef, {
     payerId,
     payeeId,
     amount,
     createdAt: createdAt.toISOString(),
-    createdOn: serverTimestamp()
+    createdOn: serverTimestamp(),
+    method: options.method ?? "other",
+    status,
+    createdBy: options.createdBy ?? payerId,
+    paymentNote: options.paymentNote ?? null,
+    confirmedAt: status === "confirmed" ? new Date().toISOString() : null,
+    confirmedBy: status === "confirmed" ? options.createdBy ?? payeeId : null,
   });
   return docRef.id;
 }
@@ -273,5 +295,18 @@ export async function getSettlements(groupId: string): Promise<Settlement[]> {
   const colRef = collection(db, 'groups', groupId, 'settlements');
   const snap = await getDocs(colRef);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })); 
+  return snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+}
+
+export async function confirmSettlement(
+  groupId: string,
+  settlementId: string,
+  confirmerId: string
+) {
+  const ref = doc(db, 'groups', groupId, 'settlements', settlementId);
+  await updateDoc(ref, {
+    status: "confirmed",
+    confirmedBy: confirmerId,
+    confirmedAt: new Date().toISOString(),
+  });
 }

@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from "@/components/ui/switch";
 import { Badge } from '@/components/ui/badge';
 import { Expense, Member } from '@/types/group';
-import { Settlement } from '@/types/settlement';
+import { Settlement, SettlementMethod } from '@/types/settlement';
 
 import { addExpense, updateExpense, deleteExpense } from "@/lib/firebaseUtils";
 import { calculateOpenBalancesMinor, calculateRawBalancesMinor } from '@/lib/financeUtils';
@@ -21,6 +21,17 @@ import ExpenseListItem from "@/components/ExpenseListItem";
 import { formatMoneySafeGivenCurrency } from '@/lib/currency';
 import { toMinor, splitByWeights, CurrencyCode, formatMoney } from '@/lib/currency_core';
 import ReceiptUploadPanel, { ReceiptPrefillData } from "@/components/ReceiptUploadPanel";
+
+const SETTLEMENT_METHOD_LABELS: Record<SettlementMethod | "other", string> = {
+  paypal: "PayPal",
+  zelle: "Zelle",
+  cash: "Cash",
+  venmo: "Venmo",
+  other: "Other",
+};
+
+const getSettlementMethodLabel = (method?: SettlementMethod) =>
+  SETTLEMENT_METHOD_LABELS[method ?? "other"] ?? "Other";
 
 export interface ExpensesPanelProps {
     /* Data */
@@ -52,6 +63,7 @@ export interface ExpensesPanelProps {
     activeGroupId: string;
     onBack: () => void;      // wizard ←
     onExpensesChange: (newExpenses: Expense[]) => void;
+    onConfirmSettlement: (settlement: Settlement) => Promise<void>;
   }
   
 
@@ -79,12 +91,13 @@ export interface ExpensesPanelProps {
     setIsEditingExpense,
     setShowExpenseForm,
     /* HELPERS */
-    membersMapById,
-    activeGroupId,
-    /* WIZARD NAV */
-    onBack,
-    onExpensesChange,
-  }: ExpensesPanelProps) {
+  membersMapById,
+  activeGroupId,
+  /* WIZARD NAV */
+  onBack,
+  onExpensesChange,
+  onConfirmSettlement,
+}: ExpensesPanelProps) {
 
   // ① compute balances with the correct args using minor units
   const balances: Record<string, number> = calculateRawBalancesMinor(members, expenses, currency);
@@ -551,24 +564,93 @@ export interface ExpensesPanelProps {
           </div>
         )}
 
-        {isIdleState && expenses.length > 0 && settlements.length > 0 && (
-          <div className="mt-6 bg-white bg-opacity-60 backdrop-blur-sm rounded-xl shadow p-4 space-y-4 hover:bg-indigo-50">
-            <h3 className="text-black font-semibold">Settlements</h3>
+        {isIdleState && expenses.length > 0 && (
+          <div className="mt-6 bg-white bg-opacity-80 backdrop-blur-sm rounded-xl shadow p-4 space-y-4 hover:bg-indigo-50">
+            <div className="flex items-center justify-between">
+              <h3 className="text-black font-semibold">Settlements</h3>
+              {settlements.length > 0 ? (
+                <span className="text-xs text-slate-500">
+                  Showing {settlements.length} settlement{settlements.length === 1 ? "" : "s"}
+                </span>
+              ) : null}
+            </div>
 
-            {settlements.map((s) => {
-              const payer = membersMapById[s.payerId]?.firstName ?? s.payerId;
-              const payee = membersMapById[s.payeeId]?.firstName ?? s.payeeId;
-              return (
-                <p key={s.id} className="text-sm text-gray-700">
-                  {payee} paid {payer} {formatMoneySafeGivenCurrency(toMinor(s.amount, currency), currency)} on{" "}
-                  {new Date(s.createdAt).toLocaleDateString()}
-                </p>
-              );
-            })}
+            {settlements.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                Record payments from the overview tab to mark debts as settled.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {settlements.map((settlement) => {
+                  const payer = membersMapById[settlement.payerId]?.firstName ?? settlement.payerId;
+                  const payee = membersMapById[settlement.payeeId]?.firstName ?? settlement.payeeId;
+                  const methodLabel = getSettlementMethodLabel(settlement.method);
+                  const statusLabel = settlement.status === "pending" ? "Awaiting confirmation" : "Confirmed";
+                  const statusBadgeClass =
+                    settlement.status === "pending"
+                      ? "border-amber-300/70 text-amber-700"
+                      : "border-emerald-300/70 text-emerald-700";
+                  const amountLabel = formatMoneySafeGivenCurrency(toMinor(settlement.amount, currency), currency);
+                  const note = settlement.paymentNote;
+                  const isPayee = settlement.payeeId === youId;
+                  const isPending = settlement.status === "pending";
+
+                  return (
+                    <div
+                      key={settlement.id}
+                      className="space-y-2 rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm"
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">
+                            {payer} <span className="text-slate-400">→</span> {payee}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {amountLabel} on {new Date(settlement.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className="border-slate-200 text-slate-600">
+                            {methodLabel}
+                          </Badge>
+                          <Badge variant="outline" className={statusBadgeClass}>
+                            {statusLabel}
+                          </Badge>
+                        </div>
+                      </div>
+                      {note ? (
+                        <p className="text-xs italic text-slate-500">
+                          “{note}”
+                        </p>
+                      ) : null}
+                      {isPending ? (
+                        <div className="flex justify-end">
+                          {isPayee ? (
+                            <Button
+                              size="sm"
+                              className="bg-emerald-600 text-white hover:bg-emerald-500"
+                              onClick={() => {
+                                void onConfirmSettlement(settlement);
+                              }}
+                            >
+                              Mark as received
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-slate-500">
+                              Waiting for {payee} to confirm
+                            </span>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <hr className="my-2" />
 
-            <h3 className="text-black font-semibold">Balances after settlements</h3>
+            <h3 className="text-black font-semibold">Balances after confirmed settlements</h3>
             {(Object.entries(openBalances) as [string, number][]).map(([id, bal]) => {
               const name = membersMapById[id]?.firstName ?? id;
               return (

@@ -38,6 +38,15 @@ import {
   Users,
   Wand2,
 } from "lucide-react";
+import PaymentSettingsDialog from "@/components/PaymentSettingsDialog";
+import {
+  fetchExpensePaymentPreferences,
+  updateExpensePaymentPreferences,
+} from "@/lib/expenseSettingsService";
+import {
+  ExpensePaymentPreferences,
+  createDefaultExpensePaymentPreferences,
+} from "@/types/paymentPreferences";
 
 type SpotlightProduct = {
   name: string;
@@ -173,6 +182,9 @@ export default function Home() {
   const [avatar, setAvatar] = useState("/avatars/avatar5.png");
   const [anonUser, setAnonUser] = useState<Member | null>(null);
   const [groupId, setGroupId] = useState<string | null>(null)  // Get group_id from query string
+  const [paymentPreferences, setPaymentPreferences] = useState<ExpensePaymentPreferences | null>(null);
+  const [paymentDialogMode, setPaymentDialogMode] = useState<"prompt" | "settings" | null>(null);
+  const [hasPromptedForPaypal, setHasPromptedForPaypal] = useState(false);
     
 
   useEffect(() => {
@@ -219,6 +231,44 @@ export default function Home() {
     }
   }, [groupId, session, anonUser]);
 
+  useEffect(() => {
+    if (!session) {
+      setPaymentPreferences(null);
+      setPaymentDialogMode(null);
+      return;
+    }
+
+    let active = true;
+    const loadPreferences = async () => {
+      try {
+        const prefs = await fetchExpensePaymentPreferences(session.uid);
+        if (!active) {
+          return;
+        }
+        setPaymentPreferences(prefs);
+        if (
+          !prefs.paypalMeLink &&
+          !prefs.suppressPaypalPrompt &&
+          !hasPromptedForPaypal
+        ) {
+          setPaymentDialogMode((prev) => prev ?? "prompt");
+          setHasPromptedForPaypal(true);
+        }
+      } catch (error) {
+        console.error("Error loading payment preferences", error);
+      }
+    };
+
+    void loadPreferences();
+    return () => {
+      active = false;
+    };
+  }, [session, hasPromptedForPaypal]);
+
+  useEffect(() => {
+    setHasPromptedForPaypal(false);
+  }, [session?.uid]);
+
   const displayName = session?.displayName || anonUser?.firstName || 'Guest User';
   const handleGoogleSignIn = async () => {
     try {
@@ -242,6 +292,30 @@ export default function Home() {
     } catch (error) {
       console.error("Error signing in with Facebook: ", error);
     }
+  };
+
+  const handlePaymentPreferencesSave = async ({
+    paypalMeLink,
+    suppressPaypalPrompt,
+  }: {
+    paypalMeLink: string | null;
+    suppressPaypalPrompt: boolean;
+  }) => {
+    if (!session) {
+      throw new Error("Sign in required to save payment settings");
+    }
+    await updateExpensePaymentPreferences(session.uid, {
+      paypalMeLink,
+      suppressPaypalPrompt,
+    });
+    const base =
+      paymentPreferences ?? createDefaultExpensePaymentPreferences();
+    setPaymentPreferences({
+      ...base,
+      paypalMeLink,
+      suppressPaypalPrompt,
+      updatedAt: new Date().toISOString(),
+    });
   };
 
   const handleSignOut = async () => {
@@ -328,6 +402,21 @@ export default function Home() {
     });
   }
 
+  if (session) {
+    expenseMenuSections.push({
+      title: "App settings",
+      items: [
+        {
+          label: "Payment settings",
+          description: paymentPreferences?.paypalMeLink
+            ? "Share or edit your PayPal.Me link"
+            : "Add a PayPal.Me link so friends can pay you quickly",
+          onClick: () => setPaymentDialogMode("settings"),
+        },
+      ],
+    });
+  }
+
   
   if (loading) {
     return (
@@ -361,7 +450,14 @@ export default function Home() {
             }
           />
           <div className="flex-grow p-8">
-            <ExpenseSplitter session={session} groupid={group} anonUser={anonUser} currency={currency} />
+            <ExpenseSplitter
+              session={session}
+              groupid={group}
+              anonUser={anonUser}
+              currency={currency}
+              paymentPreferences={paymentPreferences}
+              onShowPaymentSettings={() => setPaymentDialogMode("settings")}
+            />
           </div>
         </>
       )     
@@ -403,6 +499,16 @@ export default function Home() {
         </>
       )}
     </div>
+      <PaymentSettingsDialog
+        open={paymentDialogMode !== null}
+        mode={paymentDialogMode ?? "settings"}
+        initialLink={paymentPreferences?.paypalMeLink ?? null}
+        initialSuppressPrompt={
+          paymentPreferences?.suppressPaypalPrompt ?? false
+        }
+        onClose={() => setPaymentDialogMode(null)}
+        onSave={handlePaymentPreferencesSave}
+      />
     </>
   );
 }

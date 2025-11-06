@@ -1,5 +1,6 @@
 // utils/finance.ts (or inside Summary.tsx)
 import { Expense, Member } from '@/types/group';
+import { SettlementStatus } from "@/types/settlement";
 import { CurrencyCode, toMinor } from '@/lib/currency_core';
 
 /**
@@ -34,15 +35,22 @@ export function calculateRawBalances(
 export function calculateOpenBalances(
   members: Member[],
   expenses: Expense[],
-  settlements: { payerId: string; payeeId: string; amount: number }[]
+  settlements: {
+    payerId: string;
+    payeeId: string;
+    amount: number;
+    status?: SettlementStatus;
+  }[]
 ): Record<string, number> {
   const raw = calculateRawBalances(members, expenses);
-  settlements.forEach(s => {
-    // payer paid off some of their debt ⇒ decrease their balance
-    raw[s.payerId] = (raw[s.payerId] ?? 0) - s.amount;
-    // payee received money ⇒ increase their balance
-    raw[s.payeeId] = (raw[s.payeeId] ?? 0) + s.amount;
-  });
+  settlements
+    .filter((settlement) => settlement.status !== "pending")
+    .forEach(s => {
+      // payer paid off some of their debt ⇒ decrease their balance
+      raw[s.payerId] = (raw[s.payerId] ?? 0) - s.amount;
+      // payee received money ⇒ increase their balance
+      raw[s.payeeId] = (raw[s.payeeId] ?? 0) + s.amount;
+    });
   return raw;
 }
 
@@ -160,18 +168,25 @@ export function calculateRawBalancesMinor(
 export function calculateOpenBalancesMinor(
   members: Member[],
   expenses: Expense[],
-  settlements: { payerId: string; payeeId: string; amount: number }[],
+  settlements: {
+    payerId: string;
+    payeeId: string;
+    amount: number;
+    status?: SettlementStatus;
+  }[],
   currency: CurrencyCode
 ): Record<string, number> {
   const raw = calculateRawBalancesMinor(members, expenses, currency);
-  settlements.forEach(s => {
-    // Convert settlement amount to minor units
-    const settlementMinor = toMinor(s.amount, currency);
-    // payer paid off some of their debt ⇒ decrease their balance
-    raw[s.payerId] = (raw[s.payerId] ?? 0) - settlementMinor;
-    // payee received money ⇒ increase their balance
-    raw[s.payeeId] = (raw[s.payeeId] ?? 0) + settlementMinor;
-  });
+  settlements
+    .filter((settlement) => settlement.status !== "pending")
+    .forEach(s => {
+      // Convert settlement amount to minor units
+      const settlementMinor = toMinor(s.amount, currency);
+      // payer paid off some of their debt ⇒ decrease their balance
+      raw[s.payerId] = (raw[s.payerId] ?? 0) - settlementMinor;
+      // payee received money ⇒ increase their balance
+      raw[s.payeeId] = (raw[s.payeeId] ?? 0) + settlementMinor;
+    });
   return raw;
 }
 

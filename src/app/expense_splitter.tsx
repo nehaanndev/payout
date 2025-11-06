@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { getUserGroups, getExpenses, createGroup, updateGroupMembers, getUserGroupsById, getSettlements, addSettlement } from "@/lib/firebaseUtils";
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Share2 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { getUserGroups, getExpenses, createGroup, updateGroupMembers, getUserGroupsById, getSettlements, addSettlement, confirmSettlement } from "@/lib/firebaseUtils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { Group, Expense, Member } from '@/types/group';
+import { ExpensePaymentPreferences } from "@/types/paymentPreferences";
 import { User } from "firebase/auth";
 import IdentityPrompt from "@/components/IdentityPrompt";
 import { generateUserId } from '@/lib/userUtils';
@@ -26,11 +25,20 @@ interface ExpenseSplitterProps {
   groupid: string | null;
   anonUser: Member | null | undefined;
   currency?: CurrencyCode;
+  paymentPreferences?: ExpensePaymentPreferences | null;
+  onShowPaymentSettings?: () => void;
 }
 
-export default function ExpenseSplitter({ session, groupid, anonUser, currency: initialCurrency }: ExpenseSplitterProps) {
+export default function ExpenseSplitter({
+  session,
+  groupid,
+  anonUser,
+  currency: initialCurrency,
+  paymentPreferences,
+  onShowPaymentSettings,
+}: ExpenseSplitterProps) {
 const [loading, setLoading] = useState(true);
-const [activeTab, setActiveTab] = useState<'summary' | 'groups' | 'create'>('summary');
+const [activeTab, setActiveTab] = useState<'summary' | 'create'>('summary');
   // only show the Create/Edit tab when the user has clicked “New Group” or loaded an existing one
 const [showCreateTab, setShowCreateTab] = useState(false);
 const [savedGroups, setSavedGroups] = useState<Group[]>([]);
@@ -168,6 +176,100 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
     fetchGroups();
   }, [session, anonUser, groupid]);
 
+  const me = useMemo<Member | null>(() => {
+    if (session) {
+      return {
+        id: session.uid,
+        firstName:
+          session.displayName?.split(" ")[0] ??
+          (session.email ? session.email.split("@")[0] : "User"),
+        email: session.email ?? null,
+        authProvider: getAuthProviderFromSession(session),
+      };
+    }
+    if (anonUser) {
+      return anonUser;
+    }
+    return null;
+  }, [session, anonUser]);
+
+  useEffect(() => {
+    if (!me?.id) {
+      return;
+    }
+    const normalizedLink = paymentPreferences?.paypalMeLink ?? null;
+
+    setMembers((prev) => {
+      const index = prev.findIndex((member) => member.id === me.id);
+      if (index === -1) {
+        return prev;
+      }
+      const existing = prev[index];
+      if ((existing.paypalMeLink ?? null) === normalizedLink) {
+        return prev;
+      }
+      const next = prev.slice();
+      next[index] = {
+        ...existing,
+        paypalMeLink: normalizedLink,
+      };
+      return next;
+    });
+
+    setSavedGroups((prev) =>
+      prev.map((group) => {
+        const memberIndex = group.members.findIndex((member) => member.id === me.id);
+        if (memberIndex === -1) {
+          return group;
+        }
+        const currentMember = group.members[memberIndex];
+        if ((currentMember.paypalMeLink ?? null) === normalizedLink) {
+          return group;
+        }
+        const membersWithLink = group.members.slice();
+        membersWithLink[memberIndex] = {
+          ...currentMember,
+          paypalMeLink: normalizedLink,
+        };
+        return { ...group, members: membersWithLink };
+      })
+    );
+  }, [me?.id, paymentPreferences?.paypalMeLink]);
+
+  useEffect(() => {
+    if (!me?.id) {
+      return;
+    }
+    if (paymentPreferences?.paypalMeLink === undefined) {
+      return;
+    }
+    const normalizedLink = paymentPreferences.paypalMeLink ?? null;
+    const groupsToSync = savedGroups.filter((group) =>
+      group.members.some(
+        (member) =>
+          member.id === me.id &&
+          (member.paypalMeLink ?? null) !== normalizedLink
+      )
+    );
+    if (!groupsToSync.length) {
+      return;
+    }
+    void Promise.all(
+      groupsToSync.map((group) =>
+        updateGroupMembers(
+          group.id,
+          group.members.map((member) =>
+            member.id === me.id
+              ? { ...member, paypalMeLink: normalizedLink }
+              : member
+          )
+        )
+      )
+    ).catch((error) => {
+      console.error("Failed to sync PayPal link to groups", error);
+    });
+  }, [me?.id, paymentPreferences?.paypalMeLink, savedGroups]);
+
   if (loading) {
     return <p>Loading groups...</p>;
   }
@@ -177,24 +279,16 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
     throw new Error("Anonymous user must be provided when not signed in");
   }
 
-  const currentUserId = (session ? session.uid : anonUser!.id) as string
-  
-  // derive a Member object for “me”:
-  let me: Member | null = null;
-  if (session) {
-    // build “me” from the signed-in user
-    me = {
-      id: session.uid,
-      firstName:
-        session.displayName?.split(" ")[0] ??
-        (session.email ? session.email.split("@")[0] : "User"),
-      email: session.email ?? null,
-      authProvider: getAuthProviderFromSession(session),
-    };
-  } else if (anonUser) {
-    // anonUser is already a Member
-    me = anonUser;
-  }
+  const currentUserId = me?.id ?? (session ? session.uid : anonUser!.id);
+
+  const shouldShowPaymentReminder =
+    Boolean(
+      session &&
+      paymentPreferences &&
+      !paymentPreferences.paypalMeLink &&
+      !paymentPreferences.suppressPaypalPrompt &&
+      onShowPaymentSettings
+    );
 
   const clearcurrentExpense = () => {
     setCurrentExpense({
@@ -247,30 +341,6 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
     }
   };
 
-  const loadGroup = async (group: Group) => {
-    setActiveGroupId(group.id);
-    setActiveGroup(group);
-    setGroupName(group.name);
-    setMembers(group.members);
-    setShowCreateTab(true);
-    setActiveTab('create');
-    setWizardStep('expenses');
-    setCurrency(getGroupCurrency(group));
-    setShowReceiptUploader(false);
-    setShowExpenseForm(false);
-
-    const matchedMember = group.members.find((m) => m.id === currentUserId);
-    if (matchedMember) {
-      setCurrentUser(matchedMember);
-    } else {
-      setShowIdentityPrompt(true);
-    }
-
-    // Expenses are already loaded in the group object from fetchGroups
-    setExpenses(group.expenses);
-    setActiveTab("create");
-  };
-
   const startNewGroup = () => {
     clearGroupForm();
     setWizardStep('details');
@@ -320,12 +390,6 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
 
   const getGroupShareLink = (groupId: string) => {
     return `${window.location.origin}?group_id=${groupId}`;
-  };
-
-  const handleShareGroup = (groupId: string) => {
-    const link = getGroupShareLink(groupId);
-    navigator.clipboard.writeText(link);
-    alert("Group link copied to clipboard!");
   };
 
   // open detials tab
@@ -395,20 +459,58 @@ const handleMarkSettled = (group: Group) => {
   setShowSettlementModal(true);
 };
 
+  const handleConfirmSettlement = async (settlement: Settlement) => {
+    if (!activeGroupId) {
+      return;
+    }
+    if (settlement.payeeId !== currentUserId) {
+      console.warn("Only the payee can confirm a settlement");
+      return;
+    }
+    try {
+      await confirmSettlement(activeGroupId, settlement.id, currentUserId);
+      const updated = await getSettlements(activeGroupId);
+      setSettlementsByGroup((prev) => ({
+        ...prev,
+        [activeGroupId]: updated,
+      }));
+    } catch (error) {
+      console.error("Failed to confirm settlement", error);
+      alert("We couldn't mark this settlement as received. Please try again.");
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4">
+      {shouldShowPaymentReminder ? (
+        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-slate-700">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium text-slate-900">
+                Add a PayPal link for faster paybacks
+              </p>
+              <p className="text-xs text-slate-600">
+                Share your PayPal.Me link so friends see it when they settle up.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="w-full bg-slate-900 text-white hover:bg-slate-800 sm:w-auto"
+              onClick={() => onShowPaymentSettings?.()}
+            >
+              Open payment settings
+            </Button>
+          </div>
+        </div>
+      ) : null}
       <Tabs
-         value={activeTab}
-         onValueChange={(v: string) => setActiveTab(v as 'summary' | 'groups' | 'create')}
-         className="space-y-6"
+        value={activeTab}
+        onValueChange={(v: string) => setActiveTab(v as 'summary' | 'create')}
+        className="space-y-6"
       >
-
         <TabsList className="w-full">
-          <TabsTrigger value="summary">Summary</TabsTrigger>
-          <TabsTrigger value="groups">Groups</TabsTrigger>
-          {showCreateTab && (
-            <TabsTrigger value="create">Expenses</TabsTrigger>
-          )}
+          <TabsTrigger value="summary">Overview</TabsTrigger>
+          {showCreateTab && <TabsTrigger value="create">Expenses</TabsTrigger>}
         </TabsList>
 
         {/* ⬇️  NEW TAB BODY  */}
@@ -426,6 +528,8 @@ const handleMarkSettled = (group: Group) => {
               setActiveGroup(g);
               setGroupName(g.name);
               setMembers(g.members);
+              setExpenses(g.expenses);
+              setCurrency(getGroupCurrency(g));
               setWizardStep('expenses');
               setShowCreateTab(true);
               setActiveTab('create');
@@ -441,6 +545,7 @@ const handleMarkSettled = (group: Group) => {
               setActiveGroup(group);
               setGroupName(group.name);
               setMembers(group.members);
+              setCurrency(getGroupCurrency(group));
               setWizardStep('details');
               setShowCreateTab(true);
               setActiveTab('create');
@@ -457,13 +562,18 @@ const handleMarkSettled = (group: Group) => {
               currentUserId={me!.id}
               currency={currency}
               isMarkSettledMode={isMarkSettledMode}
-              onSave={async (payerId, payeeId, amt, date) => {
+              onSave={async (payerId, payeeId, amt, date, method, note) => {
                 await addSettlement(
                   settlementGroup.id,
                   payerId,
                   payeeId,
                   amt,
-                  date
+                  date,
+                  {
+                    method,
+                    createdBy: me?.id ?? currentUserId,
+                    paymentNote: note ?? null,
+                  }
                 );
                 const updated = await getSettlements(settlementGroup.id);
                 setSettlementsByGroup(prev => ({
@@ -530,55 +640,11 @@ const handleMarkSettled = (group: Group) => {
                   gs.map(g => g.id === activeGroupId ? { ...g, expenses: newExps } : g)
                 );
               }} 
+              onConfirmSettlement={handleConfirmSettlement}
             />
           )}
         </TabsContent>
 
-
-        <TabsContent value="groups">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex justify-between items-center">
-                <span>Your Groups</span>
-                <Button variant="primaryDark" onClick={startNewGroup}>Create New Group</Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {savedGroups.length === 0 ? (
-                <p className="text-center text-gray-500">No saved groups yet</p>
-              ) : (
-                <div className="space-y-4">
-                  {savedGroups.map(group => (
-                    <div
-                      key={group.id}
-                      className="p-4 border rounded-lg flex justify-between items-center hover:bg-slate-50"
-                    >
-                      <div onClick={() => loadGroup(group)} className="cursor-pointer flex-1">
-                        <div className="flex justify-between items-center">
-                          <h3 className="font-medium">{group.name}</h3>
-                        </div>
-                        <p className="text-sm text-gray-600">
-                          {group.members.length} members
-                        </p>
-                      </div>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleShareGroup(group.id)}
-                        className="ml-4"
-                      >
-                        <Share2 className="h-4 w-4" />
-                        Share
-                      </Button>
-                    </div>
-
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
       {showIdentityPrompt && activeGroup && (
         <IdentityPrompt
