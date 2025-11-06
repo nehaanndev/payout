@@ -421,13 +421,10 @@ const EditableConfirmationPreview = ({
   values,
   onChange,
 }: EditableConfirmationPreviewProps) => {
-  const fieldMap = useMemo(() => {
-    const map = new Map<string, MindEditableMessageField>();
-    fields.forEach((field) => {
-      map.set(field.key, field);
-    });
-    return map;
-  }, [fields]);
+  const fieldMap = new Map<string, MindEditableMessageField>();
+  fields.forEach((field) => {
+    fieldMap.set(field.key, field);
+  });
 
   const segments: Array<string | React.ReactNode> = [];
   let lastIndex = 0;

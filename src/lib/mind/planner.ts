@@ -80,7 +80,7 @@ const defaultSummarizeIntent: PlannerResult = {
     input: { focus: "overview" },
   },
   message:
-    "I'll summarize your current expenses, budget, schedule, and saved links.",
+    "I didn't understand that request. Right now, I can help with simple requests to add an expense to a budget or group, or add an item to your schedule. My capabilities will evolve over time.",
   confidence: 0.4,
 };
 

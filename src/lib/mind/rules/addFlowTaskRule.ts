@@ -171,7 +171,7 @@ const normalizeTimeValue = (
   meridiem?: string | null
 ) => {
   let hrs = hours;
-  let mins = minutes;
+  const mins = minutes;
   let suffix: string | null = null;
 
   if (meridiem) {
@@ -446,27 +446,6 @@ const removeSegments = (input: string, segments: string[]) => {
   return normalizeWhitespace(working);
 };
 
-const TITLE_GENERIC_FILTER = new Set([
-  "for",
-  "with",
-  "around",
-  "about",
-  "total",
-  "start",
-  "starting",
-  "starts",
-  "beginning",
-  "runs",
-  "lasting",
-  "lasts",
-  "at",
-  "on",
-  "to",
-  "into",
-  "in",
-  "go",
-]);
-
 const cleanTitle = (
   utterance: string,
   matches: Array<DurationMatch | TimeMatch | DateMatch | null>
@@ -587,6 +566,7 @@ export const planDeterministicAddFlowTask = (
   utterance: string,
   _snapshot: MindExperienceSnapshot
 ): DeterministicPlan | null => {
+  void _snapshot;
   if (!utterance || !utterance.trim()) {
     return null;
   }
@@ -642,7 +622,7 @@ export const planDeterministicAddFlowTask = (
   const message = `Ready to schedule ${details.join(" ")}.`;
 
   const confidenceBase = 0.6;
-  let confidence =
+  const confidence =
     confidenceBase +
     (durationMatch ? 0.15 : 0) +
     (dateMatch ? 0.1 : 0) +

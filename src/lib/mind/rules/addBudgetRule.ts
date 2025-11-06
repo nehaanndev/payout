@@ -595,8 +595,6 @@ export const planDeterministicAddBudget = (
 
   const description = buildDescription(category, merchant);
   const budgetTitle = budget.title ?? "Home Budget";
-  const budgetCurrency =
-    amount.currency ?? snapshot.budget.currency ?? null;
   const amountDisplay = formatAmountDisplay(
     amount.major,
     amount.currency,
