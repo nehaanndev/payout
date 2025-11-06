@@ -168,15 +168,28 @@ export default function ToodlMindLauncher() {
           isLatest: turn.id === history[history.length - 1]?.id,
         });
       } else if (turn.response) {
-        items.push({
-          id: `${turn.id}-assistant`,
-          role: "assistant",
-          content: turn.response.message,
-          responseStatus: turn.response.status,
-          statusText: responseLabel(turn.response.status),
-          editableMessage: turn.response.editableMessage,
-          isLatest: turn.id === history[history.length - 1]?.id,
-        });
+        const response = turn.response;
+        if (response.status === "failed") {
+          items.push({
+            id: `${turn.id}-assistant`,
+            role: "assistant",
+            content: response.error ?? "I ran into an unexpected error. Please try again.",
+            responseStatus: response.status,
+            statusText: responseLabel(response.status),
+            turnError: response.error ?? undefined,
+            isLatest: turn.id === history[history.length - 1]?.id,
+          });
+        } else {
+          items.push({
+            id: `${turn.id}-assistant`,
+            role: "assistant",
+            content: response.message,
+            responseStatus: response.status,
+            statusText: responseLabel(response.status),
+            editableMessage: response.editableMessage,
+            isLatest: turn.id === history[history.length - 1]?.id,
+          });
+        }
       }
 
       return items;
