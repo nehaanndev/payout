@@ -25,7 +25,7 @@ import {
   FlowPlan,
   FlowTask,
 } from "@/types/flow";
-import { Group } from "@/types/group";
+import { Group, Expense } from "@/types/group";
 import {
   MindExperienceSnapshot,
   MindRequest,
@@ -120,7 +120,7 @@ const computeExpenseGroups = async (
 
   const results = await Promise.all(
     groups.map(async (group) => {
-      let expenses = [];
+      let expenses: Expense[] = [];
       try {
         expenses = await getExpenses(group.id);
       } catch (error) {
