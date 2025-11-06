@@ -111,15 +111,6 @@ export class ToodlMindOrchestrator {
               "Generated summary from cached snapshot. No API call executed.",
           },
         ];
-      default:
-        return [
-          {
-            name: intent.tool,
-            input: intent.input,
-            success: false,
-            resultSummary: `No executor registered for ${intent.tool}`,
-          },
-        ];
     }
   }
 }
