@@ -1045,7 +1045,7 @@ export function FlowExperience() {
           <>
             {plan ? (
               <Card className="border-none bg-gradient-to-br from-white via-white/90 to-emerald-50 p-6 shadow-xl shadow-emerald-200/40">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <h2 className="text-2xl font-semibold text-slate-900">
                       {daytimeGreeting}, {user.displayName ?? "friend"} 👋
@@ -1054,7 +1054,7 @@ export function FlowExperience() {
                       Keep the rhythm steady. We’ll nudge you if anything drifts off tempo.
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm shadow-sm">
                       <CalendarClock className="h-4 w-4 text-emerald-500" />
                       <input

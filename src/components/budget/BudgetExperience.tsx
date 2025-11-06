@@ -3734,9 +3734,9 @@ function Ledger({
 
       <Card className="border-slate-200">
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center justify-between">
+          <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span>Ledger</span>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {availableTags.length > 0 && (
                 <Button
                   variant="outline"
