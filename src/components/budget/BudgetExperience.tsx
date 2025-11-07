@@ -2427,22 +2427,45 @@ const BudgetExperience = () => {
 
   if (authChecked && !user) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-emerald-100/60 to-slate-50 px-4">
+      <div className="relative min-h-screen bg-gradient-to-br from-emerald-50 via-emerald-100/60 to-slate-50 px-4 py-10">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.65),transparent_60%)] opacity-60" />
-        <Card className="max-w-md space-y-6 border-none bg-white/85 p-8 text-center shadow-2xl shadow-emerald-200/40 backdrop-blur-xl">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            Sign-in required
-          </h1>
-          <p className="text-sm leading-relaxed text-slate-600">
-            Budget Studio keeps your plans private to your account. Head to the landing page to sign in, then come back to manage your budgets.
-          </p>
-          <Button
-            className="w-full bg-emerald-600 text-white hover:bg-emerald-500"
-            onClick={() => router.push("/")}
-          >
-            Go to sign-in
-          </Button>
-        </Card>
+        <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-8">
+          <AppTopBar
+            product="budget"
+            subheading="Sign in to reopen Budget Studio or hop over to another Toodl space."
+            actions={
+              <Button
+                className="bg-emerald-600 text-white hover:bg-emerald-500"
+                onClick={() => router.push("/")}
+              >
+                Sign in
+              </Button>
+            }
+            userSlot={
+              <AppUserMenu
+                product="budget"
+                displayName="Guest"
+                identityLabel="Browsing as"
+              />
+            }
+          />
+          <div className="flex flex-1 items-center justify-center">
+            <Card className="max-w-md flex-1 space-y-6 border-none bg-white/85 p-8 text-center shadow-2xl shadow-emerald-200/40 backdrop-blur-xl">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                Sign-in required
+              </h1>
+              <p className="text-sm leading-relaxed text-slate-600">
+                Budget Studio keeps your plans private to your account. Head to the landing page to sign in, then come back to manage your budgets.
+              </p>
+              <Button
+                className="w-full bg-emerald-600 text-white hover:bg-emerald-500"
+                onClick={() => router.push("/")}
+              >
+                Go to sign-in
+              </Button>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }

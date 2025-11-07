@@ -46,6 +46,9 @@ const MindIdentityBridge = () => {
           }
         : null;
 
+      if (!nextIdentity) {
+        return;
+      }
       if (!identitiesEqual(identity, nextIdentity)) {
         setIdentity(nextIdentity);
       }

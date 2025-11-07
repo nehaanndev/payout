@@ -795,23 +795,46 @@ const JournalExperience = () => {
 
   if (authChecked && !user) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4">
+      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-16">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
-        <Card className="max-w-md space-y-6 border-none bg-white/80 p-8 text-center shadow-2xl shadow-rose-200/40 backdrop-blur-xl">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            Sign-in required
-          </h1>
-          <p className="text-sm leading-relaxed text-slate-600">
-            The Toodl Journal is private to your account. Please sign in to
-            continue, then come back to capture your stories.
-          </p>
-          <Button
-            className="w-full bg-primary text-white hover:bg-payoutHover"
-            onClick={() => router.push("/")}
-          >
-            Go to sign-in
-          </Button>
-        </Card>
+        <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-8">
+          <AppTopBar
+            product="journal"
+            subheading="Sign in to unlock Journal Studio or hop to another Toodl app."
+            actions={
+              <Button
+                className="bg-primary text-white hover:bg-payoutHover"
+                onClick={() => router.push("/")}
+              >
+                Sign in
+              </Button>
+            }
+            userSlot={
+              <AppUserMenu
+                product="journal"
+                displayName="Guest"
+                identityLabel="Browsing as"
+              />
+            }
+          />
+          <div className="flex min-h-[40vh] items-center justify-center">
+            <Card className="max-w-md space-y-6 border-none bg-white/80 p-8 text-center shadow-2xl shadow-rose-200/40 backdrop-blur-xl">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                Sign-in required
+              </h1>
+              <p className="text-sm leading-relaxed text-slate-600">
+                The Toodl Journal is private to your account. Please sign in to
+                continue, then come back to capture your stories.
+              </p>
+              <Button
+                className="w-full bg-primary text-white hover:bg-payoutHover"
+                onClick={() => router.push("/")}
+              >
+                Go to sign-in
+              </Button>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }

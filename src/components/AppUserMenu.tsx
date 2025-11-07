@@ -35,6 +35,7 @@ type AppUserMenuProps = {
   sections?: AppUserMenuSection[];
   onSignOut?: () => void | Promise<void>;
   signOutLabel?: string;
+  identityLabel?: string;
 };
 
 const PRODUCT_DESTINATIONS: Array<{
@@ -85,6 +86,7 @@ export function AppUserMenu({
   sections = [],
   onSignOut,
   signOutLabel = "Sign out",
+  identityLabel = "Signed in as",
 }: AppUserMenuProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -267,7 +269,7 @@ export function AppUserMenu({
               </div>
             )}
             <div className="flex flex-col">
-              <span className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">Signed in as</span>
+              <span className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">{identityLabel}</span>
               <span className="text-sm font-semibold text-slate-900 truncate">{displayName}</span>
             </div>
           </CardTitle>

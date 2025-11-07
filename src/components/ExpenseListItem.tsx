@@ -23,7 +23,6 @@ export default function ExpenseListItem({
 }) {
 
   const [expanded, setExpanded] = useState(false)
-  console.log(expense)
   const payerName = membersMapById[expense.paidBy]?.firstName ?? expense.paidBy
   const date = new Date(expense.createdAt)
 
@@ -41,7 +40,6 @@ export default function ExpenseListItem({
   const owedByMember: Record<string, number> = {}
 
   if (isPayerYou) {
-    console.log("minor" + amountMinor)
     if (amountMinor > 0){
       for (const [memberId, splitMinor] of Object.entries(expense.splitsMinor)) {
         if (memberId == youId) continue
