@@ -10,6 +10,7 @@ import {
   signOut,
   onAuthStateChanged,
 } from "firebase/auth";
+import { getStorage } from "firebase/storage";
 
 
 // Your web app's Firebase configuration
@@ -27,6 +28,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 const microsoftProvider = new OAuthProvider("microsoft.com");
 // Optionally force account picker every time for clarity.
@@ -42,6 +44,7 @@ facebookProvider.setCustomParameters({
 export {
   db,
   auth,
+  storage,
   provider,
   microsoftProvider,
   facebookProvider,

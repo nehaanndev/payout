@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ChangeEvent } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -40,6 +41,11 @@ import {
   observeSharedLinks,
   updateSharedLinkStatus,
 } from "@/lib/shareService";
+import {
+  getOrbitContentTypeForFile,
+  uploadOrbitAttachment,
+  ORBIT_UPLOAD_MAX_BYTES,
+} from "@/lib/orbitStorage";
 import type { SharedLink, SharedLinkStatus } from "@/types/share";
 import { cn } from "@/lib/utils";
 
@@ -69,6 +75,8 @@ const CONTENT_TYPE_LABEL: Record<string, string> = {
   article: "Article",
   audio: "Audio",
   note: "Note",
+  image: "Image",
+  pdf: "PDF",
   link: "Link",
   unknown: "Link",
 };
@@ -88,6 +96,19 @@ const parseTagQuery = (query: string) => {
     .split(/[,\s]+/)
     .map((item) => item.replace(/^#/, "").trim())
     .filter(Boolean);
+};
+
+const formatFileSize = (bytes: number) => {
+  if (!Number.isFinite(bytes)) {
+    return "0 B";
+  }
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (bytes >= 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${bytes} B`;
 };
 
 const summariseLinkContent = (link: SharedLink): string => {
@@ -164,10 +185,18 @@ export function ScratchPadExperience() {
   const [linkTags, setLinkTags] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [noteTags, setNoteTags] = useState("");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadNotes, setUploadNotes] = useState("");
+  const [uploadTags, setUploadTags] = useState("");
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [tagQuery, setTagQuery] = useState("");
   const [summaries, setSummaries] = useState<Record<string, string>>({});
   const [summarizingIds, setSummarizingIds] = useState<Record<string, boolean>>({});
   const [digestExpanded, setDigestExpanded] = useState<boolean>(false);
+  const [createSuccessSource, setCreateSuccessSource] = useState<"link" | "note" | "file" | null>(
+    null
+  );
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (current) => {
@@ -202,6 +231,11 @@ export function ScratchPadExperience() {
     return () => unsubscribe();
   }, [user]);
 
+  const maxUploadMb = useMemo(
+    () => Math.round((ORBIT_UPLOAD_MAX_BYTES / (1024 * 1024)) * 10) / 10,
+    []
+  );
+
   const handleSignIn = useCallback(
     async (providerType: "google" | "microsoft" | "facebook") => {
       try {
@@ -223,6 +257,58 @@ export function ScratchPadExperience() {
   const handleSignOut = useCallback(async () => {
     await signOut(auth);
   }, []);
+
+  const resetUploadForm = useCallback(() => {
+    setUploadFile(null);
+    setUploadTitle("");
+    setUploadNotes("");
+    setUploadTags("");
+    setFileInputKey((value) => value + 1);
+  }, []);
+
+  const handleFileSelection = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) {
+        setUploadFile(null);
+        setUploadTitle("");
+        setUploadNotes("");
+        setUploadTags("");
+        return;
+      }
+
+      if (file.size > ORBIT_UPLOAD_MAX_BYTES) {
+        setError(`Orbit uploads are limited to ${maxUploadMb} MB.`);
+        event.target.value = "";
+        setUploadFile(null);
+        setUploadTitle("");
+        setUploadNotes("");
+        setUploadTags("");
+        return;
+      }
+
+      const detectedType = getOrbitContentTypeForFile(file);
+      if (detectedType !== "image" && detectedType !== "pdf") {
+        setError("Upload an image or a PDF to Orbit.");
+        event.target.value = "";
+        setUploadFile(null);
+        setUploadTitle("");
+        setUploadNotes("");
+        setUploadTags("");
+        return;
+      }
+
+      setError(null);
+      setCreateSuccess(null);
+      setCreateSuccessSource(null);
+      setUploadFile(file);
+      setUploadNotes("");
+      setUploadTags("");
+      const baseName = file.name?.replace(/\.[^.]+$/, "") || "Untitled file";
+      setUploadTitle(baseName);
+    },
+    [maxUploadMb]
+  );
 
   const menuSections = useMemo<AppUserMenuSection[]>(() => {
     if (!user) {
@@ -274,7 +360,7 @@ export function ScratchPadExperience() {
       setError(null);
       toggleBusy(link.id, true);
       try {
-        await deleteSharedLink(user.uid, link.id);
+        await deleteSharedLink(user.uid, link.id, link.storagePath);
       } catch (err) {
         console.error(err);
         setError("Deleting the link failed. Please try again.");
@@ -315,6 +401,7 @@ export function ScratchPadExperience() {
     }
     setError(null);
     setCreateSuccess(null);
+    setCreateSuccessSource(null);
     setCreateBusy(true);
     try {
       const tags = normaliseTags(linkTags);
@@ -332,6 +419,7 @@ export function ScratchPadExperience() {
       setLinkNotes("");
       setLinkTags("");
       setCreateSuccess("Link saved to Orbit.");
+      setCreateSuccessSource("link");
       setFilter("new");
     } catch (err) {
       console.error(err);
@@ -352,6 +440,7 @@ export function ScratchPadExperience() {
     }
     setError(null);
     setCreateSuccess(null);
+    setCreateSuccessSource(null);
     setCreateBusy(true);
     try {
       const tags = normaliseTags(noteTags);
@@ -368,6 +457,7 @@ export function ScratchPadExperience() {
       setNoteBody("");
       setNoteTags("");
       setCreateSuccess("Note saved to Orbit.");
+      setCreateSuccessSource("note");
       setFilter("new");
     } catch (err) {
       console.error(err);
@@ -376,6 +466,62 @@ export function ScratchPadExperience() {
       setCreateBusy(false);
     }
   }, [noteBody, noteTags, setFilter, user]);
+
+  const handleUploadFile = useCallback(async () => {
+    if (!user || !uploadFile) {
+      return;
+    }
+
+    setError(null);
+    setCreateSuccess(null);
+    setCreateSuccessSource(null);
+    setCreateBusy(true);
+
+    try {
+      const uploadResult = await uploadOrbitAttachment(user.uid, uploadFile);
+      const tags = normaliseTags(uploadTags);
+      const contentTypeCandidate = getOrbitContentTypeForFile(uploadFile);
+      const contentType: SharedLink["contentType"] =
+        contentTypeCandidate === "image" || contentTypeCandidate === "pdf"
+          ? contentTypeCandidate
+          : "link";
+
+      await createSharedLink(user.uid, {
+        url: uploadResult.downloadUrl,
+        title: uploadTitle.trim() || uploadFile.name || "Untitled file",
+        description: uploadNotes.trim() || null,
+        tags,
+        contentType,
+        platform: "web",
+        status: "new",
+        previewImageUrl: contentType === "image" ? uploadResult.downloadUrl : null,
+        storagePath: uploadResult.storagePath,
+        sourceApp: "orbit-upload",
+      });
+
+      resetUploadForm();
+      setCreateSuccess(contentType === "pdf" ? "PDF saved to Orbit." : "Image saved to Orbit.");
+      setCreateSuccessSource("file");
+      setFilter("new");
+    } catch (err) {
+      console.error(err);
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : "We couldn't upload that file. Please try again.";
+      setError(message);
+    } finally {
+      setCreateBusy(false);
+    }
+  }, [
+    resetUploadForm,
+    setFilter,
+    uploadFile,
+    uploadNotes,
+    uploadTags,
+    uploadTitle,
+    user,
+  ]);
 
   const handleGenerateSummary = useCallback(
     async (link: SharedLink) => {
@@ -592,7 +738,101 @@ export function ScratchPadExperience() {
                       "Save link"
                     )}
                   </Button>
-                  {createSuccess ? (
+                  {createSuccessSource === "link" && createSuccess ? (
+                    <span className="text-sm text-emerald-600">{createSuccess}</span>
+                  ) : null}
+                </div>
+              </div>
+
+              <Separator className="my-5" />
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Upload an image or PDF</h3>
+                  <p className="text-sm text-slate-500">
+                    Drop a screenshot, receipt, or research packet. Orbit uploads it to encrypted
+                    Firebase Storage and keeps the download link handy.
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file">
+                      File<span className="text-rose-500">*</span>
+                    </label>
+                    <Input
+                      key={fileInputKey}
+                      id="orbit-file"
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={handleFileSelection}
+                      disabled={createBusy}
+                    />
+                    <p className="text-xs text-slate-400">
+                      Images or PDFs up to {maxUploadMb} MB.
+                    </p>
+                    {uploadFile ? (
+                      <p className="text-xs text-slate-500">
+                        Selected: <span className="font-medium">{uploadFile.name}</span> (
+                        {formatFileSize(uploadFile.size)})
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file-title">
+                      Title
+                    </label>
+                    <Input
+                      id="orbit-file-title"
+                      value={uploadTitle}
+                      onChange={(event) => setUploadTitle(event.target.value)}
+                      placeholder="Launch visuals"
+                      disabled={createBusy}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file-tags">
+                      Tags (optional)
+                    </label>
+                    <Input
+                      id="orbit-file-tags"
+                      value={uploadTags}
+                      onChange={(event) => setUploadTags(event.target.value)}
+                      placeholder="receipts, launch, design"
+                      disabled={createBusy}
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label
+                      className="text-sm font-medium text-slate-700"
+                      htmlFor="orbit-file-notes"
+                    >
+                      Notes
+                    </label>
+                    <Textarea
+                      id="orbit-file-notes"
+                      value={uploadNotes}
+                      onChange={(event) => setUploadNotes(event.target.value)}
+                      placeholder="Any context you want to remember when this file resurfaces."
+                      disabled={createBusy}
+                      className="min-h-[96px]"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    onClick={handleUploadFile}
+                    disabled={!uploadFile || createBusy}
+                    className="bg-slate-900 text-white hover:bg-slate-800"
+                  >
+                    {createBusy ? (
+                      <>
+                        <Spinner size="sm" className="mr-2" />
+                        Uploading…
+                      </>
+                    ) : (
+                      "Save file"
+                    )}
+                  </Button>
+                  {createSuccessSource === "file" && createSuccess ? (
                     <span className="text-sm text-emerald-600">{createSuccess}</span>
                   ) : null}
                 </div>
@@ -644,6 +884,9 @@ export function ScratchPadExperience() {
                         "Save note"
                       )}
                     </Button>
+                    {createSuccessSource === "note" && createSuccess ? (
+                      <span className="text-sm text-emerald-600">{createSuccess}</span>
+                    ) : null}
                     <span className="text-xs text-slate-400">
                       Tip: paste text from your clipboard — we keep the formatting.
                     </span>

@@ -157,5 +157,8 @@ Refer to `docs/toodl-mind.md` for the product brief—here’s how the code impl
 - Firebase services: `src/lib/firebaseUtils.ts`, `src/lib/budgetService.ts`, `src/lib/journalService.ts`, `src/lib/flowService.ts`
 - Mind stack: `src/components/mind/*`, `src/app/api/mind/ask/route.ts`, `src/lib/mind/*`, `docs/toodl-mind.md`
 
-
+## TODO:
+when tagging, show recent tags to apply quick tagging
+Also show a collapsed view in Flow of jsut the DOD list
+Also do not change the times once saved or add the recurring events back.
 

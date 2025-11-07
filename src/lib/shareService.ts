@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "./firebase";
+import { deleteOrbitAttachment } from "@/lib/orbitStorage";
 import {
   SharedLink,
   SharedLinkContentType,
@@ -63,6 +64,7 @@ export const createSharedLink = async (
     contentType: normalizeContentType(payload.contentType),
     tags: payload.tags ?? [],
     previewImageUrl: payload.previewImageUrl ?? null,
+    storagePath: payload.storagePath ?? null,
     status: normalizeStatus(payload.status),
     createdAt: payload.createdAt ?? nowIso,
     updatedAt: payload.updatedAt ?? nowIso,
@@ -87,6 +89,7 @@ const mapShareDoc = (snapshot: QueryDocumentSnapshot<DocumentData>) => {
     contentType: normalizeContentType(data.contentType),
     tags: data.tags ?? [],
     previewImageUrl: data.previewImageUrl ?? null,
+    storagePath: data.storagePath ?? null,
     status: normalizeStatus(data.status),
     createdAt:
       data.createdAt ??
@@ -141,12 +144,24 @@ export const updateSharedLinkStatus = async (
   });
 };
 
-export const deleteSharedLink = async (userId: string, shareId: string) => {
+export const deleteSharedLink = async (
+  userId: string,
+  shareId: string,
+  storagePath?: string | null
+) => {
   if (!userId || !shareId) {
     return;
   }
   const shareRef = doc(userSharesCollection(userId), shareId);
   await deleteDoc(shareRef);
+
+  if (storagePath) {
+    try {
+      await deleteOrbitAttachment(storagePath);
+    } catch (error) {
+      console.warn("Failed to remove Orbit attachment", error);
+    }
+  }
 };
 
 export const observeSharedLinks = (

@@ -1,4 +1,12 @@
-export type SharedLinkContentType = "link" | "video" | "article" | "audio" | "note" | "unknown";
+export type SharedLinkContentType =
+  | "link"
+  | "video"
+  | "article"
+  | "audio"
+  | "note"
+  | "image"
+  | "pdf"
+  | "unknown";
 
 export type SharedLinkStatus = "new" | "saved" | "archived";
 
@@ -12,6 +20,7 @@ export type SharedLink = {
   contentType: SharedLinkContentType;
   tags: string[];
   previewImageUrl: string | null;
+  storagePath: string | null;
   status: SharedLinkStatus;
   createdAt: string;
   updatedAt: string;
@@ -26,6 +35,7 @@ export type SharedLinkWritePayload = {
   contentType?: SharedLinkContentType;
   tags?: string[];
   previewImageUrl?: string | null;
+  storagePath?: string | null;
   status?: SharedLinkStatus;
   createdAt?: string;
   updatedAt?: string;
