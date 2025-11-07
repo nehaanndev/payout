@@ -1,0 +1,25 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="orbit-bg" x1="10" y1="12" x2="54" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4c1d95" />
+      <stop offset="0.5" stop-color="#7c3aed" />
+      <stop offset="1" stop-color="#0ea5e9" />
+    </linearGradient>
+    <linearGradient id="orbit-ring" x1="16" y1="20" x2="52" y2="40" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#312e81" />
+      <stop offset="1" stop-color="#1d4ed8" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#orbit-bg)" opacity="0.18" />
+  <circle cx="32" cy="32" r="10" fill="#fff" fill-opacity="0.85" />
+  <circle cx="32" cy="32" r="6" fill="#1d4ed8" />
+  <path
+    d="M14 30c8-8 28-14 38-6s-1 18-11 22-26 2-32-6 1-18 11-22"
+    stroke="url(#orbit-ring)"
+    stroke-width="4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="18" cy="28" r="3" fill="#9333ea" />
+  <circle cx="50" cy="32" r="3.5" fill="#38bdf8" />
+</svg>

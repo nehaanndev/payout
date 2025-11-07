@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Toodl Expense Splitter API",
-    "description": "API for managing expense groups, splitting bills, and tracking who owes what. Perfect for shared expenses like trips, dinners, rent, and more.",
+    "title": "Toodl Split API",
+    "description": "API for managing conversation-driven expense groups, splitting bills, and tracking who owes what. Perfect for shared expenses like trips, dinners, rent, and more.",
     "version": "1.0.0",
     "contact": {
       "name": "Toodl Support",

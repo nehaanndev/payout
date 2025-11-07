@@ -31,10 +31,11 @@ import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
 import {
   ArrowRight,
   BarChart3,
+  Brain,
   CalendarCheck2,
+  Camera,
   NotebookPen,
   ShieldCheck,
-  Target,
   Users,
   Wand2,
 } from "lucide-react";
@@ -56,40 +57,54 @@ type SpotlightProduct = {
   icon: string;
   accent: string;
   description: string;
+  href: string;
 };
 
 const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
   {
-    name: "Expense Splitter",
-    tagline: "Fair splits without spreadsheets",
+    name: "Split",
+    tagline: "Settle tabs from a chat",
     icon: "/brand/toodl-expense.svg",
     accent: "from-slate-900/10 via-slate-800/5 to-slate-900/0",
     description:
-      "Track group purchases, settle up in seconds, and keep every friend in the loop.",
+      "Log purchases in the conversation view, auto-calc shares, and settle every crew instantly.",
+    href: "/",
   },
   {
-    name: "Budget Studio",
-    tagline: "Plan months that stay on track",
+    name: "Pulse",
+    tagline: "Budgets that breathe",
     icon: "/brand/toodl-budget.svg",
     accent: "from-emerald-500/15 via-teal-400/10 to-emerald-500/0",
     description:
-      "Build shared budgets, set savings goals, and forecast your next month with clarity.",
+      "Model cash, categories, and goals with AI projections that update as soon as you speak.",
+    href: "/budget",
   },
   {
-    name: "Journal Studio",
-    tagline: "Capture the days you don’t want to forget",
+    name: "Story",
+    tagline: "Journals with context",
     icon: "/brand/toodl-journal.svg",
     accent: "from-rose-400/15 via-amber-300/10 to-sky-400/0",
     description:
-      "Reflect on wins, lessons, and family moments—then revisit them in a beautiful library.",
+      "Write the memory beside the math so recaps pull both feelings and figures.",
+    href: "/journal",
   },
   {
-    name: "Scratch Pad",
-    tagline: "Save links to revisit anywhere",
-    icon: "/brand/toodl-mark.svg",
-    accent: "from-indigo-500/15 via-slate-500/10 to-indigo-500/0",
+    name: "Flow",
+    tagline: "Line up the day’s moves",
+    icon: "/brand/toodl-flow.svg",
+    accent: "from-emerald-400/15 via-teal-300/10 to-amber-200/0",
     description:
-      "Capture articles, videos, and ideas from Android or desktop, then queue them up for when you have time.",
+      "Turn chat-driven intentions into sequenced plans, focus blocks, and nudges you’ll actually follow.",
+    href: "/flow",
+  },
+  {
+    name: "Orbit",
+    tagline: "Save sparks you’ll act on",
+    icon: "/brand/toodl-orbit.svg",
+    accent: "from-indigo-500/15 via-violet-400/10 to-blue-400/0",
+    description:
+      "Drop research, receipts, and voice notes into Orbit so the AI ledger can bring them back when needed.",
+    href: "/orbit",
   },
 ];
 
@@ -99,18 +114,33 @@ const WORKFLOW_STEPS: Array<{
   icon: ComponentType<SVGProps<SVGSVGElement>>;
 }> = [
   {
-    title: "Split & settle",
-    description: "Drop expenses into shared tabs and settle balances instantly.",
+    title: "Toodl Mind",
+    description: "Say what just happened or what you need next and let the AI Mind organize the playbook.",
+    icon: Brain,
+  },
+  {
+    title: "Capture",
+    description: "Save receipts, ideas, and quick notes the second they show up so nothing slips.",
+    icon: Camera,
+  },
+  {
+    title: "Schedule",
+    description: "Map chores and follow-ups onto your calendar rhythm with lightweight nudges.",
+    icon: CalendarCheck2,
+  },
+  {
+    title: "Budget",
+    description: "Plan months, cash, and goals—then watch live projections as you make edits.",
+    icon: BarChart3,
+  },
+  {
+    title: "Split bills",
+    description: "Track tabs with your crew and settle balances instantly without spreadsheets.",
     icon: Users,
   },
   {
-    title: "Plan next month",
-    description: "Spin up budgets, tag one-time spends, and project the month ahead.",
-    icon: Target,
-  },
-  {
-    title: "Queue discoveries",
-    description: "Drop links into Scratch Pad so you can read, watch, or listen when it fits your rhythm.",
+    title: "Journal",
+    description: "Close the conversation by writing the story beside the numbers for every shared win.",
     icon: NotebookPen,
   },
 ];
@@ -121,27 +151,27 @@ const FEATURE_CALLOUTS: Array<{
   icon: ComponentType<SVGProps<SVGSVGElement>>;
 }> = [
   {
-    title: "Multi-budget workspaces",
+    title: "Conversation context everywhere",
     description:
-      "Run parallel budgets for home, side projects, or trips—each with its own collaborators.",
-    icon: BarChart3,
+      "The AI Mind listens across budgets, expenses, journals, Flow plans, and Orbit saves so every reply already knows the backstory.",
+    icon: Brain,
   },
   {
-    title: "Predictive targets",
+    title: "Crew-ready workspaces",
     description:
-      "Automatically suggest next-month spend based on trends and tagged one-time expenses.",
-    icon: Target,
+      "Spin up focused spaces for family, trips, side hustles, or roommates and keep each conversation scoped to the right people.",
+    icon: Users,
   },
   {
-    title: "Private by default",
+    title: "Memory that answers back",
     description:
-      "Budgets and journals live behind your sign-in so personal plans stay personal.",
+      "Budgets, receipts, and journal entries stay versioned so you can ask for a recap and get the exact moment retold.",
     icon: ShieldCheck,
   },
   {
-    title: "Reminders you’ll love",
+    title: "Calendar-friendly nudges",
     description:
-      "Calendar-friendly nudges to close the month, add entries, or check on shared goals.",
+      "Scheduling hooks turn conversational intentions into gentle reminders that match the rhythm you already use.",
     icon: CalendarCheck2,
   },
 ];
@@ -153,19 +183,19 @@ const SOCIAL_PROOF: Array<{
 }> = [
   {
     quote:
-      "Toodl finally gave our roommates a way to track the boring bills and still capture the memories.",
+      "We talk through the week once, and Toodl Mind spins out Flow tasks while Orbit keeps the research.",
     name: "Priya N.",
     role: "Brooklyn house share",
   },
   {
     quote:
-      "We run one budget for our startup team, another for home. Switching between them feels effortless.",
+      "We run one budget for our startup team, another for home. One conversation updates both, so we never bounce between tools.",
     name: "Marcus L.",
     role: "Small business co-founder",
   },
   {
     quote:
-      "Seeing projected savings next to our debt payoff goal keeps us motivated every single month.",
+      "Splitting bills, logging journal wins, then asking Mind for a recap makes every month feel intentional.",
     name: "Harper & Lee",
     role: "Family CFOs",
   },
@@ -589,13 +619,13 @@ function LandingPage({
             <div className="space-y-8">
               <span className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 ring-1 ring-slate-100">
                 <Wand2 className="h-3.5 w-3.5 text-amber-500" />
-                Money, goals, and stories—together
+                AI-first ledger
               </span>
               <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
-                Give your money, memories, and crew one elegant home.
+                AI conversations that run your life&apos;s ledger.
               </h1>
               <p className="text-lg text-slate-600 lg:text-xl">
-                Split the dinner bill, plan next month&apos;s budget, and capture the win—all without hopping apps. Toodl keeps every shared moment and dollar in rhythm.
+                Tell Toodl&apos;s AI what just happened or what needs to move next. That one conversation ripples into Split for bills, Pulse for budgets, Story for journals, Flow for plans, and Orbit for saves—no more juggling apps to stay organized.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button
@@ -633,30 +663,47 @@ function LandingPage({
                 </button>
                 <span>It only takes a minute to invite teammates later.</span>
               </div>
+              <div className="rounded-3xl border border-slate-100 bg-white/80 p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
+                    The Toodl apps
+                  </p>
+                  <span className="text-[11px] font-medium uppercase tracking-[0.35em] text-emerald-500">
+                    Five live · AI-ready
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {PRODUCT_SPOTLIGHT.map((product) => (
+                    <div
+                      key={`hero-${product.name}`}
+                      className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white/70 p-3"
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-inner">
+                        <Image src={product.icon} alt={product.name} width={32} height={32} className="brand-logo" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{product.name}</p>
+                        <p className="text-xs text-slate-500">{product.tagline}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="relative">
               <div className="absolute -top-10 -right-6 h-64 w-64 rounded-full bg-emerald-200/30 blur-3xl" />
-              <div className="relative grid gap-4 rounded-3xl border border-slate-100 bg-white/80 p-6 shadow-2xl shadow-amber-200/40 backdrop-blur">
-                {PRODUCT_SPOTLIGHT.map((product) => (
-                  <div
-                    key={product.name}
-                    className="group relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-                  >
-                    <div className={`pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br ${product.accent}`} />
-                    <div className="relative flex items-start gap-4">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-inner">
-                        <Image src={product.icon} alt={product.name} width={38} height={38} className="brand-logo" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
-                          {product.tagline}
-                        </p>
-                        <h3 className="text-xl font-semibold text-slate-900">{product.name}</h3>
-                        <p className="text-sm text-slate-600">{product.description}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="relative overflow-hidden rounded-3xl border border-slate-100 bg-slate-900/95 px-6 py-8 text-white shadow-2xl shadow-sky-200/30">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-300/15 via-transparent to-sky-500/15" />
+                <div className="relative flex aspect-video w-full flex-col items-center justify-center gap-3 text-center">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-white/80">
+                    <Brain className="h-3.5 w-3.5" />
+                    AI ledger demo
+                  </span>
+                  <p className="text-xl font-semibold">Watch a chat become a plan</p>
+                  <p className="text-sm text-white/70">
+                    Drop your walkthrough or launch reel here to show how one spoken thought feeds the AI, then becomes budgets, Flow tasks, Orbit saves, and journal notes.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -666,25 +713,19 @@ function LandingPage({
       <section className="border-y border-slate-100 bg-white">
         <div className="mx-auto max-w-6xl px-6 py-20">
           <div className="space-y-4 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Three Studios · One Flow</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Four apps · One ledger</p>
             <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
-              Choose the tool you need today—jump to another tomorrow.
+              Every experience clicks into the same shared rhythm.
             </h2>
             <p className="mx-auto max-w-2xl text-base text-slate-600">
-              Each studio is powerful alone, but brilliantly connected. Dive into the experience that fits your moment.
+              Kick things off with a conversation, then drop into Split, Pulse, Story, Flow, or Orbit—soon the next app joins without new logins or context switching.
             </p>
           </div>
-          <div className="mt-12 grid gap-6 lg:grid-cols-3">
+          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:[grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
             {PRODUCT_SPOTLIGHT.map((product) => (
               <Link
                 key={product.name}
-                href={
-                  product.name === "Expense Splitter"
-                    ? "/"
-                    : product.name === "Budget Studio"
-                    ? "/budget"
-                    : "/journal"
-                }
+                href={product.href}
                 className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-slate-100 bg-slate-50/70 p-6 text-left shadow-sm transition hover:-translate-y-1.5 hover:border-slate-200 hover:shadow-xl"
               >
                 <div className={`pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br ${product.accent}`} />
@@ -711,16 +752,16 @@ function LandingPage({
         <div className="mx-auto max-w-6xl px-6 py-20">
           <div className="grid gap-10 md:grid-cols-[260px_1fr] md:items-start">
             <div className="space-y-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-300">How it feels</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-300">Conversation to completion</p>
               <h2 className="text-3xl font-bold text-white md:text-4xl">
-                A simple rhythm from split, to plan, to reflect.
+                One chat fans out into every action.
               </h2>
               <p className="text-sm text-slate-300">
-                Toodl keeps your crew in sync with a flow that mirrors real life. Follow the moments that repeat each month.
+                Speak the moment once. Toodl Mind captures it, schedules what matters, updates the budget, spins up Flow blocks, routes Orbit saves, splits the costs, and leaves a journal note behind. The cadence works for groceries, weddings, startups, or side quests.
               </p>
             </div>
             <div className="relative">
-              <div className="pointer-events-none absolute left-4 top-6 h-[calc(100%-3rem)] w-px bg-gradient-to-b from-emerald-400 via-emerald-300/20 to-transparent" />
+              <div className="pointer-events-none absolute left-4 top-8 bottom-8 w-px bg-gradient-to-b from-emerald-400 via-emerald-300/20 to-transparent" />
               <div className="space-y-8">
                 {WORKFLOW_STEPS.map((step, index) => {
                   const Icon = step.icon;
@@ -776,10 +817,10 @@ function LandingPage({
       <section className="border-y border-slate-100 bg-slate-50/60">
         <div className="mx-auto max-w-6xl px-6 py-20">
           <div className="space-y-4 text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">What else you get</p>
-            <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">Thoughtful details that make Toodl yours.</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Under the hood</p>
+            <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">Details that hold every Toodl app together.</h2>
             <p className="mx-auto max-w-2xl text-base text-slate-600">
-              Control every workspace, keep history safe, and stay on top of targets with just the nudges you need.
+              Shared identity, context-aware assistance, and reliable history mean each app feels specialized without living in its own silo.
             </p>
           </div>
           <div className="mt-12 grid gap-6 md:grid-cols-2">
@@ -808,10 +849,10 @@ function LandingPage({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.25),transparent_55%)]" />
         <div className="relative mx-auto max-w-6xl px-6 py-24 text-center text-white">
           <h2 className="text-3xl font-bold md:text-4xl">
-            Ready to turn money chores into a shared rhythm?
+            Ready to start the AI conversation that runs your ledger?
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-base text-slate-200">
-            Sign in with your favorite provider, invite your crew, and have your first budget or journal ready in minutes.
+            Say it once, let the AI Mind remember it, then split bills, plan budgets, capture journals, spin up Flow, and organize Orbit—all with a single sign-in.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button

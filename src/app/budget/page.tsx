@@ -4,9 +4,9 @@ import BudgetExperience from "@/components/budget/BudgetExperience";
 import { Spinner } from "@/components/ui/spinner";
 
 export const metadata = {
-  title: "Toodl Budget — Run the wizard & track your money",
+  title: "Toodl Pulse — Keep budgets breathing",
   description:
-    "Create a shared monthly budget, onboard your income and recurring bills, and track spending with the Toodl ledger.",
+    "Create a shared monthly budget, onboard your income and recurring bills, and let AI keep projections up to date.",
 };
 
 const BudgetPage = () => (

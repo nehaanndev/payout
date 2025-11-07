@@ -6,13 +6,13 @@ import ToodlMindLauncher from "@/components/mind/ToodlMindLauncher";
 
 // app/layout.tsx
 export const metadata = {
-  title: "Toodl: Expense Splitter – Split bills & settle debts easily",
+  title: "Toodl: AI-first ledger for Split, Pulse, Story, Flow, Orbit",
   description:
-    "Toodl makes it friction-free to share costs with friends: create groups, add expenses, and settle up with one click.",
+    "Start a conversation with Toodl AI and watch Split, Pulse, Story, Flow, and Orbit stay perfectly in sync across bills, budgets, journals, plans, and saves.",
   openGraph: {
-    title: "Toodl: Expense Splitter",
+    title: "Toodl: AI-first ledger",
     description:
-      "Create groups, track who owes what, and settle up seamlessly.",
+      "Tell the AI once—Split settles tabs, Pulse steers budgets, Story journals, Flow plans, and Orbit keeps every spark.",
     url: "https://toodl.co",
     images: ["https://toodl.co/og-image.png"],
     type: "website",
@@ -20,7 +20,7 @@ export const metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Toodl",
-    description: "Split bills & settle debts with friends.",
+    description: "AI conversations that update Split, Pulse, Story, Flow, and Orbit.",
     images: ["https://toodl.co/twitter-image.png"],
   },
   alternates: {

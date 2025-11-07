@@ -46,19 +46,19 @@ const PRODUCT_DESTINATIONS: Array<{
 }> = [
   {
     product: "expense",
-    label: "Expense Splitter",
+    label: "Split",
     href: "/",
     icon: "/brand/toodl-expense.svg",
   },
   {
     product: "budget",
-    label: "Budget Studio",
+    label: "Pulse",
     href: "/budget",
     icon: "/brand/toodl-budget.svg",
   },
   {
     product: "journal",
-    label: "Journal Studio",
+    label: "Story",
     href: "/journal",
     icon: "/brand/toodl-journal.svg",
   },
@@ -66,13 +66,13 @@ const PRODUCT_DESTINATIONS: Array<{
     product: "orbit",
     label: "Orbit",
     href: "/orbit",
-    icon: "/brand/toodl-mark.svg",
+    icon: "/brand/toodl-orbit.svg",
   },
   {
     product: "flow",
     label: "Flow",
     href: "/flow",
-    icon: "/brand/toodl-mark.svg",
+    icon: "/brand/toodl-flow.svg",
   },
 ];
 

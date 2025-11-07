@@ -2432,7 +2432,7 @@ const BudgetExperience = () => {
         <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-8">
           <AppTopBar
             product="budget"
-            subheading="Sign in to reopen Budget Studio or hop over to another Toodl space."
+            subheading="Sign in to reopen Pulse or hop over to another Toodl space."
             actions={
               <Button
                 className="bg-emerald-600 text-white hover:bg-emerald-500"
@@ -2455,7 +2455,7 @@ const BudgetExperience = () => {
                 Sign-in required
               </h1>
               <p className="text-sm leading-relaxed text-slate-600">
-                Budget Studio keeps your plans private to your account. Head to the landing page to sign in, then come back to manage your budgets.
+                Pulse keeps your plans private to your account. Head to the landing page to sign in, then come back to manage your budgets.
               </p>
               <Button
                 className="w-full bg-emerald-600 text-white hover:bg-emerald-500"

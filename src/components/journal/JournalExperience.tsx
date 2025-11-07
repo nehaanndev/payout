@@ -800,7 +800,7 @@ const JournalExperience = () => {
         <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-8">
           <AppTopBar
             product="journal"
-            subheading="Sign in to unlock Journal Studio or hop to another Toodl app."
+            subheading="Sign in to unlock Story or hop to another Toodl app."
             actions={
               <Button
                 className="bg-primary text-white hover:bg-payoutHover"
@@ -823,7 +823,7 @@ const JournalExperience = () => {
                 Sign-in required
               </h1>
               <p className="text-sm leading-relaxed text-slate-600">
-                The Toodl Journal is private to your account. Please sign in to
+                Toodl Story is private to your account. Please sign in to
                 continue, then come back to capture your stories.
               </p>
               <Button
@@ -916,7 +916,7 @@ const JournalExperience = () => {
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
         <header className="space-y-4 text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.35em] text-rose-400">
-            Toodl Journal Studio
+            Toodl Story
           </p>
           <h1 className="text-4xl font-black tracking-tight text-slate-900 md:text-5xl">
             Capture the story of your day like it deserves the front page.

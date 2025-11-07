@@ -4,9 +4,9 @@ import JournalExperience from "@/components/journal/JournalExperience";
 import { Spinner } from "@/components/ui/spinner";
 
 export const metadata = {
-  title: "Toodl Journal — Craft your daily story",
+  title: "Toodl Story — Journal beside your ledger",
   description:
-    "Capture meaningful reflections about work, family, growth, and everything in between with the colorful Toodl journal wizard.",
+    "Capture meaningful reflections about work, family, growth, and everything in between, then link them to budgets, flows, and splits.",
 };
 
 const JournalPage = () => (

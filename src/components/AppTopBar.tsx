@@ -7,33 +7,33 @@ import { cn } from "@/lib/utils";
 
 const PRODUCT_META = {
   expense: {
-    title: "Toodl Expense Splitter",
-    subtitle: "Invite friends, track what’s owed, and settle fast.",
+    title: "Toodl Split",
+    subtitle: "Invite friends, log what happened, and let AI settle tabs fast.",
     icon: "/brand/toodl-expense.svg",
     accent: "from-slate-900 via-slate-800 to-slate-900",
   },
   budget: {
-    title: "Toodl Budget Studio",
-    subtitle: "Plan spending, track categories, and stay on pace.",
+    title: "Toodl Pulse",
+    subtitle: "Keep budgets, cash, and goals in rhythm with live projections.",
     icon: "/brand/toodl-budget.svg",
     accent: "from-emerald-600 via-teal-600 to-emerald-600",
   },
   journal: {
-    title: "Toodl Journal",
-    subtitle: "Capture today’s stories and revisit them anytime.",
+    title: "Toodl Story",
+    subtitle: "Capture today’s stories beside the numbers and revisit anytime.",
     icon: "/brand/toodl-journal.svg",
     accent: "from-rose-500 via-amber-400 to-sky-500",
   },
   orbit: {
     title: "Toodl Orbit",
     subtitle: "Collect sparks of inspiration to revisit when it counts.",
-    icon: "/brand/toodl-mark.svg",
+    icon: "/brand/toodl-orbit.svg",
     accent: "from-indigo-500 via-violet-500 to-sky-500",
   },
   flow: {
     title: "Toodl Flow",
     subtitle: "Design your day, balance priorities, and stay on tempo.",
-    icon: "/brand/toodl-mark.svg",
+    icon: "/brand/toodl-flow.svg",
     accent: "from-emerald-500 via-teal-500 to-amber-400",
   },
 } as const;
