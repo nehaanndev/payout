@@ -1,0 +1,26 @@
+{"tokens":["add","$20","uber","to","the","birthday","crew"],"labels":["O","O","B_MERCHANT","O","O","B_GROUP","I_GROUP"]}
+{"tokens":["log","3200","rs","hotel","for","shimla","getaway"],"labels":["O","O","O","B_MERCHANT","O","B_GROUP","I_GROUP"]}
+{"tokens":["please","split","$18","coffee","run","for","roommates"],"labels":["O","O","O","B_MERCHANT","I_MERCHANT","O","B_GROUP"]}
+{"tokens":["record","85","cad","sushi","with","team","alpha"],"labels":["O","O","O","B_MERCHANT","O","B_GROUP","I_GROUP"]}
+{"tokens":["charge","parking","to","wedding","trip","group"],"labels":["O","B_NOTE","O","B_GROUP","I_GROUP","I_GROUP"]}
+{"tokens":["note","89","eur","museum","tickets","for","paris","crew"],"labels":["O","O","O","B_MERCHANT","I_MERCHANT","O","B_GROUP","I_GROUP"]}
+{"tokens":["please","add","dinner","paid","by","rachel","for","gokarna","friends"],"labels":["O","O","B_MERCHANT","O","O","B_PAYER","O","B_GROUP","I_GROUP"]}
+{"tokens":["log","groceries","split","between","anita","and","me"],"labels":["O","B_MERCHANT","O","O","B_PAYER","O","B_PAYER"]}
+{"tokens":["add","$45","note","cleaning","help","for","lake","house"],"labels":["O","O","B_NOTE","I_NOTE","I_NOTE","O","B_GROUP","I_GROUP"]}
+{"tokens":["track","$60","gift","from","mom","to","family","pool"],"labels":["O","O","B_MERCHANT","O","B_PAYER","O","B_GROUP","I_GROUP"]}
+{"tokens":["put","$25","snacks","on","kids","activities"],"labels":["O","O","B_MERCHANT","O","B_GROUP","I_GROUP"]}
+{"tokens":["add","gas","receipt","for","road","trip"],"labels":["O","B_MERCHANT","I_MERCHANT","O","B_GROUP","I_GROUP"]}
+{"tokens":["split","dinner","with","nina","and","mark","for","sunday","cookout"],"labels":["O","B_MERCHANT","O","B_PAYER","O","B_PAYER","O","B_GROUP","I_GROUP"]}
+{"tokens":["log","200","usd","stay","at","marriott","with","vegas","crew"],"labels":["O","O","O","B_MERCHANT","O","I_MERCHANT","O","B_GROUP","I_GROUP"]}
+{"tokens":["add","$15","coffee","that","alex","covered","for","study","group"],"labels":["O","O","B_MERCHANT","O","B_PAYER","O","O","B_GROUP","I_GROUP"]}
+{"tokens":["record","$70","tickets","for","boston","trip","paid","by","liam"],"labels":["O","O","B_MERCHANT","O","B_GROUP","I_GROUP","O","O","B_PAYER"]}
+{"tokens":["log","breakfast","with","sara","for","mentorship","circle"],"labels":["O","B_MERCHANT","O","B_PAYER","O","B_GROUP","I_GROUP"]}
+{"tokens":["add","boat","rental","to","summer","crew","covered","by","kevin"],"labels":["O","B_MERCHANT","I_MERCHANT","O","B_GROUP","I_GROUP","O","O","B_PAYER"]}
+{"tokens":["please","note","taxi","from","airport","to","lisbon","weekend"],"labels":["O","O","B_MERCHANT","O","B_MERCHANT","O","B_GROUP","I_GROUP"]}
+{"tokens":["add","note","from","jeff","for","gear","fund"],"labels":["O","B_NOTE","O","B_PAYER","O","B_GROUP","I_GROUP"]}
+{"tokens":["Add","$86","for","dinner","expenses","paid","by","Roy","Alex","in","group","Mithun","Saira","40"],"labels":["O","O","O","B_MERCHANT","I_MERCHANT","O","O","B_PAYER","I_PAYER","O","O","B_GROUP","I_GROUP","I_GROUP"]}
+{"tokens":["please","add","note","about","lost","receipt","from","maya","for","craft","club"],"labels":["O","O","B_NOTE","I_NOTE","I_NOTE","I_NOTE","O","B_PAYER","O","B_GROUP","I_GROUP"]}
+{"tokens":["log","$52","misc","expense","note","says","covered","by","anita","for","parent","fund"],"labels":["O","O","O","O","B_NOTE","I_NOTE","O","O","B_PAYER","O","B_GROUP","I_GROUP"]}
+{"tokens":["track","$18","coffee","from","coach","into","practice","crew"],"labels":["O","O","B_MERCHANT","I_MERCHANT","I_MERCHANT","O","B_GROUP","I_GROUP"]}
+{"tokens":["Add","$35","to","groceries","paid","by","Roy","in","group","Mithun"],"labels":["O","O","O","B_MERCHANT","O","O","B_PAYER","O","O","B_GROUP"]}
+{"tokens":["Add", "$415","for","lunch","expense","in","running","group"],"labels":["O","O","O","B_MERCHANT","I_MERCHANT","O","B_GROUP","O"]}

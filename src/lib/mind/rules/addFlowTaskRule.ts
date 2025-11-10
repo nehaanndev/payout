@@ -2,6 +2,7 @@ import {
   MindEditableMessage,
   MindExperienceSnapshot,
   MindIntent,
+  MindDebugTrace,
 } from "../types";
 
 type DeterministicPlan = {
@@ -9,6 +10,7 @@ type DeterministicPlan = {
   confidence: number;
   message: string;
   editableMessage?: MindEditableMessage;
+  debugTrace?: MindDebugTrace[];
 };
 
 type DurationMatch = {
@@ -73,6 +75,7 @@ const WEEKDAYS = [
   "saturday",
 ] as const;
 
+// Converts phrases to Title Case for consistent task titles.
 const titleCase = (value: string) =>
   value
     .split(/\s+/)
@@ -84,12 +87,15 @@ const titleCase = (value: string) =>
     )
     .join(" ");
 
+// Escapes regex metacharacters inside dynamic strings.
 const escapeRegExp = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// Collapses extra whitespace so parsing is easier.
 const normalizeWhitespace = (value: string) =>
   value.replace(/\s+/g, " ").trim();
 
+// Quick intent check to see if the utterance sounds like a task request.
 const matchesIntent = (utterance: string) => {
   const normalized = utterance.trim().toLowerCase();
   if (!normalized) {
@@ -114,6 +120,24 @@ const matchesIntent = (utterance: string) => {
   return false;
 };
 
+const inferCategory = (utterance: string): string | undefined => {
+  const normalized = utterance.toLowerCase();
+  if (/\byoga|workout|run|gym|exercise|meditation|stretch\b/.test(normalized)) {
+    return "wellness";
+  }
+  if (/\bcall|meeting|sync|standup|review|1:1|one on one\b/.test(normalized)) {
+    return "meeting";
+  }
+  if (/\bfocus|write|study|plan|deep work|deepwork|prep\b/.test(normalized)) {
+    return "focus";
+  }
+  if (/\bfamily|kids|school|homework\b/.test(normalized)) {
+    return "family";
+  }
+  return undefined;
+};
+
+// Converts <number><unit> text into total minutes.
 const parseMinutes = (value: string, unit: string) => {
   const numeric = Number.parseFloat(value);
   if (!Number.isFinite(numeric) || numeric <= 0) {
@@ -126,6 +150,7 @@ const parseMinutes = (value: string, unit: string) => {
   return Math.round(numeric);
 };
 
+// Searches the utterance for duration phrases and normalizes them.
 const extractDuration = (utterance: string): DurationMatch | null => {
   for (const regex of DURATION_REGEXPS) {
     regex.lastIndex = 0;
@@ -165,6 +190,7 @@ const extractDuration = (utterance: string): DurationMatch | null => {
   return null;
 };
 
+// Parses clock times into 24h minutes while tracking display text.
 const normalizeTimeValue = (
   hours: number,
   minutes: number,
@@ -198,6 +224,7 @@ const normalizeTimeValue = (
     .padStart(2, "0")}`;
 };
 
+// Pulls the first start-time hint out of the utterance, if any.
 const extractTime = (utterance: string): TimeMatch | null => {
   for (const regex of TIME_REGEXPS) {
     regex.lastIndex = 0;
@@ -239,6 +266,7 @@ const extractTime = (utterance: string): TimeMatch | null => {
   return null;
 };
 
+// Expands 2-digit years into the same century as the base date.
 const ensureFourDigitYear = (year: number) => {
   if (year < 100) {
     return 2000 + year;
@@ -246,11 +274,13 @@ const ensureFourDigitYear = (year: number) => {
   return year;
 };
 
+// Builds a YYYY-MM-DD string from date parts.
 const toIsoDate = (year: number, month: number, day: number) => {
   const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0, 0));
   return date.toISOString().slice(0, 10);
 };
 
+// Handles MM/DD(/YY) style inputs and returns normalized metadata.
 const parseSlashDate = (input: string, base: Date) => {
   const parts = input
     .split(/[/-]/)
@@ -300,6 +330,7 @@ const MONTH_LOOKUP: Record<string, number> = {
   december: 12,
 };
 
+// Parses strings like "March 5" or "Mar 05" into actual dates.
 const parseMonthDate = (input: string, base: Date) => {
   const match = input
     .trim()
@@ -321,6 +352,7 @@ const parseMonthDate = (input: string, base: Date) => {
   return toIsoDate(year, month, day);
 };
 
+// Calculates the next occurrence of a weekday mentioned in the utterance.
 const computeWeekdayDate = (
   prefix: string | undefined,
   weekday: string,
@@ -362,6 +394,7 @@ const computeWeekdayDate = (
   return result.toISOString().slice(0, 10);
 };
 
+// Attempts several strategies to infer the task date.
 const extractDate = (utterance: string): DateMatch | null => {
   const base = new Date();
 
@@ -433,6 +466,7 @@ const extractDate = (utterance: string): DateMatch | null => {
   return null;
 };
 
+// Removes already-processed substrings to keep the title clean.
 const removeSegments = (input: string, segments: string[]) => {
   let working = input;
   for (const segment of segments) {
@@ -446,6 +480,7 @@ const removeSegments = (input: string, segments: string[]) => {
   return normalizeWhitespace(working);
 };
 
+// Produces a concise Flow title once time/date/duration words are removed.
 const cleanTitle = (
   utterance: string,
   matches: Array<DurationMatch | TimeMatch | DateMatch | null>
@@ -482,6 +517,7 @@ const cleanTitle = (
   return working ? titleCase(working) : null;
 };
 
+// Formats a duration to display in the editable confirmation.
 const formatDurationDisplay = (minutes: number) => {
   const hours = Math.floor(minutes / 60);
   const remaining = minutes % 60;
@@ -513,21 +549,26 @@ function formatDateDisplay(value: string) {
   });
 }
 
+// Produces the editable confirmation payload for flow tasks.
 const buildEditableMessage = (
   title: string,
   dateDisplay: string,
   timeValue: string,
-  durationDisplay: string
+  durationDisplay: string,
+  durationMinutes: number,
+  scheduledFor?: string,
+  startsAt?: string,
+  category?: string | null
 ): MindEditableMessage => {
   const templateParts = ["Schedule {{title}}"];
   if (dateDisplay) {
-    templateParts.push("on {{date}}");
+    templateParts.push("on {{scheduledFor}}");
   }
   if (timeValue) {
-    templateParts.push("at {{time}}");
+    templateParts.push("at {{startsAt}}");
   }
   if (durationDisplay) {
-    templateParts.push("for {{duration}}");
+    templateParts.push("for {{durationMinutes}} minutes");
   }
   const template = `${templateParts.join(" ")}?`.replace(/\s{2,}/g, " ").trim();
 
@@ -541,27 +582,34 @@ const buildEditableMessage = (
         fieldType: "title",
       },
       {
-        key: "date",
-        label: "Date",
-        value: dateDisplay || "Today",
+        key: "durationMinutes",
+        label: "Duration (minutes)",
+        value: durationMinutes ? String(durationMinutes) : "",
+        fieldType: "duration",
+      },
+      {
+        key: "category",
+        label: "Category",
+        value: category ?? "",
+        fieldType: "category",
+      },
+      {
+        key: "scheduledFor",
+        label: "Scheduled for",
+        value: scheduledFor ?? dateDisplay ?? "",
         fieldType: "date",
       },
       {
-        key: "time",
+        key: "startsAt",
         label: "Start time",
-        value: timeValue || "Anytime",
+        value: startsAt ?? timeValue ?? "",
         fieldType: "time",
-      },
-      {
-        key: "duration",
-        label: "Duration",
-        value: durationDisplay,
-        fieldType: "duration",
       },
     ],
   };
 };
 
+// Deterministically parses an utterance into an add_flow_task intent.
 export const planDeterministicAddFlowTask = (
   utterance: string,
   _snapshot: MindExperienceSnapshot
@@ -587,6 +635,7 @@ export const planDeterministicAddFlowTask = (
   const durationMinutes = durationMatch?.minutes ?? 30;
   const scheduledFor = dateMatch?.value;
   const startsAt = timeMatch?.value;
+  const category = inferCategory(utterance);
   const dateDisplay = dateMatch?.display ?? "Today";
   const timeDisplay = startsAt ?? "Anytime";
   const durationDisplay = formatDurationDisplay(durationMinutes);
@@ -598,14 +647,36 @@ export const planDeterministicAddFlowTask = (
       durationMinutes,
       scheduledFor: scheduledFor ?? undefined,
       startsAt: startsAt ?? undefined,
+      category: category ?? undefined,
     },
   };
+
+  const debugTrace: MindDebugTrace[] = [
+    {
+      phase: "planner",
+      description: "planDeterministicAddFlowTask matched intent heuristics",
+      data: {
+        title,
+        durationMinutes,
+        scheduledFor,
+        startsAt,
+        category,
+        durationDetected: Boolean(durationMatch),
+        timeDetected: Boolean(timeMatch),
+        dateDetected: Boolean(dateMatch),
+      },
+    },
+  ];
 
   const editableMessage = buildEditableMessage(
     title,
     dateDisplay,
     timeDisplay,
-    durationDisplay
+    durationDisplay,
+    durationMinutes,
+    scheduledFor,
+    startsAt,
+    category ?? null
   );
 
   const details: string[] = [`"${title}"`];
@@ -638,5 +709,6 @@ export const planDeterministicAddFlowTask = (
     confidence: Number(boundedConfidence.toFixed(2)),
     message,
     editableMessage,
+    debugTrace,
   };
 };

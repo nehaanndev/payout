@@ -1,7 +1,9 @@
+import { classifyUtterance } from "./classifier/index";
 import { planDeterministicAddBudget } from "./rules/addBudgetRule";
 import { planDeterministicAddExpense } from "./rules/addExpenseRule";
 import { planDeterministicAddFlowTask } from "./rules/addFlowTaskRule";
 import {
+  MindDebugTrace,
   MindEditableMessage,
   MindExperienceSnapshot,
   MindIntent,
@@ -18,12 +20,14 @@ export type PlannerResult = {
   message: string;
   confidence?: number;
   editableMessage?: MindEditableMessage;
+  debugTrace?: MindDebugTrace[];
 };
 
 export interface MindPlanner {
   plan(input: PlannerInput): Promise<PlannerResult>;
 }
 
+// Looks for an explicit money amount inside the utterance text.
 const parseCurrencyAmount = (utterance: string): number | undefined => {
   const match =
     utterance.match(/([\d]+(?:[.,]\d{1,2})?)(?=\s?(?:usd|dollars|\$))/i) ??
@@ -36,9 +40,11 @@ const parseCurrencyAmount = (utterance: string): number | undefined => {
   return Number.isFinite(value) ? value : undefined;
 };
 
+// Converts an amount in major units into minor/cents when available.
 const toMinorUnits = (amount: number | undefined) =>
   typeof amount === "number" ? Math.round(amount * 100) : undefined;
 
+// Extracts a group name hint such as "for ski trip" from the utterance.
 const extractGroupName = (utterance: string) => {
   const forMatch = utterance.match(/for\s+(.+)/i);
   if (forMatch) {
@@ -51,6 +57,7 @@ const extractGroupName = (utterance: string) => {
   return undefined;
 };
 
+// Returns the merchant or note captured after an "at" qualifier.
 const extractMerchantOrNote = (utterance: string) => {
   const atMatch = utterance.match(/at\s+([a-zA-Z0-9\s']+)/i);
   if (atMatch) {
@@ -59,6 +66,7 @@ const extractMerchantOrNote = (utterance: string) => {
   return undefined;
 };
 
+// Finds duration-related hints and normalizes to minutes.
 const parseDurationMinutes = (utterance: string): number | undefined => {
   const minutesMatch = utterance.match(/(\d+)\s*(minutes|min)/i);
   if (minutesMatch) {
@@ -74,6 +82,7 @@ const parseDurationMinutes = (utterance: string): number | undefined => {
   return undefined;
 };
 
+// Safe fallback intent that explains current capabilities.
 const defaultSummarizeIntent: PlannerResult = {
   intent: {
     tool: "summarize_state",
@@ -82,35 +91,77 @@ const defaultSummarizeIntent: PlannerResult = {
   message:
     "I didn't understand that request. Right now, I can help with simple requests to add an expense to a budget or group, or add an item to your schedule. My capabilities will evolve over time.",
   confidence: 0.4,
+  debugTrace: [
+    {
+      phase: "planner",
+      description: "Fell back to summarize_state default",
+    },
+  ],
 };
 
+// Deterministic planner composed of handwritten rules.
 class RuleBasedMindPlanner implements MindPlanner {
+  // Evaluates the utterance against the rule set and returns an intent.
   async plan({ request, snapshot }: PlannerInput): Promise<PlannerResult> {
     const utterance = request.utterance ?? "";
     const normalized = utterance.toLowerCase();
 
-    const deterministicBudget = planDeterministicAddBudget(
-      utterance,
-      snapshot
-    );
-    if (deterministicBudget) {
-      return deterministicBudget;
+    const classifier = classifyUtterance(utterance);
+    const classifierTrace: MindDebugTrace = {
+      phase: "planner",
+      description: "Linear classifier routing result",
+      data: {
+        probCommand: Number(classifier.probCommand.toFixed(3)),
+        threshold: 0.6,
+        isCommand: classifier.isCommand,
+        topIntent: classifier.topIntent?.label,
+        topIntentProbability: classifier.topIntent
+          ? Number(classifier.topIntent.probability.toFixed(3))
+          : undefined,
+      },
+    };
+
+    const attachClassifierTrace = (result: PlannerResult): PlannerResult => ({
+      ...result,
+      debugTrace: [classifierTrace, ...(result.debugTrace ?? [])],
+    });
+
+    if (!classifier.isCommand) {
+      return attachClassifierTrace({
+        ...defaultSummarizeIntent,
+        message:
+          "That request didn't sound like something I can execute yet. I can add expenses, log budget entries, or schedule Flow tasks.",
+      });
     }
 
-    const deterministicExpense = planDeterministicAddExpense(
-      utterance,
-      snapshot
-    );
-    if (deterministicExpense) {
-      return deterministicExpense;
-    }
+    type DeterministicRule = {
+      tool: MindIntent["tool"];
+      run: (
+        utterance: string,
+        snapshot: MindExperienceSnapshot
+      ) => PlannerResult | null;
+    };
 
-    const deterministicFlow = planDeterministicAddFlowTask(
-      utterance,
-      snapshot
-    );
-    if (deterministicFlow) {
-      return deterministicFlow;
+    const deterministicRules: DeterministicRule[] = [
+      { tool: "add_budget_entry", run: planDeterministicAddBudget },
+      { tool: "add_expense", run: planDeterministicAddExpense },
+      { tool: "add_flow_task", run: planDeterministicAddFlowTask },
+    ];
+
+    const predictedTool = classifier.topIntent?.label as MindIntent["tool"] | undefined;
+    const orderedRules =
+      predictedTool && deterministicRules.some((rule) => rule.tool === predictedTool)
+        ? [
+            ...deterministicRules.filter((rule) => rule.tool === predictedTool),
+            ...deterministicRules.filter((rule) => rule.tool !== predictedTool),
+          ]
+        : deterministicRules;
+
+    for (const rule of orderedRules) {
+      const deterministicPlan = rule.run(utterance, snapshot);
+      if (deterministicPlan) {
+        return attachClassifierTrace(deterministicPlan);
+      }
     }
 
     const amountMajor = parseCurrencyAmount(utterance);
@@ -132,7 +183,18 @@ class RuleBasedMindPlanner implements MindPlanner {
       normalized.includes("spending");
 
     if (durationMinutes || mentionsSchedule) {
-      return {
+      const debugTrace: MindDebugTrace[] = [
+        {
+          phase: "planner",
+          description: "Heuristic matched Flow scheduling request",
+          data: {
+            durationMinutes,
+            mentionsSchedule,
+            utterance,
+          },
+        },
+      ];
+      return attachClassifierTrace({
         intent: {
           tool: "add_flow_task",
           input: {
@@ -145,27 +207,51 @@ class RuleBasedMindPlanner implements MindPlanner {
         },
         message: "Planning to add a Flow task based on your request.",
         confidence: 0.55,
-      };
+        debugTrace,
+      });
     }
 
     if (mentionsBudget) {
+      const debugTrace: MindDebugTrace[] = [
+        {
+          phase: "planner",
+          description: "Heuristic matched budget-related phrasing",
+          data: {
+            mentionsBudget,
+            amountMajor,
+            utterance,
+          },
+        },
+      ];
       const input = {
         amountMinor: toMinorUnits(amountMajor),
         merchant: merchant ?? null,
         note: utterance,
       };
-      return {
+      return attachClassifierTrace({
         intent: {
           tool: "add_budget_entry",
           input,
         },
         message: "Looks like a budget entry. I'll prep it for your budget.",
         confidence: 0.5,
-      };
+        debugTrace,
+      });
     }
 
     if (amountMajor) {
-      return {
+      const debugTrace: MindDebugTrace[] = [
+        {
+          phase: "planner",
+          description: "Heuristic matched expense entry",
+          data: {
+            amountMajor,
+            merchant,
+            utterance,
+          },
+        },
+      ];
+      return attachClassifierTrace({
         intent: {
           tool: "add_expense",
           input: {
@@ -179,10 +265,11 @@ class RuleBasedMindPlanner implements MindPlanner {
         message:
           "Interpreting this as a new expense for your groups. Ready when you are.",
         confidence: 0.45,
-      };
+        debugTrace,
+      });
     }
 
-    return defaultSummarizeIntent;
+    return attachClassifierTrace({ ...defaultSummarizeIntent });
   }
 }
 
@@ -193,8 +280,10 @@ type OpenAIPlan = {
   confidence?: number;
 };
 
+// Captures fenced ```json blocks so we can parse the tool selection.
 const JSON_BLOCK_REGEX = /```json([\s\S]*?)```/i;
 
+// Normalizes various fenced/unfenced formats down to raw JSON text.
 const extractJson = (content: string): string => {
   const trimmed = content.trim();
   const fenced = trimmed.match(JSON_BLOCK_REGEX);
@@ -207,6 +296,7 @@ const extractJson = (content: string): string => {
   return trimmed;
 };
 
+// Model used when the environment does not override OPENAI_MIND_MODEL.
 const defaultModel = "gpt-4o-mini";
 
 class OpenAIMindPlanner implements MindPlanner {
@@ -289,6 +379,7 @@ class OpenAIMindPlanner implements MindPlanner {
   }
 }
 
+// Produces a pruned snapshot so prompts remain small.
 const trimSnapshot = (snapshot: MindExperienceSnapshot) => ({
   expenses: {
     groups: snapshot.expenses.groups

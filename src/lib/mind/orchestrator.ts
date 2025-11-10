@@ -27,9 +27,11 @@ type OrchestratorOptions = {
 
 const planner = createMindPlanner();
 
+// Coordinates planning plus tool execution for Mind requests.
 export class ToodlMindOrchestrator {
   constructor(private readonly options: OrchestratorOptions = {}) {}
 
+  // Runs planning, confirms execution strategy, and returns a Mind response.
   async handle(request: MindRequest): Promise<MindResponse> {
     if (!request?.user || (!request.user.userId && !request.user.email)) {
       return {
@@ -60,6 +62,7 @@ export class ToodlMindOrchestrator {
         }
       : await planner.plan({ request, snapshot });
 
+    const debugTrace = plan.debugTrace;
     const shouldExecute =
       this.options.autoExecute ?? shouldAutoExecute(request);
 
@@ -69,6 +72,7 @@ export class ToodlMindOrchestrator {
         intent: plan.intent,
         message: plan.message,
         editableMessage: plan.editableMessage,
+        debug: debugTrace,
       };
     }
 
@@ -86,9 +90,11 @@ export class ToodlMindOrchestrator {
       snapshot: this.options.includeSnapshotInCompletedResponse
         ? snapshot
         : undefined,
+      debug: debugTrace,
     };
   }
 
+  // Dispatches a planned intent to the correct executor.
   private async executeIntent(
     intent: MindIntent,
     request: MindRequest,
@@ -125,6 +131,7 @@ type OrchestratorHints = {
   intentMessage?: string;
 };
 
+// Interprets context hints to decide whether we should auto-execute a plan.
 const shouldAutoExecute = (request: MindRequest): boolean => {
   const hints = (request.contextHints ?? {}) as OrchestratorHints;
   if (!hints || typeof hints !== "object") {
@@ -146,11 +153,13 @@ type ExpenseIntent = Extract<MindIntent, { tool: "add_expense" }>;
 type BudgetIntent = Extract<MindIntent, { tool: "add_budget_entry" }>;
 type FlowIntent = Extract<MindIntent, { tool: "add_flow_task" }>;
 
+// Records a cost in the appropriate expense group after resolving metadata.
 const executeAddExpense = async (
   intent: ExpenseIntent,
   request: MindRequest,
   snapshot: MindExperienceSnapshot
 ): Promise<MindToolExecution> => {
+  // Default skeleton for a mutation action.
   const action: MindToolExecution = {
     name: intent.tool,
     input: intent.input,
@@ -173,6 +182,10 @@ const executeAddExpense = async (
 
   const targetGroup = findBestGroup(groups, intent.input.groupName);
   if (!targetGroup) {
+    const suppliedGroup = intent.input.groupName?.trim();
+    const unknownGroupMessage = suppliedGroup
+      ? `I cannot recognize the group name "${suppliedGroup}".`
+      : "I cannot recognize the requested group name.";
     const available =
       groups.length > 0
         ? `Available groups: ${groups
@@ -180,8 +193,9 @@ const executeAddExpense = async (
             .filter(Boolean)
             .join(", ")}.`
         : "No groups were found for this account.";
-    action.error = "Unable to match a group for this expense.";
-    action.resultSummary = `No matching group found, expense skipped. ${available}`;
+    const combinedMessage = `${unknownGroupMessage} ${available}`.trim();
+    action.error = combinedMessage;
+    action.resultSummary = `${combinedMessage} Expense skipped.`;
     return action;
   }
 
@@ -255,6 +269,7 @@ const executeAddExpense = async (
   }
 };
 
+// Persists a ledger entry to the selected budget month.
 const executeAddBudgetEntry = async (
   intent: BudgetIntent,
   request: MindRequest,
@@ -266,8 +281,28 @@ const executeAddBudgetEntry = async (
     success: false,
   };
 
+  const budgetNames =
+    snapshot.budget.documents
+      ?.map((doc) => doc.title)
+      .filter((title): title is string => Boolean(title)) ?? [];
+  const requestedBudgetName = intent.input.requestedBudgetName
+    ? intent.input.requestedBudgetName.trim()
+    : undefined;
+  const budgetIdFromIntent = intent.input.budgetId ?? null;
+
+  if (!budgetIdFromIntent && requestedBudgetName) {
+    const available =
+      budgetNames.length > 0
+        ? `Available budgets: ${budgetNames.join(", ")}.`
+        : "No budgets were found for this account.";
+    const message = `I cannot recognize the budget name "${requestedBudgetName}". ${available}`;
+    action.error = message;
+    action.resultSummary = message;
+    return action;
+  }
+
   const budgetId =
-    intent.input.budgetId ?? snapshot.budget.activeBudgetId ?? null;
+    budgetIdFromIntent ?? snapshot.budget.activeBudgetId ?? null;
   if (!budgetId) {
     action.error = "No budget associated with this user.";
     action.resultSummary = "Budget entry not recorded.";
@@ -322,6 +357,7 @@ const executeAddBudgetEntry = async (
   }
 };
 
+// Creates a Flow task on the requested day, estimating slots when needed.
 const executeAddFlowTask = async (
   intent: FlowIntent,
   request: MindRequest,
@@ -399,6 +435,7 @@ const executeAddFlowTask = async (
   }
 };
 
+// Attempts to match a user-provided group name against the snapshot inventory.
 const findBestGroup = (
   groups: MindExperienceSnapshot["expenses"]["groups"],
   name?: string
@@ -418,6 +455,7 @@ const findBestGroup = (
   );
 };
 
+// Resolves which members participate in an expense, falling back when hints fail.
 const resolveParticipants = (
   members: Member[],
   requested?: string[]
@@ -434,6 +472,7 @@ const resolveParticipants = (
   return resolved.length ? resolved : members;
 };
 
+// Finds a specific member whose id/email/firstName matches the provided hint.
 const findMemberMatch = (
   members: Member[],
   candidate?: string | null
@@ -456,6 +495,7 @@ const findMemberMatch = (
   });
 };
 
+// Normalizes strings into Title Case for user-facing summaries.
 const titleCase = (value: string) =>
   value
     .split(/\s+/)
@@ -467,6 +507,7 @@ const titleCase = (value: string) =>
     )
     .join(" ");
 
+// Parses a human-entered amount string into a number if possible.
 const parseMajorFromString = (value?: string | null): number | undefined => {
   if (!value) {
     return undefined;
@@ -480,6 +521,7 @@ const parseMajorFromString = (value?: string | null): number | undefined => {
   return Number.isFinite(parsed) ? parsed : undefined;
 };
 
+// Simplifies budget names so we can perform string comparisons.
 const normalizeBudgetName = (value: string) =>
   value
     .toLowerCase()
@@ -502,6 +544,7 @@ const BUDGET_SYNONYM_MAP: Record<string, string> = {
   renovation: "home renovation",
 };
 
+// Scores two normalized strings to help with fuzzy matching.
 const matchScore = (a: string, b: string) => {
   if (!a || !b) {
     return 0;
@@ -518,6 +561,7 @@ const matchScore = (a: string, b: string) => {
   return 0;
 };
 
+// Selects the best budget document that matches a requested name or synonym.
 const matchBudgetDocument = (
   name: string,
   snapshot: MindExperienceSnapshot,
@@ -572,6 +616,7 @@ const matchBudgetDocument = (
   return scored?.doc ?? null;
 };
 
+// Splits a free-form description into category + merchant portions.
 const splitDescription = (description: string) => {
   const parts = description.split(/\sat\s/i);
   if (parts.length >= 2) {
@@ -589,6 +634,7 @@ const splitDescription = (description: string) => {
   };
 };
 
+// Applies user edits from a confirmation UI onto the intent before execution.
 const applyEditableOverrides = (
   intent: MindIntent,
   overrides: Record<string, string> | undefined,
@@ -611,6 +657,7 @@ const applyEditableOverrides = (
     }
 
     if (typeof overrides.budget === "string") {
+      const trimmedBudget = overrides.budget.trim();
       const synonym =
         BUDGET_SYNONYM_MAP[normalizeBudgetName(overrides.budget)] ??
         overrides.budget;
@@ -621,6 +668,12 @@ const applyEditableOverrides = (
       );
       if (matched?.id) {
         input.budgetId = matched.id;
+        input.requestedBudgetName = undefined;
+      } else if (trimmedBudget) {
+        delete input.budgetId;
+        input.requestedBudgetName = trimmedBudget;
+      } else {
+        delete input.requestedBudgetName;
       }
     }
 
@@ -642,6 +695,7 @@ const applyEditableOverrides = (
   return clonedIntent;
 };
 
+// Ensures we always operate on uppercase three-letter currency codes.
 const normalizeCurrency = (code?: string | null): string => {
   if (!code) {
     return "USD";
@@ -649,6 +703,7 @@ const normalizeCurrency = (code?: string | null): string => {
   return code.toString().trim().toUpperCase();
 };
 
+// Finds the correct number of decimal places for a currency.
 const fractionDigitsForCurrency = (currency: string): number => {
   const upper = normalizeCurrency(currency);
   if (upper in FRACTION_DIGITS) {
@@ -657,10 +712,12 @@ const fractionDigitsForCurrency = (currency: string): number => {
   return 2;
 };
 
+// Converts a minor-unit value back into major units for display/logging.
 const toMajorUnits = (amountMinor: number, digits: number): number => {
   return amountMinor / 10 ** digits;
 };
 
+// Safely parses date strings, falling back to "now" if invalid.
 const parseDateTime = (value: string): Date => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -669,6 +726,7 @@ const parseDateTime = (value: string): Date => {
   return parsed;
 };
 
+// Produces a YYYY-MM-DD string, tolerating loose inputs.
 const resolveDate = (value?: string | null): string => {
   if (!value) {
     return new Date().toISOString().slice(0, 10);
@@ -683,6 +741,7 @@ const resolveDate = (value?: string | null): string => {
   return parsed.toISOString().slice(0, 10);
 };
 
+// Converts relative terms ("today"/"tomorrow") into Flow date keys.
 const resolveFlowDateKey = (value?: string): string => {
   if (!value) {
     return new Date().toISOString().slice(0, 10);
@@ -708,6 +767,7 @@ const resolveFlowDateKey = (value?: string): string => {
 
 const FLOW_CATEGORIES = ["work", "family", "home", "wellness", "play", "growth"] as const;
 
+// Settles on a Flow category based on hints or keywords in the utterance.
 const resolveFlowCategory = (
   requested: string | undefined,
   fallbackUtterance: string
@@ -728,6 +788,7 @@ const resolveFlowCategory = (
   return "growth";
 };
 
+// Parses "7pm" or "19:30" style strings into minutes after midnight.
 const parseTimeTo24Hour = (value: string): number | null => {
   const match = value
     .trim()
@@ -757,6 +818,7 @@ const parseTimeTo24Hour = (value: string): number | null => {
   return hours * 60 + minutes;
 };
 
+// Converts minutes after midnight back to an HH:MM string (clamped to a day).
 const minutesToTimeString = (minutes: number): string | null => {
   if (!Number.isFinite(minutes)) {
     return null;
@@ -771,6 +833,7 @@ const minutesToTimeString = (minutes: number): string | null => {
   return `${hrs}:${mins}`;
 };
 
+// Provides a nicely formatted amount summary for result messages.
 const formatAmountForSummary = (
   amountMajor: number,
   currency: string,

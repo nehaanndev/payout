@@ -1,0 +1,36 @@
+{"text":"add an expense for $20 gas in the 40th birthday group","label":"command","intent":"add_expense"}
+{"text":"record 540 rs dinner to Goa trip on 10/21","label":"command","intent":"add_expense"}
+{"text":"split $18 coffee run to the birthday crew","label":"command","intent":"add_expense"}
+{"text":"log ₹3200 hotel for shimla getaway","label":"command","intent":"add_expense"}
+{"text":"please add $42.50 groceries in the roommates group","label":"command","intent":"add_expense"}
+{"text":"set budget 500 for groceries in November","label":"command","intent":"add_budget_entry"}
+{"text":"create a new budget entry for $275 utilities this month","label":"command","intent":"add_budget_entry"}
+{"text":"plan rent category at 1600 usd for january","label":"command","intent":"add_budget_entry"}
+{"text":"log 120 toward kids activities envelope","label":"command","intent":"add_budget_entry"}
+{"text":"update food budget to 400 for feb","label":"command","intent":"add_budget_entry"}
+{"text":"invite asha@x.com to Goa trip","label":"command","intent":"add_flow_task"}
+{"text":"block 45 minutes tomorrow for yoga","label":"command","intent":"add_flow_task"}
+{"text":"add clean the fridge to flow for friday","label":"command","intent":"add_flow_task"}
+{"text":"schedule dentist call for monday at 9","label":"command","intent":"add_flow_task"}
+{"text":"plan a two hour focus block this afternoon","label":"command","intent":"add_flow_task"}
+{"text":"what’s the weather today","label":"other"}
+{"text":"hi there","label":"other"}
+{"text":"thanks, that was helpful","label":"other"}
+{"text":"show me last month’s spending chart","label":"other"}
+{"text":"who made toodl","label":"other"}
+{"text":"tell me a joke","label":"other"}
+{"text":"remind me what toodl can do","label":"other"}
+{"text":"can you summarize my recent expenses","label":"other"}
+{"text":"i'm just browsing","label":"other"}
+{"text":"need a pep talk","label":"other"}
+{"text":"book club was fun","label":"other"}
+{"text":"charge $12 parking to wedding budget","label":"command","intent":"add_expense"}
+{"text":"note 89 eur museum tickets for paris trip","label":"command","intent":"add_expense"}
+{"text":"mark 65 cad sushi split with team alpha","label":"command","intent":"add_expense"}
+{"text":"budget coffee beans at 85 for march","label":"command","intent":"add_budget_entry"}
+{"text":"allocate 2500 rs to tuition this quarter","label":"command","intent":"add_budget_entry"}
+{"text":"please track 25 minute walk every morning this week","label":"command","intent":"add_flow_task"}
+{"text":"add plan grocery run saturday 4pm","label":"command","intent":"add_flow_task"}
+{"text":"set aside sunday evening for weekly review, ninety minutes","label":"command","intent":"add_flow_task"}
+{"text":"good night toodl","label":"other"}
+{"text":"i already paid that","label":"other"}

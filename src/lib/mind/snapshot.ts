@@ -34,9 +34,11 @@ import {
 
 type SnapshotHints = MindRequest["contextHints"];
 
+// Returns true when the provided value is an array composed entirely of strings.
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((entry) => typeof entry === "string");
 
+// Extracts group ids from the request hints, normalizing to an array.
 const pickGroupIdsFromHints = (hints: SnapshotHints): string[] => {
   if (!hints) {
     return [];
@@ -50,6 +52,7 @@ const pickGroupIdsFromHints = (hints: SnapshotHints): string[] => {
   return [];
 };
 
+// Determines which budget month (if any) was requested via hints.
 const pickBudgetMonthFromHints = (hints: SnapshotHints): string | undefined => {
   if (!hints) {
     return undefined;
@@ -63,6 +66,7 @@ const pickBudgetMonthFromHints = (hints: SnapshotHints): string | undefined => {
   return undefined;
 };
 
+// Pulls a specific budget id from hints if one was provided.
 const pickBudgetIdFromHints = (hints: SnapshotHints): string | undefined => {
   if (!hints) {
     return undefined;
@@ -73,6 +77,7 @@ const pickBudgetIdFromHints = (hints: SnapshotHints): string | undefined => {
   return undefined;
 };
 
+// Provides the number of fraction digits for special-case currencies.
 const currencyFractionDigits = (currency: string | null | undefined) => {
   const normalized = currency?.toUpperCase() ?? DEFAULT_CURRENCY;
   switch (normalized) {
@@ -86,11 +91,13 @@ const currencyFractionDigits = (currency: string | null | undefined) => {
   }
 };
 
+// Converts a major currency amount into its minor unit representation.
 const toMinor = (amountMajor: number, currency: string | null | undefined) => {
   const digits = currencyFractionDigits(currency);
   return Math.round(amountMajor * 10 ** digits);
 };
 
+// Builds the expense-group portion of the snapshot by loading memberships and balances.
 const computeExpenseGroups = async (
   identity: MindUserIdentity,
   hints: SnapshotHints
@@ -180,6 +187,7 @@ const computeExpenseGroups = async (
   return { groups: results };
 };
 
+// Lists lightweight budget documents that the user has access to.
 const fetchBudgetDocumentsForUser = async (
   userId?: string
 ): Promise<
@@ -218,6 +226,7 @@ const fetchBudgetDocumentsForUser = async (
   }
 };
 
+// Constructs the budget snapshot, falling back to basic metadata when data is missing.
 const computeBudgetSnapshot = async (
   identity: MindUserIdentity,
   hints: SnapshotHints
@@ -295,6 +304,7 @@ const computeBudgetSnapshot = async (
   }
 };
 
+// Reads a single Flow plan document for a given day.
 const fetchFlowPlanSnapshot = async (
   userId: string,
   dateKey: string
@@ -318,6 +328,7 @@ const fetchFlowPlanSnapshot = async (
   }
 };
 
+// Produces Flow state (today/tomorrow plus upcoming tasks) for the user.
 const computeFlowSnapshot = async (
   identity: MindUserIdentity,
   hints: SnapshotHints
@@ -352,12 +363,14 @@ const computeFlowSnapshot = async (
   };
 };
 
+// Utility to clone a date and advance it by N days.
 const addDays = (date: Date, days: number) => {
   const copy = new Date(date);
   copy.setDate(copy.getDate() + days);
   return copy;
 };
 
+// Formats a Date into YYYY-MM-DD so it matches stored Flow documents.
 const dateKeyFromDate = (date: Date) => {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -365,6 +378,7 @@ const dateKeyFromDate = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+// Retrieves a lightweight list of the user's recently shared links.
 const computeShareSnapshot = async (identity: MindUserIdentity) => {
   if (!identity.userId) {
     return {
@@ -380,6 +394,7 @@ const computeShareSnapshot = async (identity: MindUserIdentity) => {
   }
 };
 
+// Builds the complete Mind snapshot that powers planning and tool execution.
 export const buildMindSnapshot = async ({
   user,
   contextHints,

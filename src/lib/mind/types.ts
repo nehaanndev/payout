@@ -10,6 +10,12 @@ export type MindUserIdentity = {
   timezone?: string | null;
 };
 
+export type MindDebugTrace = {
+  phase: "planner" | "group_resolution" | "budget_resolution" | "flow_resolution";
+  description: string;
+  data?: Record<string, unknown>;
+};
+
 export type MindExperienceSnapshot = {
   expenses: {
     groups: Array<{
@@ -72,6 +78,7 @@ export type MindIntent =
       tool: "add_budget_entry";
       input: {
         budgetId?: string;
+        requestedBudgetName?: string;
         category?: string;
         amountMinor?: number;
         merchant?: string | null;
@@ -128,6 +135,7 @@ export type MindResponse =
       intent: MindIntent;
       message: string;
       editableMessage?: MindEditableMessage;
+      debug?: MindDebugTrace[];
     }
   | {
       status: "executed";
@@ -135,8 +143,10 @@ export type MindResponse =
       actions: MindToolExecution[];
       snapshot?: MindExperienceSnapshot;
       editableMessage?: MindEditableMessage;
+      debug?: MindDebugTrace[];
     }
   | {
       status: "failed";
       error: string;
+      debug?: MindDebugTrace[];
     };

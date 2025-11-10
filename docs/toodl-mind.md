@@ -52,6 +52,26 @@ Each tool should update the snapshot (or request a refresh) before replying so t
 - Add explicit tool schemas in the OpenAI payload once the execution layer is ready, enabling reliable function-calling instead of free-form JSON.
 - Layer in guardrails such as confidence thresholds; if the planner is unsure, keep `autoExecute` off and ask the user for clarification.
 
+## Linear classifier workflow
+
+Parsing now routes through a small TF-IDF + logistic regression classifier before heuristics run. This keeps chit-chat out of the deterministic rules and nudges them toward the most likely intent.
+
+1. Labeled data lives in `data/mind_classifier/data.jsonl` (`text`, `label`, and optional `intent` that should match `MindIntent['tool']`). Add as many synthetic variations as you like.
+2. Train (and regenerate JSON weights) with `python3 scripts/mind_classifier/train_classifier.py`. Install requirements once via `python3 -m pip install scikit-learn pandas joblib`.
+3. The script emits joblib artifacts plus manual JSON to `src/lib/mind/classifier/models/`. Those JSON files are imported directly by the browser inference helper in `src/lib/mind/classifier/index.ts`.
+4. `RuleBasedMindPlanner` consumes `classifyUtterance()` to (a) short-circuit non-commands and (b) prioritize the matching heuristic. Debug traces show the probability and predicted intent so we can inspect routing decisions.
+
+When the training data changes, rerun the script and commit the regenerated JSON so the client bundle stays in sync.
+
+### Token slot classifier
+
+Expense parsing now also runs a token-level classifier to pull structured spans (group names, merchants/notes, payer hints) directly from the utterance.
+
+1. Examples live in `data/mind_classifier/token_examples.jsonl` with parallel `tokens`/`labels` arrays. Labels follow a light BIO scheme: `B_GROUP`, `I_GROUP`, `B_MERCHANT`, `B_PAYER`, `B_NOTE`, etc. Add more sequences to teach the model new phrasings.
+2. Train with `python3 scripts/mind_classifier/train_token_classifier.py`. This fits a multinomial logistic regression over hand-crafted token features and exports `token_manual.json`.
+3. At runtime, `src/lib/mind/classifier/tokenClassifier.ts` rebuilds the DictVectorizer features, does the softmax, and merges contiguous spans. `planDeterministicAddExpense` consumes these slots before running its fuzzy matching so regexes are no longer the sole source of truth for `groupName`, `paidByHint`, or descriptive text.
+4. The extracted tokens (and their probabilities) are appended to the planner debug trace, so you can inspect how span predictions influence downstream matching.
+
 ## Testing ideas
 
 - Mock the `/api/mind/ask` route with Vercel’s test client or `supertest` to ensure identity validation, error handling, and planner fallbacks behave.

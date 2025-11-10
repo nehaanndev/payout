@@ -12,8 +12,15 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { MindEditableMessageField } from "@/lib/mind/types";
+import {
+  MindDebugTrace,
+  MindEditableMessageField,
+  MindIntent,
+  MindRequest,
+  MindResponse,
+} from "@/lib/mind/types";
 import { useToodlMind } from "./ToodlMindProvider";
 
 const responseLabel = (status: string) => {
@@ -46,6 +53,7 @@ export default function ToodlMindLauncher() {
   const [editableTemplate, setEditableTemplate] = useState<string | null>(null);
   const [editableValues, setEditableValues] =
     useState<Record<string, string> | null>(null);
+  const [debugEnabled, setDebugEnabled] = useState(false);
 
   const applyTemplate = useMemo(
     () => (template: string, values: Record<string, string>) =>
@@ -196,6 +204,31 @@ export default function ToodlMindLauncher() {
     });
   }, [history]);
 
+  const debugEntries = useMemo(() => {
+    return history
+      .slice(-3)
+      .map((turn) => {
+        const response = turn.response;
+        const intent =
+          response && response.status === "needs_confirmation"
+            ? response.intent
+            : undefined;
+        const status = response?.status ?? (turn.error ? "failed" : "pending");
+        return {
+          id: turn.id,
+          utterance: turn.request.utterance,
+          contextHints: turn.request.contextHints,
+          status,
+          error: turn.error ?? response?.error,
+          intent,
+          response,
+          createdAt: turn.createdAt,
+          debugTrace: response?.debug ?? [],
+        };
+      })
+      .reverse();
+  }, [history]);
+
   const showConfirmControls =
     lastResponse?.status === "needs_confirmation" && !pending;
 
@@ -230,6 +263,28 @@ export default function ToodlMindLauncher() {
 
           <div className="flex-1 overflow-y-auto px-6">
             <div className="flex flex-col space-y-4 pb-6">
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-indigo-900">
+                      Parser debug
+                    </p>
+                    <p className="text-xs text-indigo-700/70">
+                      Toggle to inspect how Toodl Mind extracted intent details.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={debugEnabled}
+                    onCheckedChange={setDebugEnabled}
+                    aria-label="Toggle parser debug"
+                  />
+                </div>
+                {debugEnabled ? (
+                  <div className="mt-4">
+                    <MindDebugPanel entries={debugEntries} />
+                  </div>
+                ) : null}
+              </div>
               {messages.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-muted p-4 text-sm text-muted-foreground">
                   Share what you need, like “Add $30 groceries at Safeway to Home
@@ -503,3 +558,313 @@ const InlineEditableToken = ({
     />
   </span>
 );
+
+type MindDebugEntry = {
+  id: string;
+  utterance: string;
+  contextHints?: MindRequest["contextHints"];
+  status: string;
+  error?: string;
+  intent?: MindIntent;
+  response?: MindResponse | null;
+  createdAt: number;
+  debugTrace: MindDebugTrace[];
+};
+
+const MindDebugPanel = ({ entries }: { entries: MindDebugEntry[] }) => {
+  if (!entries.length) {
+    return (
+      <div className="rounded-lg border border-dashed border-indigo-200 bg-white/70 p-4 text-xs text-indigo-900/70">
+        No parser insights yet. Enter a request to see how intents are derived.
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      {entries.map((entry) => (
+        <div
+          key={entry.id}
+          className="rounded-lg border border-white/60 bg-white/90 p-4 shadow-sm"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-indigo-900">
+                {entry.utterance}
+              </p>
+              <p className="text-xs text-indigo-500">
+                Status: {entry.status}
+                {entry.error ? ` · ${entry.error}` : ""}
+              </p>
+            </div>
+            <span className="rounded-full bg-indigo-100 px-3 py-0.5 text-xs font-semibold uppercase tracking-wide text-indigo-700">
+              {entry.intent?.tool ?? "pending"}
+            </span>
+          </div>
+          <div className="mt-3">
+            <IntentDebugDetails intent={entry.intent} />
+          </div>
+          {entry.debugTrace.length ? (
+            <div className="mt-3">
+              <DebugTraceList traces={entry.debugTrace} />
+            </div>
+          ) : null}
+          {entry.contextHints ? (
+            <div className="mt-3 rounded-md bg-slate-950/5 p-2">
+              <p className="text-xs font-medium text-indigo-700">contextHints</p>
+              <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words text-[11px] text-slate-700">
+                {JSON.stringify(entry.contextHints, null, 2)}
+              </pre>
+            </div>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const IntentDebugDetails = ({ intent }: { intent?: MindIntent }) => {
+  if (!intent) {
+    return (
+      <p className="text-xs text-indigo-700/70">
+        Waiting for planner output. Once an intent is produced, its extracted
+        fields will appear here.
+      </p>
+    );
+  }
+  switch (intent.tool) {
+    case "add_expense":
+      return <ExpenseIntentDebug input={intent.input} />;
+    case "add_budget_entry":
+      return <BudgetIntentDebug input={intent.input} />;
+    case "add_flow_task":
+      return <FlowIntentDebug input={intent.input} />;
+    case "summarize_state":
+    default:
+      return (
+        <p className="text-xs text-indigo-700/80">
+          Summary request · focus:{" "}
+          {(intent.input as { focus?: string })?.focus ?? "overview"}
+        </p>
+      );
+  }
+};
+
+const DebugTraceList = ({ traces }: { traces: MindDebugTrace[] }) => (
+  <div className="space-y-2">
+    {traces.map((trace, index) => (
+      <div
+        key={`${trace.phase}-${index}`}
+        className="rounded-md border border-indigo-100 bg-indigo-50/80 p-2"
+      >
+        <p className="text-xs font-semibold text-indigo-800">
+          {trace.description}
+        </p>
+        <TraceDataView trace={trace} />
+      </div>
+    ))}
+  </div>
+);
+
+const TraceDataView = ({ trace }: { trace: MindDebugTrace }) => {
+  if (!trace.data) {
+    return (
+      <p className="text-[11px] text-indigo-700/80">
+        No structured data captured for this step.
+      </p>
+    );
+  }
+  if (trace.phase === "group_resolution") {
+    return <GroupResolutionTrace data={trace.data} />;
+  }
+  return (
+    <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words text-[11px] text-indigo-900">
+      {JSON.stringify(trace.data, null, 2)}
+    </pre>
+  );
+};
+
+const ExpenseIntentDebug = ({
+  input,
+}: {
+  input: MindIntent & { tool: "add_expense" }["input"];
+}) => {
+  const steps = [
+    {
+      label: "Amount detected",
+      value: formatMinorAmount(input.amountMinor, input.currency),
+    },
+    {
+      label: "Group matched",
+      value: input.groupName ?? "Not recognized",
+    },
+    {
+      label: "Description / category",
+      value: input.description ?? "Not inferred",
+    },
+    {
+      label: "Occurred at",
+      value: input.occurredAt ?? "Defaults to now",
+    },
+  ];
+  return <DebugStepList steps={steps} />;
+};
+
+const BudgetIntentDebug = ({
+  input,
+}: {
+  input: MindIntent & { tool: "add_budget_entry" }["input"];
+}) => {
+  const steps = [
+    {
+      label: "Amount detected",
+      value: formatMinorAmount(input.amountMinor, undefined),
+    },
+    {
+      label: "Budget target",
+      value: input.budgetId ?? input.requestedBudgetName ?? "Not recognized",
+    },
+    {
+      label: "Merchant",
+      value: input.merchant ?? "Not supplied",
+    },
+    {
+      label: "Note",
+      value: input.note ?? "None",
+    },
+  ];
+  return <DebugStepList steps={steps} />;
+};
+
+const FlowIntentDebug = ({
+  input,
+}: {
+  input: MindIntent & { tool: "add_flow_task" }["input"];
+}) => {
+  const steps = [
+    {
+      label: "Title",
+      value: input.title ?? "Not inferred",
+    },
+    {
+      label: "Duration",
+      value: input.durationMinutes
+        ? `${input.durationMinutes} minutes`
+        : "Default 30 minutes",
+    },
+    {
+      label: "Scheduled for",
+      value: input.scheduledFor ?? "today",
+    },
+    {
+      label: "Category",
+      value: input.category ?? "auto",
+    },
+  ];
+  return <DebugStepList steps={steps} />;
+};
+
+const DebugStepList = ({ steps }: { steps: { label: string; value: string }[] }) => (
+  <dl className="grid gap-1 text-xs text-indigo-900">
+    {steps.map((step) => (
+      <div key={step.label} className="flex items-center justify-between gap-4 rounded-md bg-indigo-100/60 px-2 py-1">
+        <dt className="font-medium text-indigo-600">{step.label}</dt>
+        <dd className="text-right text-indigo-900">{step.value}</dd>
+      </div>
+    ))}
+  </dl>
+);
+
+const formatMinorAmount = (amountMinor?: number, currency?: string | null) => {
+  if (typeof amountMinor !== "number") {
+    return "Not detected";
+  }
+  const code = (currency ?? "USD").toUpperCase();
+  return `${(amountMinor / 100).toFixed(2)} ${code}`;
+};
+
+const GroupResolutionTrace = ({ data }: { data: Record<string, unknown> }) => {
+  const regexCandidates = Array.isArray(data.regexCandidates)
+    ? (data.regexCandidates as string[])
+    : [];
+  const comparisons = Array.isArray(data.comparisons)
+    ? (data.comparisons as Array<Record<string, unknown>>)
+    : [];
+  return (
+    <div className="mt-2 space-y-2 rounded-md bg-white/80 p-2">
+      <p className="text-[11px] text-indigo-900">
+        utterance: <span className="font-semibold">{data.utterance as string}</span>
+      </p>
+      <p className="text-[11px] text-indigo-900">
+        normalized:{" "}
+        <span className="font-semibold">
+          {data.normalizedUtterance as string}
+        </span>
+      </p>
+      {regexCandidates.length ? (
+        <div>
+          <p className="text-[11px] font-semibold text-indigo-700">
+            regex candidates
+          </p>
+          <ul className="list-disc pl-4 text-[11px] text-indigo-900">
+            {regexCandidates.map((candidate) => (
+              <li key={candidate}>{candidate}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <dl className="grid gap-1 text-[11px] text-indigo-900">
+        <div className="flex items-center justify-between gap-2">
+          <dt className="text-indigo-700">trimmed</dt>
+          <dd>{(data.trimmedCandidate as string) ?? "—"}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <dt className="text-indigo-700">normalized candidate</dt>
+          <dd>{(data.normalizedCandidate as string) ?? "—"}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <dt className="text-indigo-700">match type</dt>
+          <dd>{(data.matchType as string) ?? "—"}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <dt className="text-indigo-700">matched group</dt>
+          <dd>{(data.matchedGroupName as string) ?? "None"}</dd>
+        </div>
+      </dl>
+      {comparisons.length ? (
+        <div>
+          <p className="text-[11px] font-semibold text-indigo-700">
+            fuzzy comparisons
+          </p>
+          <div className="max-h-32 overflow-auto rounded-md border border-indigo-100">
+            <table className="w-full text-[11px]">
+              <thead className="bg-indigo-100 text-left text-indigo-700">
+                <tr>
+                  <th className="px-2 py-1">Group</th>
+                  <th className="px-2 py-1">Normalized</th>
+                  <th className="px-2 py-1 text-right">Distance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparisons.map((comparison, index) => (
+                  <tr key={`${comparison.groupId ?? index}`}>
+                    <td className="px-2 py-1">
+                      {(comparison.groupName as string) ?? "—"}
+                    </td>
+                    <td className="px-2 py-1">
+                      {(comparison.normalized as string) ?? "—"}
+                    </td>
+                    <td className="px-2 py-1 text-right">
+                      {typeof comparison.distance === "number"
+                        ? comparison.distance
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+};
