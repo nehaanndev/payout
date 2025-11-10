@@ -2,6 +2,7 @@ import {
   MindEditableMessage,
   MindExperienceSnapshot,
   MindIntent,
+  MindDebugTrace,
 } from "../types";
 
 type AmountParse = {
@@ -20,6 +21,7 @@ type DeterministicPlan = {
   confidence: number;
   message: string;
   editableMessage?: MindEditableMessage;
+  debugTrace?: MindDebugTrace[];
 };
 
 const ADD_BUDGET_PREFIX =
@@ -68,6 +70,11 @@ const WORD_TO_CURRENCY: Record<string, string> = {
   brl: "BRL",
   mxn: "MXN",
 };
+
+const ON_DATE_REGEX =
+  /\bon\s+((?:\d{4}-\d{2}-\d{2})|(?:\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?)|today|tomorrow|yesterday|tonight|last\s+\w+|next\s+\w+)/i;
+const RELATIVE_DATE_REGEX =
+  /\b(today|tomorrow|yesterday|tonight|last\s+\w+|next\s+\w+)\b/i;
 
 const CATEGORY_STOPWORDS = new Set([
   "the",
@@ -181,6 +188,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   JPY: "¥",
 };
 
+// Simple title-case helper for user-facing labels.
 const titleCase = (value: string) =>
   value
     .split(/\s+/)
@@ -192,6 +200,7 @@ const titleCase = (value: string) =>
     )
     .join(" ");
 
+// Maps currency words/symbols into ISO codes when possible.
 const normalizeCurrencyWord = (code?: string | null) => {
   if (!code) {
     return undefined;
@@ -200,6 +209,7 @@ const normalizeCurrencyWord = (code?: string | null) => {
   return WORD_TO_CURRENCY[normalized] ?? undefined;
 };
 
+// Cleans up a numeric string so it can be parsed into a float.
 const normalizeNumberString = (input: string) => {
   if (!input) {
     return undefined;
@@ -211,6 +221,7 @@ const normalizeNumberString = (input: string) => {
   return Number.isFinite(value) ? value : undefined;
 };
 
+// Scans the utterance for monetary values and returns the strongest candidate.
 const extractAmount = (utterance: string): AmountParse | null => {
   MONEY_REGEX.lastIndex = 0;
   const candidates: AmountParse[] = [];
@@ -266,6 +277,7 @@ const extractAmount = (utterance: string): AmountParse | null => {
   return candidates[0];
 };
 
+// Standardizes category names by stripping stop-words and applying synonyms.
 const normalizeCategory = (raw?: string | null) => {
   if (!raw) {
     return undefined;
@@ -292,6 +304,7 @@ const normalizeCategory = (raw?: string | null) => {
   return tokens.join(" ");
 };
 
+// Tries to infer a category either from explicit phrasing or words near the amount.
 const extractCategory = (utterance: string, amountParse: AmountParse | null) => {
   CATEGORY_REGEX.lastIndex = 0;
   let match: RegExpExecArray | null = null;
@@ -325,6 +338,7 @@ const extractCategory = (utterance: string, amountParse: AmountParse | null) => 
   return normalizeCategory(candidate);
 };
 
+// Pulls out the merchant that follows an "at" phrase if present.
 const extractMerchant = (utterance: string) => {
   const match = utterance.match(MERCHANT_REGEX);
   if (!match?.groups?.merchant) {
@@ -337,6 +351,7 @@ const extractMerchant = (utterance: string) => {
   return titleCase(cleaned);
 };
 
+// Normalizes user-entered budget names for easier comparison.
 const normalizeBudgetCandidate = (value: string) =>
   value
     .toLowerCase()
@@ -345,6 +360,7 @@ const normalizeBudgetCandidate = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+// Reduces plural tokens so "trips" and "trip" match.
 const singularizeToken = (token: string) => {
   if (token.endsWith("ies")) {
     return token.slice(0, -3) + "y";
@@ -355,6 +371,7 @@ const singularizeToken = (token: string) => {
   return token;
 };
 
+// Applies singularization across an entire phrase.
 const singularizePhrase = (value: string) =>
   value
     .split(" ")
@@ -362,6 +379,7 @@ const singularizePhrase = (value: string) =>
     .map(singularizeToken)
     .join(" ");
 
+// Trims connectors and filler from a raw budget mention.
 const cleanBudgetCandidate = (value: string) => {
   let working = value.trim().replace(/^(?:the\s+)/i, "");
   const trailing = working.match(
@@ -374,6 +392,7 @@ const cleanBudgetCandidate = (value: string) => {
   return working;
 };
 
+// Scores how closely a document matches the normalized budget candidate.
 const computeBudgetSimilarity = (
   doc: { normalized: string; singular: string },
   normalized: string,
@@ -395,6 +414,7 @@ const computeBudgetSimilarity = (
   return score;
 };
 
+// Resolves which budget document (if any) the utterance refers to.
 const resolveBudget = (
   utterance: string,
   snapshot: MindExperienceSnapshot
@@ -520,6 +540,7 @@ const resolveBudget = (
   };
 };
 
+// Formats the amount for use inside editable confirmation prompts.
 const formatAmountDisplay = (
   amountMajor: number,
   currency?: string,
@@ -534,6 +555,7 @@ const formatAmountDisplay = (
   return `${symbol}${formatted}`.trim();
 };
 
+// Determines whether the utterance smells like a budget request at all.
 const matchesIntent = (utterance: string) => {
   const normalized = utterance.trim().toLowerCase();
   if (!normalized) {
@@ -554,6 +576,7 @@ const matchesIntent = (utterance: string) => {
   return false;
 };
 
+// Generates a short human-readable summary for the ledger entry.
 const buildDescription = (
   category: string | undefined,
   merchant: string | undefined
@@ -570,6 +593,19 @@ const buildDescription = (
   return "This entry";
 };
 
+const extractBudgetDate = (utterance: string): string | null => {
+  const onMatch = utterance.match(ON_DATE_REGEX);
+  if (onMatch?.[1]) {
+    return onMatch[1].trim();
+  }
+  const relativeMatch = utterance.match(RELATIVE_DATE_REGEX);
+  if (relativeMatch?.[1]) {
+    return relativeMatch[1].trim();
+  }
+  return null;
+};
+
+// Parses the utterance deterministically to build an add-budget-entry intent.
 export const planDeterministicAddBudget = (
   utterance: string,
   snapshot: MindExperienceSnapshot
@@ -589,11 +625,41 @@ export const planDeterministicAddBudget = (
     return null;
   }
 
+  const debugTrace: MindDebugTrace[] = [
+    {
+      phase: "planner",
+      description: "planDeterministicAddBudget matched intent heuristics",
+      data: {
+        amountMajor: amount.major,
+        amountMinor: amount.minor,
+        currency: amount.currency,
+      },
+    },
+  ];
+
+  const budgetNames = (snapshot.budget.documents ?? [])
+    .map((doc) => doc.title)
+    .filter((title): title is string => Boolean(title));
   const category = extractCategory(utterance, amount);
   const merchant = extractMerchant(utterance);
   const budget = resolveBudget(utterance, snapshot);
+  const requestedBudgetName =
+    budget.source && !budget.matchedExisting ? budget.source : undefined;
+
+  debugTrace.push({
+    phase: "planner",
+    description: "Budget resolution details",
+    data: {
+      requestedBudgetName,
+      resolvedBudgetId: budget.id,
+      matchedExisting: budget.matchedExisting,
+      source: budget.source,
+    },
+  });
 
   const description = buildDescription(category, merchant);
+  const categoryDisplay = category ? titleCase(category) : "";
+  const occurredOn = extractBudgetDate(utterance);
   const budgetTitle = budget.title ?? "Home Budget";
   const amountDisplay = formatAmountDisplay(
     amount.major,
@@ -617,11 +683,12 @@ export const planDeterministicAddBudget = (
   const intent: MindIntent = {
     tool: "add_budget_entry",
     input: {
-      budgetId: budget.id ?? snapshot.budget.activeBudgetId ?? undefined,
+      budgetId: budget.id ?? undefined,
+      requestedBudgetName,
       amountMinor,
       merchant: merchant ?? null,
       note: description,
-      occurredOn: null,
+      occurredOn,
     },
   };
 
@@ -648,8 +715,34 @@ export const planDeterministicAddBudget = (
         value: description,
         fieldType: "description",
       },
+      {
+        key: "category",
+        label: "Category",
+        value: categoryDisplay,
+        fieldType: "category",
+      },
+      {
+        key: "occurredOn",
+        label: "Date",
+        value: occurredOn ?? "",
+        fieldType: "date",
+      },
     ],
   };
+
+  if (requestedBudgetName) {
+    const available =
+      budgetNames.length > 0
+        ? `Available budgets: ${budgetNames.join(", ")}.`
+        : "You don't have any budgets yet.";
+    return {
+      intent,
+      confidence: 0.2,
+      message: `I cannot recognize the budget name "${requestedBudgetName}". ${available}`,
+      editableMessage,
+      debugTrace,
+    };
+  }
 
   const message = template
     .replace("{{amount}}", amountDisplay)
@@ -661,5 +754,6 @@ export const planDeterministicAddBudget = (
     confidence: Number(boundedConfidence.toFixed(2)),
     message,
     editableMessage,
+    debugTrace,
   };
 };

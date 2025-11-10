@@ -1,7 +1,9 @@
+import { extractExpenseSlots, SlotValue } from "@/lib/mind/classifier/tokenClassifier";
 import {
   MindEditableMessage,
   MindExperienceSnapshot,
   MindIntent,
+  MindDebugTrace,
 } from "../types";
 
 type AmountParse = {
@@ -16,6 +18,26 @@ type GroupResolution = {
   name?: string;
   matchedExisting: boolean;
   source?: string;
+  debug?: ExtractGroupDebug;
+};
+
+type ExtractGroupDebug = {
+  utterance: string;
+  normalizedUtterance: string;
+  slotHint?: string;
+  slotHintConfidence?: number;
+  regexCandidates: string[];
+  trimmedCandidate?: string;
+  normalizedCandidate?: string;
+  candidateSingular?: string;
+  matchType?: string;
+  matchedGroupName?: string;
+  comparisons: Array<{
+    groupId?: string;
+    groupName?: string;
+    normalized?: string;
+    distance?: number;
+  }>;
 };
 
 type DeterministicPlan = {
@@ -23,6 +45,7 @@ type DeterministicPlan = {
   confidence: number;
   message: string;
   editableMessage?: MindEditableMessage;
+  debugTrace?: MindDebugTrace[];
 };
 
 const ADD_EXPENSE_PREFIX =
@@ -204,6 +227,7 @@ const ON_DATE_REGEX =
 const RELATIVE_DATE_REGEX =
   /\b(today|tomorrow|yesterday|tonight|last\s+\w+|next\s+\w+)\b/i;
 
+// Title-cases strings for cleaner UI output.
 const titleCase = (value: string) =>
   value
     .split(/\s+/)
@@ -215,6 +239,7 @@ const titleCase = (value: string) =>
     )
     .join(" ");
 
+// Maps common currency words/symbols to ISO codes.
 const normalizeCurrencyWord = (code?: string | null) => {
   if (!code) {
     return undefined;
@@ -223,6 +248,7 @@ const normalizeCurrencyWord = (code?: string | null) => {
   return WORD_TO_CURRENCY[normalized] ?? undefined;
 };
 
+// Removes punctuation/whitespace so we can parse numeric strings.
 const normalizeNumberString = (input: string) => {
   if (!input) {
     return undefined;
@@ -234,6 +260,7 @@ const normalizeNumberString = (input: string) => {
   return Number.isFinite(value) ? value : undefined;
 };
 
+// Finds the best-fit monetary amount mentioned in the utterance.
 const extractAmount = (utterance: string): AmountParse | null => {
   MONEY_REGEX.lastIndex = 0;
   const candidates: Array<
@@ -304,6 +331,7 @@ const extractAmount = (utterance: string): AmountParse | null => {
   };
 };
 
+// Cleans a potential category by stripping filler and applying synonyms.
 const normalizeCategory = (raw?: string | null) => {
   if (!raw) {
     return undefined;
@@ -337,6 +365,7 @@ const normalizeCategory = (raw?: string | null) => {
 const CATEGORY_PHRASE_REGEX =
   /\b(?:for|on|of)\s+(?<category>[a-z][a-z0-9&'/-\s]{1,40}?)(?=\s+(?:in|to|under|for|with|between|among|split|toward|towards)\b|[,.!?]|$)/gi;
 
+// Removes trailing punctuation/connectors from category phrases.
 const stripCategoryCandidate = (value: string) => {
   if (!value) {
     return value;
@@ -356,6 +385,7 @@ const stripCategoryCandidate = (value: string) => {
   return output.trim();
 };
 
+// Attempts to infer the expense category via regex and heuristics.
 const extractCategory = (utterance: string, amountParse: AmountParse | null) => {
   CATEGORY_PHRASE_REGEX.lastIndex = 0;
   let match: RegExpExecArray | null = null;
@@ -421,6 +451,7 @@ const extractCategory = (utterance: string, amountParse: AmountParse | null) => 
   return normalizeCategory(candidate);
 };
 
+// Normalizes group names for fuzzy comparisons.
 const normalizeGroupCandidate = (value: string) => {
   let working = value;
   for (const [pattern, replacement] of GROUP_SYNONYM_REPLACEMENTS) {
@@ -436,6 +467,7 @@ const normalizeGroupCandidate = (value: string) => {
     .trim();
 };
 
+// Converts normalized group names back into presentable Title Case.
 const titleCaseGroup = (value?: string) => {
   if (!value) {
     return undefined;
@@ -447,6 +479,7 @@ const titleCaseGroup = (value?: string) => {
   return titleCase(normalized);
 };
 
+// Trims trailing connector phrases so we keep the actual group phrase.
 const trimConnectorTail = (value: string) => {
   const match = value.match(
     /(.*?\b(group|crew|team|fund|squad)\b)(?:\s+(?:for|with|about|regarding|on|at|re)\b.*)$/i
@@ -457,6 +490,7 @@ const trimConnectorTail = (value: string) => {
   return value;
 };
 
+// Computes edit distance used for fuzzy matching of group names.
 const levenshteinDistance = (a: string, b: string): number => {
   if (a === b) {
     return 0;
@@ -493,11 +527,21 @@ const levenshteinDistance = (a: string, b: string): number => {
   return matrix[b.length][a.length];
 };
 
+// Identifies which known group (if any) the utterance references.
 const extractGroupFromSnapshot = (
   utterance: string,
-  snapshot: MindExperienceSnapshot
+  snapshot: MindExperienceSnapshot,
+  slotHint?: SlotValue
 ): GroupResolution => {
   const normalizedUtterance = normalizeGroupCandidate(utterance);
+  const debug: ExtractGroupDebug = {
+    utterance,
+    normalizedUtterance,
+    slotHint: slotHint?.value,
+    slotHintConfidence: slotHint?.confidence,
+    regexCandidates: [],
+    comparisons: [],
+  };
   let bestMatch: GroupResolution | null = null;
 
   for (const group of snapshot.expenses.groups ?? []) {
@@ -513,6 +557,11 @@ const extractGroupFromSnapshot = (
         name: group.name,
         matchedExisting: true,
         source: group.name,
+        debug: {
+          ...debug,
+          matchType: "direct_phrase_match",
+          matchedGroupName: group.name,
+        },
       };
       break;
     }
@@ -522,11 +571,42 @@ const extractGroupFromSnapshot = (
     return bestMatch;
   }
 
+  if (slotHint?.value) {
+    const hintNormalized = normalizeGroupCandidate(slotHint.value);
+    if (hintNormalized) {
+      for (const group of snapshot.expenses.groups ?? []) {
+        const normalizedName = normalizeGroupCandidate(group.name);
+        if (!normalizedName) {
+          continue;
+        }
+        if (
+          normalizedName === hintNormalized ||
+          normalizedName.includes(hintNormalized) ||
+          hintNormalized.includes(normalizedName)
+        ) {
+          return {
+            name: group.name,
+            matchedExisting: true,
+            source: slotHint.value,
+            debug: {
+              ...debug,
+              matchType: "slot_hint_match",
+              matchedGroupName: group.name,
+            },
+          };
+        }
+      }
+    }
+  }
+
   const GROUP_REGEX =
     /\b(?:in|to|under|for)\s+(?:the\s+)?(?<group>[a-z0-9][a-z0-9&'()\-.\s]{1,60})/gi;
 
   let match: RegExpExecArray | null = null;
-  let candidate: string | undefined;
+  let candidate: string | undefined = slotHint?.value?.trim();
+  if (candidate) {
+    debug.regexCandidates.push(candidate);
+  }
 
   while ((match = GROUP_REGEX.exec(utterance)) !== null) {
     const raw = match.groups?.group ?? "";
@@ -548,18 +628,25 @@ const extractGroupFromSnapshot = (
     if (match[0].toLowerCase().startsWith("for ") && !hasHint) {
       continue;
     }
-    candidate = trimmed;
+    const selected = trimConnectorTail(trimmed);
+    if (!candidate) {
+      candidate = selected;
+    }
+    debug.regexCandidates.push(trimmed);
   }
 
   if (!candidate) {
-    return { name: undefined, matchedExisting: false };
+    return { name: undefined, matchedExisting: false, debug };
   }
 
-  candidate = trimConnectorTail(candidate);
-  const normalizedCandidate = normalizeGroupCandidate(candidate);
+  const trimmedCandidate = trimConnectorTail(candidate);
+  debug.trimmedCandidate = trimmedCandidate;
+  const normalizedCandidate = normalizeGroupCandidate(trimmedCandidate);
+  debug.normalizedCandidate = normalizedCandidate;
   const candidateSingular = normalizedCandidate.endsWith("s")
     ? normalizedCandidate.slice(0, -1)
     : normalizedCandidate;
+  debug.candidateSingular = candidateSingular;
 
   const fuzzyMatches: Array<{
     group: (typeof snapshot.expenses.groups)[number];
@@ -577,10 +664,13 @@ const extractGroupFromSnapshot = (
       normalizedName.includes(normalizedCandidate) ||
       normalizedCandidate.includes(normalizedName)
     ) {
+      debug.matchType = "direct_candidate_match";
+      debug.matchedGroupName = group.name;
       return {
         name: group.name,
         matchedExisting: true,
         source: candidate,
+        debug,
       };
     }
     const singular = normalizedName.endsWith("s")
@@ -591,6 +681,12 @@ const extractGroupFromSnapshot = (
       levenshteinDistance(singular, candidateSingular)
     );
     fuzzyMatches.push({ group, normalized: normalizedName, distance: dist });
+    debug.comparisons.push({
+      groupId: group.id,
+      groupName: group.name,
+      normalized: normalizedName,
+      distance: dist,
+    });
   }
 
   if (fuzzyMatches.length) {
@@ -602,21 +698,28 @@ const extractGroupFromSnapshot = (
       best.distance <= threshold &&
       (second === undefined || best.distance + 1 < second.distance)
     ) {
+      debug.matchType = "fuzzy_match";
+      debug.matchedGroupName = best.group.name;
       return {
         name: best.group.name,
         matchedExisting: true,
         source: candidate,
+        debug,
       };
     }
   }
 
+  debug.matchType = "new_group";
+  debug.matchedGroupName = titleCaseGroup(candidate) ?? undefined;
   return {
     name: titleCaseGroup(candidate),
     matchedExisting: false,
     source: candidate,
+    debug,
   };
 };
 
+// Pulls a date reference such as "on Friday" or "yesterday".
 const extractDate = (utterance: string) => {
   const onMatch = utterance.match(ON_DATE_REGEX);
   if (onMatch?.[1]) {
@@ -629,6 +732,7 @@ const extractDate = (utterance: string) => {
   return undefined;
 };
 
+// Determines whether the utterance resembles an expense command.
 const matchesIntent = (utterance: string) => {
   const normalized = utterance.trim().toLowerCase();
   if (!normalized) {
@@ -651,6 +755,7 @@ const matchesIntent = (utterance: string) => {
   return false;
 };
 
+// Creates the expense description, falling back to trimmed utterance.
 const buildDescription = (
   category: string | undefined,
   utterance: string
@@ -662,6 +767,7 @@ const buildDescription = (
   return trimmed.length > 120 ? trimmed.slice(0, 120) : trimmed;
 };
 
+// Deterministic parser that produces an add-expense intent when confident.
 export const planDeterministicAddExpense = (
   utterance: string,
   snapshot: MindExperienceSnapshot
@@ -677,15 +783,66 @@ export const planDeterministicAddExpense = (
     return null;
   }
 
+  const debugTrace: MindDebugTrace[] = [
+    {
+      phase: "planner",
+      description: "planDeterministicAddExpense matched intent heuristics",
+      data: {
+        intentSignal,
+        amountMajor: amount.major,
+        amountMinor: amount.minor,
+        currency: amount.currency,
+      },
+    },
+  ];
+
+  const slotExtraction = extractExpenseSlots(utterance);
+  if (slotExtraction.tokenPredictions.length) {
+    debugTrace.push({
+      phase: "planner",
+      description: "Token slot classifier output",
+      data: slotExtraction,
+    });
+  }
+  const slotHints = slotExtraction.slots;
+  if (slotHints && Object.keys(slotHints).length > 0) {
+    debugTrace.push({
+      phase: "planner",
+      description: "Token slot hints applied",
+      data: slotHints,
+    });
+  }
+
   const category = extractCategory(utterance, amount);
-  const group = extractGroupFromSnapshot(utterance, snapshot);
+  const group = extractGroupFromSnapshot(utterance, snapshot, slotHints.groupName);
   const occurredAt = extractDate(utterance);
 
   if (!group.name) {
     return null;
   }
 
-  const description = buildDescription(category, utterance);
+  debugTrace.push({
+    phase: "planner",
+    description: "Expense category and timing extraction",
+    data: {
+      category,
+      occurredAt,
+    },
+  });
+
+  if (group.debug) {
+    debugTrace.push({
+      phase: "group_resolution",
+      description: group.matchedExisting
+        ? "Matched group from snapshot"
+        : "No existing group match; suggested new group",
+      data: group.debug,
+    });
+  }
+
+  const slotDescription = slotHints.note?.value ?? slotHints.merchant?.value;
+  const description = slotDescription ?? buildDescription(category, utterance);
+  const paidByHint = slotHints.paidByHint?.value;
   const groupsList = (snapshot.expenses.groups ?? [])
     .map((group) => group.name)
     .filter((name): name is string => Boolean(name));
@@ -713,6 +870,7 @@ export const planDeterministicAddExpense = (
       description,
       groupName: group.name,
       occurredAt,
+      paidByHint: paidByHint ?? undefined,
     },
   };
 
@@ -745,6 +903,18 @@ export const planDeterministicAddExpense = (
         value: description,
         fieldType: "description",
       },
+      {
+        key: "paidByHint",
+        label: "Paid by",
+        value: paidByHint ?? "",
+        fieldType: "payer",
+      },
+      {
+        key: "occurredAt",
+        label: "Date",
+        value: occurredAt ?? "",
+        fieldType: "date",
+      },
     ] as MindEditableMessage["fields"],
   };
 
@@ -756,10 +926,11 @@ export const planDeterministicAddExpense = (
     return {
       intent,
       confidence: 0.2,
-      message: `I couldn't find an expense group matching "${
+      message: `I cannot recognize the group name "${
         group.source ?? group.name ?? "your request"
       }". ${available}`,
       editableMessage,
+      debugTrace,
     };
   }
 
@@ -768,5 +939,6 @@ export const planDeterministicAddExpense = (
     confidence: Number(boundedConfidence.toFixed(2)),
     message: messageParts.join(" ").trim(),
     editableMessage,
+    debugTrace,
   };
 };
