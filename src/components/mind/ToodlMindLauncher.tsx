@@ -214,12 +214,14 @@ export default function ToodlMindLauncher() {
             ? response.intent
             : undefined;
         const status = response?.status ?? (turn.error ? "failed" : "pending");
+        const responseError =
+          response?.status === "failed" ? response.error : undefined;
         return {
           id: turn.id,
           utterance: turn.request.utterance,
           contextHints: turn.request.contextHints,
           status,
-          error: turn.error ?? response?.error,
+          error: turn.error ?? responseError,
           intent,
           response,
           createdAt: turn.createdAt,
