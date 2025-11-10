@@ -688,7 +688,7 @@ const TraceDataView = ({ trace }: { trace: MindDebugTrace }) => {
 const ExpenseIntentDebug = ({
   input,
 }: {
-  input: MindIntent & { tool: "add_expense" }["input"];
+  input: Extract<MindIntent, { tool: "add_expense" }>["input"];
 }) => {
   const steps = [
     {
@@ -714,7 +714,7 @@ const ExpenseIntentDebug = ({
 const BudgetIntentDebug = ({
   input,
 }: {
-  input: MindIntent & { tool: "add_budget_entry" }["input"];
+  input: Extract<MindIntent, { tool: "add_budget_entry" }>["input"];
 }) => {
   const steps = [
     {
@@ -740,7 +740,7 @@ const BudgetIntentDebug = ({
 const FlowIntentDebug = ({
   input,
 }: {
-  input: MindIntent & { tool: "add_flow_task" }["input"];
+  input: Extract<MindIntent, { tool: "add_flow_task" }>["input"];
 }) => {
   const steps = [
     {

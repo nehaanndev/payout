@@ -5,7 +5,7 @@ import intentClasses from "@/lib/mind/classifier/models/intent_classes.json";
 export type ManualModel = {
   vocabulary: Record<string, number>;
   idf: number[];
-  ngram_range: [number, number];
+  ngram_range: [number, number] | number[];
   max_features: number | null;
   stop_words?: string[] | null;
   coef: number[][];
@@ -60,7 +60,10 @@ const buildVector = (text: string, model: ManualModel): SparseVectorEntry[] => {
   const tokens = stopWords
     ? toTokens(text).filter((token) => !stopWords.has(token))
     : toTokens(text);
-  const grams = makeNgrams(tokens, model.ngram_range[0], model.ngram_range[1]);
+  const [minN, maxN] = Array.isArray(model.ngram_range)
+    ? [model.ngram_range[0] ?? 1, model.ngram_range[1] ?? model.ngram_range[0] ?? 1]
+    : model.ngram_range;
+  const grams = makeNgrams(tokens, minN, maxN);
 
   const counts = new Map<number, number>();
   grams.forEach((gram) => {
