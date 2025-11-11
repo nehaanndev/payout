@@ -32,6 +32,7 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -479,6 +480,7 @@ export function FlowExperience() {
   const [editingTask, setEditingTask] = useState<FlowTask | null>(null);
   const [editStartTime, setEditStartTime] = useState<string>("");
   const [editDuration, setEditDuration] = useState<number>(30);
+  const [timelineOnly, setTimelineOnly] = useState(false);
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -1050,6 +1052,29 @@ export function FlowExperience() {
         ) : (
           <>
             {plan ? (
+              <div className="flex flex-col gap-2 rounded-3xl border border-slate-200 bg-white/80 px-4 py-3 shadow-sm">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Timeline focus</p>
+                    <p className="text-xs text-slate-500">
+                      Collapse planning tools to keep only Today’s timeline visible.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-slate-600">
+                      {timelineOnly ? "Timeline only" : "Full workspace"}
+                    </span>
+                    <Switch
+                      checked={timelineOnly}
+                      onCheckedChange={setTimelineOnly}
+                      aria-label="Toggle timeline-only view"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {plan && !timelineOnly ? (
               <Card className="border-none bg-gradient-to-br from-white via-white/90 to-emerald-50 p-6 shadow-xl shadow-emerald-200/40">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
@@ -1203,8 +1228,14 @@ export function FlowExperience() {
             ) : null}
 
             {user && plan ? (
-              <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
-                <Card className="border border-slate-200 bg-white/90 shadow-lg shadow-slate-200/50">
+              <div
+                className={cn(
+                  "grid gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]",
+                  timelineOnly && "lg:grid-cols-1"
+                )}
+              >
+                {!timelineOnly ? (
+                  <Card className="border border-slate-200 bg-white/90 shadow-lg shadow-slate-200/50">
                   <CardHeader className="space-y-1">
                     <CardTitle className="text-xl font-semibold text-slate-900">
                       Capture queue
@@ -1532,7 +1563,8 @@ export function FlowExperience() {
                       </Button>
                     </div>
                   </CardContent>
-                </Card>
+                  </Card>
+                ) : null}
 
                 <div className="space-y-6">
                   <Card className="border border-slate-200 bg-white/95 shadow-xl shadow-slate-200/50">
@@ -1771,56 +1803,58 @@ export function FlowExperience() {
                     </CardContent>
                   </Card>
 
-                  <Card className="border border-slate-200 bg-white/95 shadow-lg shadow-slate-200/50">
-                    <CardHeader>
-                      <CardTitle className="text-lg font-semibold text-slate-900">
-                        Reflection log
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {plan.reflections.length ? (
-                        <div className="space-y-3">
-                          {plan.reflections
-                            .slice()
-                            .sort(
-                              (a, b) =>
-                                new Date(b.createdAt).getTime() -
-                                new Date(a.createdAt).getTime()
-                            )
-                            .map((reflection) => {
-                              const task = plan.tasks.find(
-                                (candidate) => candidate.id === reflection.taskId
-                              );
-                              return (
-                                <div
-                                  key={reflection.id}
-                                  className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-600"
-                                >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="font-semibold text-slate-800">
-                                      {task?.title ?? "Daily note"}
-                                    </span>
-                                    <span className="text-xs text-slate-400">
-                                      {new Date(reflection.createdAt).toLocaleTimeString([], {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })}
-                                    </span>
+                  {!timelineOnly ? (
+                    <Card className="border border-slate-200 bg-white/95 shadow-lg shadow-slate-200/50">
+                      <CardHeader>
+                        <CardTitle className="text-lg font-semibold text-slate-900">
+                          Reflection log
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {plan.reflections.length ? (
+                          <div className="space-y-3">
+                            {plan.reflections
+                              .slice()
+                              .sort(
+                                (a, b) =>
+                                  new Date(b.createdAt).getTime() -
+                                  new Date(a.createdAt).getTime()
+                              )
+                              .map((reflection) => {
+                                const task = plan.tasks.find(
+                                  (candidate) => candidate.id === reflection.taskId
+                                );
+                                return (
+                                  <div
+                                    key={reflection.id}
+                                    className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-600"
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-semibold text-slate-800">
+                                        {task?.title ?? "Daily note"}
+                                      </span>
+                                      <span className="text-xs text-slate-400">
+                                        {new Date(reflection.createdAt).toLocaleTimeString([], {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })}
+                                      </span>
+                                    </div>
+                                    <p className="mt-1 whitespace-pre-line">
+                                      {reflection.note}
+                                    </p>
                                   </div>
-                                  <p className="mt-1 whitespace-pre-line">
-                                    {reflection.note}
-                                  </p>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      ) : (
-                        <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/60 py-10 text-center text-sm text-slate-500">
-                          Track how each block went, capture wins, and note what to tweak tomorrow.
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                                );
+                              })}
+                          </div>
+                        ) : (
+                          <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/60 py-10 text-center text-sm text-slate-500">
+                            Track how each block went, capture wins, and note what to tweak tomorrow.
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ) : null}
                 </div>
               </div>
             ) : null}
