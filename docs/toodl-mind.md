@@ -69,8 +69,8 @@ Expense parsing now also runs a token-level classifier to pull structured spans 
 
 1. Examples live in `data/mind_classifier/token_examples.jsonl` with parallel `tokens`/`labels` arrays. Labels follow a light BIO scheme: `B_GROUP`, `I_GROUP`, `B_MERCHANT`, `B_PAYER`, `B_NOTE`, etc. Add more sequences to teach the model new phrasings.
 2. Train with `python3 scripts/mind_classifier/train_token_classifier.py`. This fits a multinomial logistic regression over hand-crafted token features and exports `token_manual.json`.
-3. At runtime, `src/lib/mind/classifier/tokenClassifier.ts` rebuilds the DictVectorizer features, does the softmax, and merges contiguous spans. `planDeterministicAddExpense` consumes these slots before running its fuzzy matching so regexes are no longer the sole source of truth for `groupName`, `paidByHint`, or descriptive text.
-4. The extracted tokens (and their probabilities) are appended to the planner debug trace, so you can inspect how span predictions influence downstream matching.
+3. At runtime, `src/lib/mind/classifier/tokenClassifier.ts` rebuilds the DictVectorizer features, does the softmax, and merges contiguous spans. The slot map is now shared by the expense, budget, and flow planners so merchants/notes/payers/group names all flow through one path instead of bespoke regexes.
+4. The extracted tokens (and their probabilities) are appended to the planner debug trace, so you can inspect how span predictions influence downstream matching (e.g., budget categories, flow titles, payer hints).
 
 ## Testing ideas
 

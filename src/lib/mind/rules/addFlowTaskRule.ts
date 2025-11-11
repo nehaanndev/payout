@@ -1,3 +1,4 @@
+import { extractTokenSlots } from "@/lib/mind/classifier/tokenClassifier";
 import {
   MindEditableMessage,
   MindExperienceSnapshot,
@@ -623,10 +624,15 @@ export const planDeterministicAddFlowTask = (
     return null;
   }
 
+  const slotExtraction = extractTokenSlots(utterance);
   const durationMatch = extractDuration(utterance);
   const timeMatch = extractTime(utterance);
   const dateMatch = extractDate(utterance);
-  const title = cleanTitle(utterance, [durationMatch, timeMatch, dateMatch]);
+  const slotHints = slotExtraction.slots;
+  const slotTitle = slotHints.note?.value ?? slotHints.merchant?.value;
+  const rawTitle =
+    slotTitle ?? cleanTitle(utterance, [durationMatch, timeMatch, dateMatch]);
+  const title = rawTitle ? titleCase(rawTitle) : undefined;
 
   if (!title) {
     return null;
@@ -635,7 +641,7 @@ export const planDeterministicAddFlowTask = (
   const durationMinutes = durationMatch?.minutes ?? 30;
   const scheduledFor = dateMatch?.value;
   const startsAt = timeMatch?.value;
-  const category = inferCategory(utterance);
+  const category = inferCategory(slotTitle ?? utterance);
   const dateDisplay = dateMatch?.display ?? "Today";
   const timeDisplay = startsAt ?? "Anytime";
   const durationDisplay = formatDurationDisplay(durationMinutes);
@@ -667,6 +673,13 @@ export const planDeterministicAddFlowTask = (
       },
     },
   ];
+  if (slotExtraction.tokenPredictions.length) {
+    debugTrace.push({
+      phase: "planner",
+      description: "Token slot classifier output",
+      data: slotExtraction,
+    });
+  }
 
   const editableMessage = buildEditableMessage(
     title,

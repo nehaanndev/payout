@@ -1,4 +1,4 @@
-import { extractExpenseSlots, SlotValue } from "@/lib/mind/classifier/tokenClassifier";
+import { extractTokenSlots, SlotValue } from "@/lib/mind/classifier/tokenClassifier";
 import {
   MindEditableMessage,
   MindExperienceSnapshot,
@@ -796,7 +796,7 @@ export const planDeterministicAddExpense = (
     },
   ];
 
-  const slotExtraction = extractExpenseSlots(utterance);
+  const slotExtraction = extractTokenSlots(utterance);
   if (slotExtraction.tokenPredictions.length) {
     debugTrace.push({
       phase: "planner",

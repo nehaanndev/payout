@@ -300,30 +300,37 @@ export interface ExpensesPanelProps {
   };
 
   return (
-        <Card className="rounded-2xl shadow-lg overflow-hidden">
-            {/* Gradient Header */}
-            <CardHeader className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6">
+        <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <CardHeader className="border-b border-slate-100 bg-slate-50/80 p-6">
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-white">
-                <DollarSign className="h-6 w-6" />
+                <div className="flex items-center gap-2 text-slate-900">
+                <DollarSign className="h-6 w-6 text-emerald-500" />
                 <span className="text-xl font-semibold">
                     Expenses for group
                 </span>
-                <Badge className="bg-white text-indigo-600 px-2 py-0.5 text-sm">
+                <Badge variant="outline" className="border-slate-300 bg-white text-slate-700 px-2 py-0.5 text-sm">
                     {groupName}
                 </Badge>
                 </div>
                 <Button
                 size="sm"
-                className="bg-white text-blue-600 hover:bg-blue-50"
+                variant="outline"
+                className="border-slate-300 text-slate-700 hover:bg-slate-100"
                 onClick={onBack}
                 >
-                Edit Group
+                Edit group
                 </Button>
             </div>
             </CardHeader>
-            <CardContent className="bg-gray-50 p-6 space-y-6">
+            <CardContent className="p-6 space-y-6">
         {showExpenseForm ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
+            <div className="mb-4">
+              <p className="text-sm font-medium text-slate-900">Add a shared expense</p>
+              <p className="text-xs text-slate-500">
+                This flows straight into the overview cards, so every field mirrors that calmer theme.
+              </p>
+            </div>
             <form onSubmit={handleExpenseSubmit} className="space-y-4">
             <div>
                 <Label htmlFor="description">Description</Label>
@@ -440,6 +447,7 @@ export interface ExpensesPanelProps {
                         type="button"
                         variant="outline"
                         size="sm"
+                        className="border-slate-300 text-slate-700 hover:bg-slate-50"
                         onClick={splitEqually}
                         >
                         Split Equally
@@ -492,20 +500,23 @@ export interface ExpensesPanelProps {
             <div className="flex justify-end space-x-3 mt-4">
               <Button
                 type="button"
-                className="border border-gray-300 text-gray-700 hover:bg-gray-100"
+                variant="outline"
+                className="border-slate-300 text-slate-700 hover:bg-slate-50"
                 onClick={() => clearExpenseForm()}
                 >
                 Cancel
                 </Button>
                 <Button
                 type="submit"
-                className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                className="bg-slate-900 hover:bg-slate-800 text-white font-medium"
                 >
                 Save Expense
               </Button>
             </div>
             </form>
+            </div>
         ) : showReceiptUploader ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
             <ReceiptUploadPanel
               members={members}
               currency={currency}
@@ -515,10 +526,11 @@ export interface ExpensesPanelProps {
                 onReceiptPrefill(data);
               }}
             />
+            </div>
         ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                className="bg-slate-900 hover:bg-slate-800 text-white font-medium"
                 disabled={!activeGroupId}
                 onClick={() => {
                   setShowReceiptUploader(false);
@@ -530,7 +542,7 @@ export interface ExpensesPanelProps {
               </Button>
               <Button
                 variant="outline"
-                className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                className="border-slate-300 text-slate-700 hover:bg-slate-50"
                 disabled={!activeGroupId}
                 onClick={() => {
                   setShowExpenseForm(false);
@@ -565,7 +577,7 @@ export interface ExpensesPanelProps {
         )}
 
         {isIdleState && expenses.length > 0 && (
-          <div className="mt-6 bg-white bg-opacity-80 backdrop-blur-sm rounded-xl shadow p-4 space-y-4 hover:bg-indigo-50">
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 space-y-4 hover:bg-slate-50">
             <div className="flex items-center justify-between">
               <h3 className="text-black font-semibold">Settlements</h3>
               {settlements.length > 0 ? (
@@ -598,7 +610,7 @@ export interface ExpensesPanelProps {
                   return (
                     <div
                       key={settlement.id}
-                      className="space-y-2 rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm"
+                      className="space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
                     >
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
@@ -666,7 +678,7 @@ export interface ExpensesPanelProps {
         )}
 
         {isIdleState && expenses.length > 0 && (
-          <div className="mt-6 bg-white bg-opacity-80 backdrop-blur-sm rounded-xl shadow p-4 space-y-4 hover:bg-indigo-50">
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 space-y-4 hover:bg-slate-50">
             <h3 className="text-black font-semibold mb-2">{settlements.length > 0 ? "Original " : ""}Balances</h3>
 
             {/* ← Assert the entry type so TS knows bal is a number: */}
@@ -687,7 +699,7 @@ export interface ExpensesPanelProps {
         {/* 3️⃣ Back / Save buttons */}
         {isIdleState && (
           <div className="flex justify-end mt-6">
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={onBack}>
+            <Button size="sm" className="bg-slate-900 hover:bg-slate-800 text-white" onClick={onBack}>
               Back To Group Details
             </Button>
           </div>

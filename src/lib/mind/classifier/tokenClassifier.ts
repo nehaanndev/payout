@@ -18,7 +18,7 @@ export type SlotValue = {
 
 export type SlotName = "groupName" | "merchant" | "paidByHint" | "note";
 
-export type ExpenseSlotExtraction = {
+export type TokenSlotExtraction = {
   slots: Partial<Record<SlotName, SlotValue>>;
   tokenPredictions: TokenPrediction[];
 };
@@ -173,7 +173,7 @@ const average = (values: number[]) => {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 };
 
-export const extractExpenseSlots = (text: string): ExpenseSlotExtraction => {
+export const extractTokenSlots = (text: string): TokenSlotExtraction => {
   const predictions = predictTokenLabels(text);
   const slots: Partial<Record<SlotName, SlotValue>> = {};
 

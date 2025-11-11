@@ -107,6 +107,11 @@ type LedgerEntryDraft = {
   tags?: string[];
 };
 
+type ReschedulePayload = {
+  entry: BudgetLedgerEntry;
+  monthKey: string;
+};
+
 type CategoryOption = {
   id: string;
   value: string;
@@ -611,11 +616,36 @@ const defaultState = (): BudgetState => ({
       name: "Rent/Mortgage",
       amount: 1850,
       enabled: true,
+      dueDay: 1,
     },
-    { id: generateId(), name: "Car Payment", amount: 350, enabled: true },
-    { id: generateId(), name: "Utilities", amount: 150, enabled: true },
-    { id: generateId(), name: "Insurance", amount: 120, enabled: false },
-    { id: generateId(), name: "Credit Card", amount: 480, enabled: true },
+    {
+      id: generateId(),
+      name: "Car Payment",
+      amount: 350,
+      enabled: true,
+      dueDay: 10,
+    },
+    {
+      id: generateId(),
+      name: "Utilities",
+      amount: 150,
+      enabled: true,
+      dueDay: 15,
+    },
+    {
+      id: generateId(),
+      name: "Insurance",
+      amount: 120,
+      enabled: false,
+      dueDay: 20,
+    },
+    {
+      id: generateId(),
+      name: "Credit Card",
+      amount: 480,
+      enabled: true,
+      dueDay: 25,
+    },
   ],
   entries: sortLedgerEntries([
     {
@@ -679,6 +709,8 @@ const BudgetExperience = () => {
   const [invalidBudget, setInvalidBudget] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const [futureEntryNotice, setFutureEntryNotice] = useState<string | null>(null);
+  const [futureEntryError, setFutureEntryError] = useState<string | null>(null);
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [activeMonthKey, setActiveMonthKey] = useState<string>(() =>
     getMonthKey()
@@ -1497,6 +1529,8 @@ const BudgetExperience = () => {
         setActiveMonthKey(getMonthKey());
         setState(defaultState());
         setInvalidBudget(false);
+        setFutureEntryNotice(null);
+        setFutureEntryError(null);
         setLoading(false);
       }
     });
@@ -1535,6 +1569,8 @@ const BudgetExperience = () => {
     setLastSavedAt(null);
     setSaving(false);
     setMode("wizard");
+    setFutureEntryNotice(null);
+    setFutureEntryError(null);
   }, [budgetId]);
 
   // Sync budget id & month from search params.
@@ -2150,7 +2186,13 @@ const BudgetExperience = () => {
       ...prev,
       fixeds: [
         ...prev.fixeds,
-        { id: generateId(), name: "", amount: 0, enabled: true },
+        {
+          id: generateId(),
+          name: "",
+          amount: 0,
+          enabled: true,
+          dueDay: null,
+        },
       ],
     }));
   };
@@ -2185,9 +2227,76 @@ const BudgetExperience = () => {
     [applyCategoryRulesToDraft, availableCategories]
   );
 
+  const scheduleEntryInAnotherMonth = useCallback(
+    async (
+      entry: BudgetLedgerEntry,
+      monthKey: string,
+      verb: "Scheduled" | "Moved" = "Scheduled"
+    ) => {
+      if (!budgetId) {
+        setFutureEntryError(
+          "Open or create a budget before planning future expenses."
+        );
+        return;
+      }
+      try {
+        const month = await fetchBudgetMonth(budgetId, monthKey);
+        const normalizedExisting = (month.entries ?? []).map(
+          applyCategoryRulesToEntry
+        );
+        const normalizedEntry = applyCategoryRulesToEntry(entry);
+        const mergedEntries = sortLedgerEntries([
+          ...normalizedExisting,
+          normalizedEntry,
+        ]);
+        const payload: BudgetMonth = {
+          ...month,
+          entries: mergedEntries,
+          updatedAt: new Date().toISOString(),
+        };
+        await saveBudgetMonth(budgetId, payload);
+        setAvailableMonths((prev) => sortMonthKeys([...prev, monthKey]));
+        const descriptor =
+          normalizedEntry.merchant?.trim() || normalizedEntry.category || "expense";
+        setFutureEntryError(null);
+        setFutureEntryNotice(
+          `${verb} "${descriptor}" in ${formatMonthLabel(
+            monthKey
+          )}. Switch months to review it.`
+        );
+      } catch (error) {
+        console.error("Failed to persist entry in another month:", error);
+        setFutureEntryNotice(null);
+        setFutureEntryError(
+          "We couldn't schedule that expense in another month. Try again."
+        );
+      }
+    },
+    [applyCategoryRulesToEntry, budgetId]
+  );
+
   const handleAddEntry = (draft: LedgerEntryDraft) => {
     const entry = createEntryFromDraft(draft);
     if (!entry) {
+      return;
+    }
+    const entryMonthKey = getMonthKey(normalizeDraftDate(entry.date));
+    if (entryMonthKey !== activeMonthKey) {
+      setState((prev) => {
+        const updatedCustomTags = appendCustomTags(
+          prev.customTags,
+          Array.isArray(entry.tags) ? entry.tags : []
+        );
+        if (updatedCustomTags === prev.customTags) {
+          return prev;
+        }
+        return {
+          ...prev,
+          customTags: updatedCustomTags,
+        };
+      });
+      void scheduleEntryInAnotherMonth(entry, entryMonthKey, "Scheduled");
+      setMode("ledger");
       return;
     }
     setState((prev) => {
@@ -2217,6 +2326,7 @@ const BudgetExperience = () => {
       if (!Number.isFinite(nextAmount) || nextAmount <= 0) {
         return;
       }
+      let entryToReschedule: ReschedulePayload | null = null;
       setState((prev) => {
         const existing = prev.entries.find((entry) => entry.id === entryId);
         if (!existing) {
@@ -2226,9 +2336,11 @@ const BudgetExperience = () => {
           draft.category || existing.category,
           availableCategories
         );
-        const normalizedDate = formatDateParts(
-          normalizeDraftDate(draft.date || existing.date)
+        const normalizedDateObj = normalizeDraftDate(
+          draft.date || existing.date
         );
+        const normalizedDate = formatDateParts(normalizedDateObj);
+        const targetMonthKey = getMonthKey(normalizedDateObj);
         const merchant = draft.merchant?.trim() || "";
         const merchantValue = merchant.length ? merchant : undefined;
         const isOneTime =
@@ -2255,6 +2367,27 @@ const BudgetExperience = () => {
           isOneTime,
           tags: normalizedTags,
         };
+        if (targetMonthKey !== activeMonthKey) {
+          entryToReschedule = { entry: updated, monthKey: targetMonthKey };
+          const remainingEntries = prev.entries.filter(
+            (entry) => entry.id !== entryId
+          );
+          const nextCustomTags = appendCustomTags(
+            prev.customTags,
+            normalizedTags
+          );
+          const baseState = {
+            ...prev,
+            entries: sortLedgerEntries(remainingEntries),
+          };
+          if (nextCustomTags !== prev.customTags) {
+            return {
+              ...baseState,
+              customTags: nextCustomTags,
+            };
+          }
+          return baseState;
+        }
         const nextEntries = prev.entries.map((entry) =>
           entry.id === entryId ? updated : entry
         );
@@ -2275,8 +2408,22 @@ const BudgetExperience = () => {
           entries: sortedEntries,
         };
       });
+      const payload = entryToReschedule as ReschedulePayload | null;
+      if (payload) {
+        void scheduleEntryInAnotherMonth(
+          payload.entry,
+          payload.monthKey,
+          "Moved"
+        );
+      }
     },
-    [appendCustomTags, availableCategories, memberTagRules]
+    [
+      activeMonthKey,
+      appendCustomTags,
+      availableCategories,
+      memberTagRules,
+      scheduleEntryInAnotherMonth,
+    ]
   );
 
   const updateSavingsTarget = (value: number) => {
@@ -2687,6 +2834,34 @@ const BudgetExperience = () => {
             {budgetListError}
           </div>
         ) : null}
+        {futureEntryError ? (
+          <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm text-rose-700">
+            <div className="flex items-start justify-between gap-3">
+              <span>{futureEntryError}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFutureEntryError(null)}
+              >
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {futureEntryNotice ? (
+          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-700">
+            <div className="flex items-start justify-between gap-3">
+              <span>{futureEntryNotice}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFutureEntryNotice(null)}
+              >
+                Got it
+              </Button>
+            </div>
+          </div>
+        ) : null}
         {mode === "ledger" && availableMonths.length > 0 && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm">
@@ -2930,7 +3105,7 @@ function Wizard({
             <div>
               <h3 className="text-lg font-medium">Recurring bills</h3>
               <p className="text-sm text-slate-500">
-                Toggle what applies and set amounts.
+                Toggle what applies, set amounts, and capture due dates.
               </p>
             </div>
             <div className="space-y-3">
@@ -2947,7 +3122,7 @@ function Wizard({
                       }
                     />
                   </div>
-                  <div className="col-span-6">
+                  <div className="col-span-5">
                     <Input
                       value={fixed.name}
                       onChange={(event) =>
@@ -2955,7 +3130,33 @@ function Wizard({
                       }
                     />
                   </div>
-                  <div className="col-span-4">
+                  <div className="col-span-2">
+                    <Label className="sr-only">Due day</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={31}
+                      placeholder="15"
+                      value={fixed.dueDay ?? ""}
+                      onChange={(event) => {
+                        const raw = event.target.value.trim();
+                        if (!raw) {
+                          updateFixed(idx, { dueDay: null });
+                          return;
+                        }
+                        const parsed = Number(raw);
+                        if (!Number.isFinite(parsed)) {
+                          return;
+                        }
+                        const normalized = Math.min(
+                          31,
+                          Math.max(1, Math.round(parsed))
+                        );
+                        updateFixed(idx, { dueDay: normalized });
+                      }}
+                    />
+                  </div>
+                  <div className="col-span-3">
                     <Input
                       type="number"
                       min={0}

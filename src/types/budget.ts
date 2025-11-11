@@ -15,6 +15,7 @@ export type BudgetFixedExpense = {
   name: string;
   amount: number;
   enabled: boolean;
+  dueDay?: number | null;
 };
 
 export type BudgetLedgerEntry = {

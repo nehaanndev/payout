@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { CurrencyCode } from "@/lib/currency_core";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency_core";
 
@@ -43,18 +43,23 @@ export default function GroupDetailsForm({
   const [email, setEmail] = useState("");
 
   return (
-    <Card className="rounded-2xl shadow-xl overflow-hidden">
-      {/* Gradient Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
-        <h2 className="text-2xl font-extrabold text-white">
-          Group Details
-        </h2>
-      </div>
+    <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <CardHeader className="border-b border-slate-100 bg-slate-50/80 px-6 py-5">
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
+            Group setup
+          </p>
+          <h2 className="text-2xl font-semibold text-slate-900">Details</h2>
+          <p className="text-xs text-slate-500">
+            Mirrors the overview cards so the wizard feels cohesive.
+          </p>
+        </div>
+      </CardHeader>
 
-      <CardContent className="bg-white px-6 py-8 space-y-6">
+      <CardContent className="px-6 py-8 space-y-6">
         {/* Group Name */}
         <div className="space-y-1">
-          <Label className="text-sm font-medium text-gray-700">
+          <Label className="text-sm font-medium text-slate-700">
             Group Name
           </Label>
           <Input
@@ -67,13 +72,13 @@ export default function GroupDetailsForm({
 
         {/* NEW: Currency */}
         <div className="space-y-1">
-          <Label className="text-sm font-medium text-gray-700">
+          <Label className="text-sm font-medium text-slate-700">
             Currency
           </Label>
           <select
             value={currency}
             onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-            className="w-full mt-1 rounded-md border border-gray-300 p-2"
+            className="w-full mt-1 rounded-xl border border-slate-300 bg-white p-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
             required
           >
             <option value="">Select currency</option>
@@ -85,7 +90,7 @@ export default function GroupDetailsForm({
           </select>
           {/* Optional microcopy to prevent $ confusion */}
           {currency === "MXN" && (
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               Heads-up: both USD and MXN use “$”. We’ll display the code alongside the symbol where space is tight.
             </p>
           )}
@@ -94,20 +99,21 @@ export default function GroupDetailsForm({
         {/* Add Myself Shortcut */}
         {currentUser && !members.some(m => m.id === currentUser.id) && (
           <Button
-            variant="primaryDark"
+            variant="outline"
             size="sm"
+            className="border-slate-300 text-slate-700 hover:bg-slate-50"
             onClick={() =>
               addMember(currentUser.firstName, currentUser.email)
             }
           >
-            + Add Myself
+            + Add myself
           </Button>
         )}
 
         {/* New Member Inputs */}
         <div className="flex gap-4">
           <div className="flex-1 space-y-1">
-            <Label className="text-sm font-medium text-gray-700">
+            <Label className="text-sm font-medium text-slate-700">
               First Name
             </Label>
             <Input
@@ -121,7 +127,7 @@ export default function GroupDetailsForm({
             />
           </div>
           <div className="flex-1 space-y-1">
-            <Label className="text-sm font-medium text-gray-700">
+            <Label className="text-sm font-medium text-slate-700">
               Email (optional)
             </Label>
             <Input
@@ -136,7 +142,7 @@ export default function GroupDetailsForm({
           </div>
           <div className="flex items-end">
             <Button
-              variant="primaryDark"
+              className="bg-slate-900 text-white hover:bg-slate-800"
               disabled={!first}
               onClick={() => {
                 addMember(first, email);
@@ -154,14 +160,14 @@ export default function GroupDetailsForm({
           {members.map(m => (
             <div
               key={m.id}
-              className="flex items-center gap-1 bg-gray-100 px-3 py-1 rounded-full"
+              className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1"
             >
-              <span className="text-gray-800 text-sm">
+              <span className="text-slate-800 text-sm">
                 {m.firstName}
               </span>
               <button
                 onClick={() => removeMember(m.firstName)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-slate-400 hover:text-slate-600"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -171,11 +177,11 @@ export default function GroupDetailsForm({
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-4">
-          <Button variant="ghost" onClick={onCancel}>
+          <Button variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50" onClick={onCancel}>
             Cancel
           </Button>
           <Button
-            variant="primaryDark"
+            className="bg-slate-900 text-white hover:bg-slate-800"
             disabled={!canContinue}
             onClick={onNext}
           >

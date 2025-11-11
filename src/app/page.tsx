@@ -201,6 +201,149 @@ const SOCIAL_PROOF: Array<{
   },
 ];
 
+const DAILY_TRIGGERS = [
+  {
+    name: "Orientation",
+    question: "“What’s today like?”",
+    tactic: "Morning summary with Flow plan, Pulse snapshot, and reflection prompt.",
+  },
+  {
+    name: "Completion",
+    question: "“Did I finish what I intended?”",
+    tactic: "End-of-day recap with streaks, wins, and a quick journaling lane.",
+  },
+  {
+    name: "Continuity",
+    question: "“Am I growing / improving?”",
+    tactic: "Timeline view of moods, savings, notes, and resurfaced photos.",
+  },
+];
+
+const RITUAL_LOOP = [
+  { stage: "See", blurb: "Wake up to the status of money, Flow, and Mind." },
+  { stage: "Do", blurb: "Log the one task, expense, or note that keeps the loop alive." },
+  { stage: "Feel", blurb: "Capture a photo, gratitude, or micro-celebration." },
+  { stage: "Reflect", blurb: "Close the evening with a recap so Sunday’s digest writes itself." },
+];
+
+type SnapshotDetail = {
+  title: string;
+  description: string;
+};
+
+type Snapshot = {
+  id: string;
+  label: string;
+  emoji: string;
+  headline: string;
+  subhead: string;
+  background: string;
+  gradient: string;
+  details: SnapshotDetail[];
+  ctas?: string[];
+  gridSpan?: number;
+};
+
+const DASHBOARD_SNAPSHOTS: Snapshot[] = [
+  {
+    id: "morning",
+    label: "Morning Calm",
+    emoji: "☀️",
+    headline: "Good morning, Arun.",
+    subhead: "Groceries and power bill are due, but you’re under budget.",
+    background: "bg-gradient-to-br from-amber-50 via-white to-emerald-50",
+    gradient: "border-amber-200/70",
+    details: [
+      { title: "Top Flow events", description: "Design review · Family budget standup · Gym focus block" },
+      { title: "Pulse", description: "Week spend ₹3,240 / ₹5,000 · Flex left ₹1,760" },
+      { title: "Bills", description: "Electricity due in 2 days · Internet auto-pay Friday" },
+      { title: "Mind note", description: "“You’ve logged 4 reflections this week — consistent!”" },
+      { title: "Memory flashback", description: "This week last year → Whistler family trip 📸" },
+    ],
+    ctas: ["Add expense", "Add note", "Journal"],
+  },
+  {
+    id: "evening",
+    label: "Evening Reflection",
+    emoji: "🌙",
+    headline: "That’s a wrap.",
+    subhead: "You stayed under budget and checked off 3 of 4 planned tasks.",
+    background: "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white",
+    gradient: "border-white/20",
+    details: [
+      { title: "Daily spend", description: "₹820 · mostly groceries" },
+      { title: "Wins", description: "Finished inbox zero, family dinner, gratitude entry" },
+      { title: "Prompt", description: "What worked today? capture one line." },
+      { title: "Streak", description: "Gratitude streak at 6 days · confetti on submit" },
+      { title: "Photo", description: "Drop a moment to remember today." },
+    ],
+    ctas: ["Reflect now"],
+  },
+  {
+    id: "timeline",
+    label: "Timeline View",
+    emoji: "🪴",
+    headline: "My Weeks",
+    subhead: "A chronological scroll mixing spend, events, reflections, and photos.",
+    background: "bg-white",
+    gradient: "border-emerald-100",
+    details: [
+      { title: "Nov 3", description: "Budget review + Niya’s gymnastics pic" },
+      { title: "Nov 4", description: "Logged grocery expense + family pizza night photo" },
+      { title: "Nov 5", description: "No-spend day 🌱" },
+      { title: "Nov 6", description: "Uploaded car insurance doc" },
+    ],
+    gridSpan: 2,
+  },
+  {
+    id: "family",
+    label: "Family Orbit",
+    emoji: "👨‍👩‍👧",
+    headline: "Calm shared feed",
+    subhead: "One place to see documents, expenses, and gratitude notes.",
+    background: "bg-gradient-to-br from-indigo-50 via-slate-50 to-white",
+    gradient: "border-indigo-100",
+    details: [
+      { title: "Raj", description: "Added Health Insurance.pdf" },
+      { title: "Arun", description: "Logged ₹1,200 pizza night expense" },
+      { title: "Niya", description: "Posted gratitude note ❤️" },
+      { title: "AI digest", description: "Family spent 12% less this week. Keep it up!" },
+    ],
+  },
+  {
+    id: "digest",
+    label: "AI Digest",
+    emoji: "🧠",
+    headline: "Your week at a glance",
+    subhead: "Delivered every Sunday morning with encouragement.",
+    background: "bg-gradient-to-br from-rose-50 via-white to-sky-50",
+    gradient: "border-rose-100",
+    details: [
+      { title: "Tasks", description: "21 completed" },
+      { title: "Budget", description: "87% under weekly spend" },
+      { title: "Reflections", description: "3 logged" },
+      { title: "Moments", description: "2 photos captured" },
+      { title: "Insight", description: "“You spend more midweek — try bulk shopping Monday.”" },
+    ],
+    ctas: ["Plan next week"],
+  },
+];
+
+const WEEKLY_HOOKS = [
+  {
+    label: "Morning",
+    description: "Check what’s due (Flow), where money stands (Pulse), and what to feel (Mind).",
+  },
+  {
+    label: "Evening",
+    description: "Log one expense, one sentence reflection, maybe a photo. Keep the loop light.",
+  },
+  {
+    label: "Sunday",
+    description: "Read the digest, smile at the highlights, and queue next week’s plan.",
+  },
+];
+
 const identitiesMatch = (
   a: MindUserIdentity | null,
   b: MindUserIdentity | null
@@ -785,6 +928,11 @@ function LandingPage({
           </div>
         </div>
       </section>
+      <DailyTriggersSection />
+      <RitualLoopSection />
+      <DailyDashboardShowcase />
+      <PhotoIntegrationCallout />
+      <LoopSummarySection />
 
       <section className="mx-auto max-w-6xl px-6 py-20">
         <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] md:items-center">
@@ -890,6 +1038,216 @@ function LandingPage({
         </div>
       </section>
     </div>
+  );
+}
+
+function DailyTriggersSection() {
+  return (
+    <section className="border-y border-slate-100 bg-white/90">
+      <div className="mx-auto max-w-6xl px-6 py-16 space-y-10">
+        <div className="space-y-2 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Psych triggers</p>
+          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
+            Why people come back every single day.
+          </h2>
+          <p className="text-base text-slate-600">
+            Orientation, completion, and continuity are baked into the dashboard loop.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          {DAILY_TRIGGERS.map((trigger) => (
+            <div
+              key={trigger.name}
+              className="rounded-3xl border border-slate-100 bg-slate-50/60 p-6 shadow-sm"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-500">
+                {trigger.name}
+              </p>
+              <p className="mt-3 text-base font-semibold text-slate-900">{trigger.question}</p>
+              <p className="mt-4 text-sm text-slate-600">{trigger.tactic}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RitualLoopSection() {
+  return (
+    <section className="bg-slate-900">
+      <div className="mx-auto max-w-6xl px-6 py-16">
+        <div className="space-y-3 text-center text-white">
+          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-300">See → Do → Feel → Reflect</p>
+          <h2 className="text-3xl font-bold md:text-4xl">The loop that upgrades a tool into a ritual.</h2>
+          <p className="text-base text-slate-300">
+            The home screen answers what to see, what to do, how to feel, and when to reflect—every single day.
+          </p>
+        </div>
+        <div className="mt-10 grid gap-4 md:grid-cols-4">
+          {RITUAL_LOOP.map((item) => (
+            <div
+              key={item.stage}
+              className="rounded-3xl border border-white/10 bg-white/5 p-5 text-white"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.45em] text-emerald-200">{item.stage}</p>
+              <p className="mt-3 text-sm text-slate-100">{item.blurb}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DailyDashboardShowcase() {
+  return (
+    <section className="bg-gradient-to-b from-[#fff8f0] via-white to-slate-50/60">
+      <div className="mx-auto max-w-6xl px-6 py-20 space-y-6">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Home screen snapshots</p>
+          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">How the dashboard greets every moment.</h2>
+          <p className="text-base text-slate-600">
+            Built for mornings, evenings, weekly recaps, and the memory lane that keeps people emotionally invested.
+          </p>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {DASHBOARD_SNAPSHOTS.map((snapshot) => (
+            <div
+              key={snapshot.id}
+              className={`${snapshot.gridSpan === 2 ? "lg:col-span-2" : ""}`}
+            >
+              <SnapshotCard snapshot={snapshot} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SnapshotCard({ snapshot }: { snapshot: Snapshot }) {
+  return (
+    <div
+      className={`h-full rounded-3xl border ${snapshot.gradient} ${snapshot.background} p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
+            {snapshot.label}
+          </p>
+          <h3 className="mt-2 text-2xl font-semibold">{snapshot.headline}</h3>
+          <p className="mt-1 text-sm text-slate-600/90">{snapshot.subhead}</p>
+        </div>
+        <span className="text-3xl">{snapshot.emoji}</span>
+      </div>
+      <div className="mt-4 space-y-3">
+        {snapshot.details.map((detail) => (
+          <div key={`${snapshot.id}-${detail.title}`}>
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
+              {detail.title}
+            </p>
+            <p className="mt-1 text-sm text-slate-700">{detail.description}</p>
+          </div>
+        ))}
+      </div>
+      {snapshot.ctas && (
+        <div className="mt-6 flex flex-wrap gap-3">
+          {snapshot.ctas.map((cta) => (
+            <span
+              key={`${snapshot.id}-${cta}`}
+              className="inline-flex items-center rounded-full border border-slate-200/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-600"
+            >
+              + {cta}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PhotoIntegrationCallout() {
+  return (
+    <section className="border-y border-slate-100 bg-white">
+      <div className="mx-auto max-w-6xl px-6 py-16 grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-center">
+        <div className="space-y-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Light-touch photos</p>
+          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
+            Attach a photo anywhere, revisit it in the timeline gallery.
+          </h2>
+          <p className="text-base text-slate-600">
+            The home screen isn’t chasing social feeds. It uses photos to keep memories alive—attach to a journal, expense,
+            or Flow task, then see them pop back up when you need motivation.
+          </p>
+          <ul className="space-y-2 text-sm text-slate-600">
+            <li>• “Add photo” button lives beside journal + expense compose.</li>
+            <li>• Timeline shows “Your month in review” with lightly animated frames.</li>
+            <li>• AI Digest cherry-picks two moments every Sunday.</li>
+          </ul>
+        </div>
+        <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-6 shadow-sm">
+          <div className="space-y-4 text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-500">Mock preview</p>
+            <p className="text-base font-semibold text-slate-900">
+              “Your month in review” gallery
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  // eslint-disable-next-line react/no-array-index-key
+                  key={`photo-${index}`}
+                  className="h-20 rounded-2xl bg-gradient-to-br from-slate-200 via-white to-slate-100 shadow-inner"
+                />
+              ))}
+            </div>
+            <p>
+              Lightweight resurfacing keeps family users emotionally hooked without building a full social network.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LoopSummarySection() {
+  return (
+    <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+      <div className="mx-auto max-w-6xl px-6 py-16 space-y-8">
+        <div className="space-y-2 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-300">Daily hook</p>
+          <h2 className="text-3xl font-bold md:text-4xl">Morning → Evening → Sunday.</h2>
+          <p className="text-base text-slate-200">
+            That cadence is how the app turns into a ritual instead of “yet another tool.”
+          </p>
+        </div>
+        <div className="grid gap-6 md:grid-cols-3">
+          {WEEKLY_HOOKS.map((hook) => (
+            <div
+              key={hook.label}
+              className="rounded-3xl border border-white/10 bg-white/5 p-5"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.45em] text-emerald-200">
+                {hook.label}
+              </p>
+              <p className="mt-3 text-sm text-slate-100">{hook.description}</p>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap justify-center gap-3 text-sm text-slate-200">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2">
+            Morning CTA → “What’s due? Where do we stand?”
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2">
+            Evening CTA → “Add expense + reflection”
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2">
+            Sunday CTA → “Read digest · Plan next week”
+          </span>
+        </div>
+      </div>
+    </section>
   );
 }
 

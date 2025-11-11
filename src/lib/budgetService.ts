@@ -111,8 +111,14 @@ const defaultIncomes = (): BudgetIncome[] => [
 ];
 
 const defaultFixeds = (): BudgetFixedExpense[] => [
-  { id: generateId(), name: "Rent/Mortgage", amount: 0, enabled: true },
-  { id: generateId(), name: "Utilities", amount: 0, enabled: true },
+  {
+    id: generateId(),
+    name: "Rent/Mortgage",
+    amount: 0,
+    enabled: true,
+    dueDay: 1,
+  },
+  { id: generateId(), name: "Utilities", amount: 0, enabled: true, dueDay: 15 },
 ];
 
 export const buildEmptyMonth = (monthKey: string): BudgetMonth => {

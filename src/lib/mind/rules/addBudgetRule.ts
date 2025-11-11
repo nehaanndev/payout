@@ -1,3 +1,4 @@
+import { extractTokenSlots } from "@/lib/mind/classifier/tokenClassifier";
 import {
   MindEditableMessage,
   MindExperienceSnapshot,
@@ -625,6 +626,7 @@ export const planDeterministicAddBudget = (
     return null;
   }
 
+  const slotExtraction = extractTokenSlots(utterance);
   const debugTrace: MindDebugTrace[] = [
     {
       phase: "planner",
@@ -636,12 +638,23 @@ export const planDeterministicAddBudget = (
       },
     },
   ];
+  if (slotExtraction.tokenPredictions.length) {
+    debugTrace.push({
+      phase: "planner",
+      description: "Token slot classifier output",
+      data: slotExtraction,
+    });
+  }
+  const slotHints = slotExtraction.slots;
 
   const budgetNames = (snapshot.budget.documents ?? [])
     .map((doc) => doc.title)
     .filter((title): title is string => Boolean(title));
-  const category = extractCategory(utterance, amount);
-  const merchant = extractMerchant(utterance);
+  const merchant = slotHints.merchant?.value ?? extractMerchant(utterance);
+  const slotCategoryCandidate = slotHints.note?.value ?? slotHints.merchant?.value;
+  const category =
+    extractCategory(utterance, amount) ??
+    normalizeCategory(slotCategoryCandidate ?? undefined);
   const budget = resolveBudget(utterance, snapshot);
   const requestedBudgetName =
     budget.source && !budget.matchedExisting ? budget.source : undefined;
@@ -657,7 +670,8 @@ export const planDeterministicAddBudget = (
     },
   });
 
-  const description = buildDescription(category, merchant);
+  const slotDescription = slotHints.note?.value;
+  const description = slotDescription ?? buildDescription(category, merchant);
   const categoryDisplay = category ? titleCase(category) : "";
   const occurredOn = extractBudgetDate(utterance);
   const budgetTitle = budget.title ?? "Home Budget";
