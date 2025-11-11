@@ -3,15 +3,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarClock,
+  Check,
   CircleCheckBig,
+  FastForward,
   Flame,
   HeartPulse,
   Hourglass,
   Loader2,
   PauseCircle,
+  Pencil,
   Sparkles,
   TimerReset,
+  Trash2,
   Wand2,
+  X,
 } from "lucide-react";
 
 import { AppTopBar } from "@/components/AppTopBar";
@@ -26,6 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -1638,63 +1644,114 @@ export function FlowExperience() {
                                           ↓
                                         </Button>
                                       </div>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => {
-                                          setEditingTask(task);
-                                          setEditStartTime(
-                                            toTimeInputValue(task.scheduledStart) || startTime
-                                          );
-                                          setEditDuration(task.estimateMinutes);
-                                        }}
-                                      >
-                                        Edit
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant={task.status === "done" ? "secondary" : "outline"}
-                                        onClick={() =>
-                                          handleTaskStatusChange(
-                                            task.id,
-                                            task.status === "done" ? "pending" : "done"
-                                          )
-                                        }
-                                      >
-                                        {task.status === "done" ? "Mark undone" : "Mark done"}
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => handleTaskStatusChange(task.id, "skipped")}
-                                      >
-                                        Skip
-                                      </Button>
-                                      {task.status !== "failed" ? (
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          className="text-rose-600 hover:text-rose-700"
-                                          onClick={() => handleTaskStatusChange(task.id, "failed")}
-                                        >
-                                          Failed
-                                        </Button>
-                                      ) : (
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() => handleTaskStatusChange(task.id, "pending")}
-                                        >
-                                          Reset
-                                        </Button>
-                                      )}
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => handleRemoveTask(task.id)}
-                                      >
-                                        Remove
-                                      </Button>
+                                      <TooltipProvider>
+                                        <div className="flex items-center gap-2">
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                                onClick={() => {
+                                                  setEditingTask(task);
+                                                  setEditStartTime(
+                                                    toTimeInputValue(task.scheduledStart) || startTime
+                                                  );
+                                                  setEditDuration(task.estimateMinutes);
+                                                }}
+                                              >
+                                                <Pencil className="h-4 w-4" />
+                                                <span className="sr-only">Edit</span>
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-blue-600 text-white">Edit</TooltipContent>
+                                          </Tooltip>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className={cn(
+                                                  "h-8 w-8 rounded-full border transition-colors",
+                                                  task.status === "done"
+                                                    ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+                                                    : "border-emerald-600 bg-white text-emerald-600 hover:bg-emerald-50"
+                                                )}
+                                                onClick={() =>
+                                                  handleTaskStatusChange(
+                                                    task.id,
+                                                    task.status === "done" ? "pending" : "done"
+                                                  )
+                                                }
+                                              >
+                                                <Check className="h-4 w-4" />
+                                                <span className="sr-only">
+                                                  {task.status === "done" ? "Mark undone" : "Mark done"}
+                                                </span>
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-blue-600 text-white">
+                                              {task.status === "done" ? "Mark undone" : "Mark done"}
+                                            </TooltipContent>
+                                          </Tooltip>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                                                onClick={() => handleTaskStatusChange(task.id, "skipped")}
+                                              >
+                                                <FastForward className="h-4 w-4" />
+                                                <span className="sr-only">Skip</span>
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-blue-600 text-white">Skip</TooltipContent>
+                                          </Tooltip>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className={cn(
+                                                  "h-8 w-8 rounded-full border transition-colors",
+                                                  task.status === "failed"
+                                                    ? "border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
+                                                    : "border-rose-600 bg-white text-rose-600 hover:bg-rose-50"
+                                                )}
+                                                onClick={() =>
+                                                  handleTaskStatusChange(
+                                                    task.id,
+                                                    task.status === "failed" ? "pending" : "failed"
+                                                  )
+                                                }
+                                              >
+                                                <X className="h-4 w-4" />
+                                                <span className="sr-only">
+                                                  {task.status === "failed" ? "Reset failed" : "Mark failed"}
+                                                </span>
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-blue-600 text-white">
+                                              {task.status === "failed" ? "Reset failed" : "Mark failed"}
+                                            </TooltipContent>
+                                          </Tooltip>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+                                                onClick={() => handleRemoveTask(task.id)}
+                                              >
+                                                <Trash2 className="h-4 w-4" />
+                                                <span className="sr-only">Remove</span>
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-blue-600 text-white">Remove</TooltipContent>
+                                          </Tooltip>
+                                        </div>
+                                      </TooltipProvider>
                                     </div>
                                   </div>
                                   {isActive ? (
