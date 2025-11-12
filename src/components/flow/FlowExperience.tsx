@@ -66,6 +66,8 @@ import { generateId } from "@/lib/id";
 import {
   FlowCategory,
   FlowPlan,
+  FlowReflection,
+  FlowReflectionSentiment,
   FlowSettings,
   FlowTask,
   FlowTaskStatus,
@@ -124,6 +126,118 @@ const TASK_TYPE_LABEL: Record<FlowTaskType, string> = {
   priority: "Top priority",
   chore: "Essential chore",
   flex: "Flex block",
+};
+
+const REFLECTION_MOOD_OPTIONS: Array<{
+  id: string;
+  label: string;
+  emoji: string;
+  sentiment: FlowReflectionSentiment;
+  description: string;
+}> = [
+  {
+    id: "energized",
+    label: "Energized",
+    emoji: "⚡️",
+    sentiment: "positive",
+    description: "Momentum is high",
+  },
+  {
+    id: "grateful",
+    label: "Grateful",
+    emoji: "😊",
+    sentiment: "positive",
+    description: "Soaking up the good stuff",
+  },
+  {
+    id: "calm",
+    label: "Calm",
+    emoji: "😌",
+    sentiment: "neutral",
+    description: "Steady and present",
+  },
+  {
+    id: "focused",
+    label: "Focused",
+    emoji: "🎯",
+    sentiment: "positive",
+    description: "Locked into the work",
+  },
+  {
+    id: "meh",
+    label: "Meh",
+    emoji: "😐",
+    sentiment: "neutral",
+    description: "Cruising on autopilot",
+  },
+  {
+    id: "tired",
+    label: "Tired",
+    emoji: "🥱",
+    sentiment: "neutral",
+    description: "Energy is fading",
+  },
+  {
+    id: "stressed",
+    label: "Stressed",
+    emoji: "😣",
+    sentiment: "challenging",
+    description: "Plates are spinning",
+  },
+  {
+    id: "overwhelmed",
+    label: "Overwhelmed",
+    emoji: "😵‍💫",
+    sentiment: "challenging",
+    description: "Need a breather",
+  },
+  {
+    id: "happy",
+    label: "Happy",
+    emoji: "😀",
+    sentiment: "positive",
+    description: "Feeling light and optimistic",
+  },
+  {
+    id: "depressed",
+    label: "Depressed",
+    emoji: "😞",
+    sentiment: "challenging",
+    description: "Everything feels heavy right now",
+  },
+  {
+    id: "excited",
+    label: "Excited",
+    emoji: "🤩",
+    sentiment: "positive",
+    description: "Buzzing with anticipation",
+  },
+  {
+    id: "lazy",
+    label: "Lazy",
+    emoji: "😴",
+    sentiment: "neutral",
+    description: "Coasting and keeping it low-key",
+  },
+  {
+    id: "sad",
+    label: "Sad",
+    emoji: "😢",
+    sentiment: "challenging",
+    description: "Carrying some low feelings",
+  },
+];
+
+const SENTIMENT_LABEL: Record<FlowReflectionSentiment, string> = {
+  positive: "On the rise",
+  neutral: "Steady",
+  challenging: "Weathering",
+};
+
+const SENTIMENT_STYLE: Record<FlowReflectionSentiment, string> = {
+  positive: "border-emerald-200 text-emerald-700 bg-emerald-50/70",
+  neutral: "border-slate-200 text-slate-600 bg-slate-50/80",
+  challenging: "border-rose-200 text-rose-700 bg-rose-50/80",
 };
 
 const MINUTE_OPTIONS = [15, 25, 45, 60, 90, 120];
@@ -481,6 +595,9 @@ export function FlowExperience() {
   const [editStartTime, setEditStartTime] = useState<string>("");
   const [editDuration, setEditDuration] = useState<number>(30);
   const [timelineOnly, setTimelineOnly] = useState(false);
+  const [reflectionMoodId, setReflectionMoodId] = useState<string | null>(null);
+  const [reflectionNote, setReflectionNote] = useState("");
+  const [reflectionSaving, setReflectionSaving] = useState(false);
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -896,6 +1013,47 @@ export function FlowExperience() {
     });
     setEditingTask(null);
   }, [editDuration, editStartTime, editingTask, plan, startTime, updatePlan]);
+
+  const handleAddReflection = useCallback(() => {
+    if (!plan || reflectionSaving) {
+      return;
+    }
+    const trimmed = reflectionNote.trim();
+    if (!trimmed) {
+      setErrors((prev) => [
+        ...prev,
+        {
+          id: generateId(),
+          message: "Add a quick note about how the day feels before saving.",
+        },
+      ]);
+      return;
+    }
+    const selectedMood =
+      REFLECTION_MOOD_OPTIONS.find((option) => option.id === reflectionMoodId) ??
+      REFLECTION_MOOD_OPTIONS.find((option) => option.id === "calm");
+    setReflectionSaving(true);
+    try {
+      const nowIso = new Date().toISOString();
+      const newReflection: FlowReflection = {
+        id: generateId(),
+        taskId: null,
+        note: trimmed,
+        sentiment: selectedMood?.sentiment ?? "neutral",
+        mood: selectedMood?.emoji,
+        moodLabel: selectedMood?.label,
+        createdAt: nowIso,
+      };
+      updatePlan((current) => ({
+        ...current,
+        reflections: [newReflection, ...current.reflections],
+      }));
+      setReflectionMoodId(null);
+      setReflectionNote("");
+    } finally {
+      setReflectionSaving(false);
+    }
+  }, [plan, reflectionMoodId, reflectionNote, reflectionSaving, updatePlan]);
 
   const currentTask = useMemo(
     () => getCurrentTask(plan, now),
@@ -1731,14 +1889,28 @@ export function FlowExperience() {
                                               <Button
                                                 size="icon"
                                                 variant="ghost"
-                                                className="h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
-                                                onClick={() => handleTaskStatusChange(task.id, "skipped")}
+                                                className={cn(
+                                                  "h-8 w-8 rounded-full border transition-colors",
+                                                  task.status === "skipped"
+                                                    ? "border-sky-500 bg-sky-500 text-white hover:bg-sky-600"
+                                                    : "border-sky-300 bg-white text-sky-600 hover:bg-sky-50"
+                                                )}
+                                                onClick={() =>
+                                                  handleTaskStatusChange(
+                                                    task.id,
+                                                    task.status === "skipped" ? "pending" : "skipped"
+                                                  )
+                                                }
                                               >
                                                 <FastForward className="h-4 w-4" />
-                                                <span className="sr-only">Skip</span>
+                                                <span className="sr-only">
+                                                  {task.status === "skipped" ? "Reset skip" : "Skip"}
+                                                </span>
                                               </Button>
                                             </TooltipTrigger>
-                                            <TooltipContent className="bg-blue-600 text-white">Skip</TooltipContent>
+                                            <TooltipContent className="bg-blue-600 text-white">
+                                              {task.status === "skipped" ? "Reset skip" : "Skip"}
+                                            </TooltipContent>
                                           </Tooltip>
                                           <Tooltip>
                                             <TooltipTrigger asChild>
@@ -1810,7 +1982,75 @@ export function FlowExperience() {
                           Reflection log
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-4">
+                      <CardContent className="space-y-6">
+                        <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold text-slate-900">
+                              How are you feeling right now?
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              Pick an emoji, jot a sentence or two, and keep your day’s story in one place.
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {REFLECTION_MOOD_OPTIONS.map((option) => {
+                              const active = reflectionMoodId === option.id;
+                              return (
+                                <Button
+                                  key={option.id}
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  aria-pressed={active}
+                                  className={cn(
+                                    "flex items-center gap-1 rounded-full border px-3 text-sm transition",
+                                    active
+                                      ? "border-sky-400 bg-sky-50 text-sky-700 shadow-sm"
+                                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                                  )}
+                                  onClick={() =>
+                                    setReflectionMoodId((prev) =>
+                                      prev === option.id ? null : option.id
+                                    )
+                                  }
+                                >
+                                  <span className="text-lg leading-none">{option.emoji}</span>
+                                  {option.label}
+                                </Button>
+                              );
+                            })}
+                          </div>
+                          <Textarea
+                            value={reflectionNote}
+                            onChange={(event) => setReflectionNote(event.target.value)}
+                            placeholder="Free-write a quick thought, mood, or story beat…"
+                            rows={4}
+                          />
+                          <div className="flex flex-wrap items-center gap-3">
+                            <p className="text-xs text-slate-500">
+                              Reflections appear here and in Journal so you can spot patterns.
+                            </p>
+                            <Button
+                              type="button"
+                              className="ml-auto bg-emerald-500 text-white hover:bg-emerald-400"
+                              onClick={handleAddReflection}
+                              disabled={reflectionSaving || !reflectionNote.trim()}
+                            >
+                              {reflectionSaving ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Saving…
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="mr-2 h-4 w-4" />
+                                  Log feeling
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                        <Separator />
                         {plan.reflections.length ? (
                           <div className="space-y-3">
                             {plan.reflections
@@ -1827,20 +2067,36 @@ export function FlowExperience() {
                                 return (
                                   <div
                                     key={reflection.id}
-                                    className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-600"
+                                    className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600"
                                   >
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="font-semibold text-slate-800">
-                                        {task?.title ?? "Daily note"}
-                                      </span>
-                                      <span className="text-xs text-slate-400">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="flex flex-1 items-start gap-2">
+                                        {reflection.mood ? (
+                                          <span className="text-xl leading-none">{reflection.mood}</span>
+                                        ) : null}
+                                        <div className="space-y-1">
+                                          <p className="font-semibold text-slate-900">
+                                            {task?.title ?? reflection.moodLabel ?? "Daily note"}
+                                          </p>
+                                          <Badge
+                                            variant="outline"
+                                            className={cn(
+                                              "text-[11px]",
+                                              SENTIMENT_STYLE[reflection.sentiment]
+                                            )}
+                                          >
+                                            {reflection.moodLabel ?? SENTIMENT_LABEL[reflection.sentiment]}
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                      <div className="text-xs text-slate-400">
                                         {new Date(reflection.createdAt).toLocaleTimeString([], {
                                           hour: "2-digit",
                                           minute: "2-digit",
                                         })}
-                                      </span>
+                                      </div>
                                     </div>
-                                    <p className="mt-1 whitespace-pre-line">
+                                    <p className="mt-2 whitespace-pre-line text-slate-700">
                                       {reflection.note}
                                     </p>
                                   </div>
@@ -1849,7 +2105,7 @@ export function FlowExperience() {
                           </div>
                         ) : (
                           <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/60 py-10 text-center text-sm text-slate-500">
-                            Track how each block went, capture wins, and note what to tweak tomorrow.
+                            Track how each block went, capture wins, moods, and tweaks for tomorrow.
                           </div>
                         )}
                       </CardContent>
