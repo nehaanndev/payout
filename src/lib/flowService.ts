@@ -56,6 +56,24 @@ export const ensureFlowPlan = async (
   return plan;
 };
 
+export const fetchFlowPlanSnapshot = async (
+  userId: string,
+  dateKey: string
+): Promise<FlowPlan | null> => {
+  if (!userId) {
+    throw new Error("User ID required to load Flow plan");
+  }
+  const ref = flowPlanDoc(userId, dateKey);
+  const snapshot = await getDoc(ref);
+  if (!snapshot.exists()) {
+    return null;
+  }
+  return {
+    id: snapshot.id,
+    ...(snapshot.data() as Omit<FlowPlan, "id">),
+  };
+};
+
 export const saveFlowPlan = async (userId: string, plan: FlowPlan) => {
   if (!userId) {
     throw new Error("User ID required to save Flow plan");

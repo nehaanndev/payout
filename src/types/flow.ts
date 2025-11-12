@@ -43,6 +43,7 @@ export type FlowReflection = {
   sentiment: FlowReflectionSentiment;
   mood?: string | null;
   moodLabel?: string | null;
+  photoUrl?: string | null;
   createdAt: string;
 };
 

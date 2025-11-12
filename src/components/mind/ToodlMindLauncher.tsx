@@ -88,6 +88,17 @@ export default function ToodlMindLauncher() {
     }
   }, [lastResponse]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handleExternalOpen = () => setOpen(true);
+    window.addEventListener("open-toodl-mind", handleExternalOpen);
+    return () => {
+      window.removeEventListener("open-toodl-mind", handleExternalOpen);
+    };
+  }, []);
+
   const readyForCommands = useMemo(
     () => Boolean(identity?.userId || identity?.email),
     [identity]
