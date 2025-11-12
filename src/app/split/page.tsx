@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import type { ComponentType, SVGProps } from "react";
+import { useRouter } from "next/navigation";
 import SearchParamsClient from '@/components/SearchParamsClient'
 import {
   auth,
@@ -363,6 +364,7 @@ const identitiesMatch = (
 };
 
 export default function Home() {
+  const router = useRouter();
   const [session, setSession] = useState<User | null>(null);
   const [group, setGroup] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -659,12 +661,33 @@ export default function Home() {
           setGroupId(params.get('group_id'))
         }} />
       </Suspense>
-    <div className="min-h-screen flex flex-col bg-gray-100">
-      { /* Case A: Signed-in or already-identified anon user → show the app */ }
-      {session || anonUser ? (
-        <>
+    { /* Case A: Signed-in or already-identified anon user → show the app */ }
+    {session || anonUser ? (
+      <div className="min-h-screen bg-slate-50/80 px-4 py-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
           <AppTopBar
             product="expense"
+            heading="Split"
+            subheading="Invite your crew, log purchases, and keep every tab honest."
+            actions={
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  className="border-slate-200 text-slate-700 hover:bg-slate-100"
+                  onClick={() => setPaymentDialogMode("settings")}
+                  disabled={!session}
+                >
+                  Payment settings
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-slate-200 text-slate-700 hover:bg-slate-100"
+                  onClick={() => router.push("/dashboard")}
+                >
+                  Open dashboard
+                </Button>
+              </div>
+            }
             userSlot={
               <AppUserMenu
                 product="expense"
@@ -675,7 +698,7 @@ export default function Home() {
               />
             }
           />
-          <div className="flex-grow p-8">
+          <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
             <ExpenseSplitter
               session={session}
               groupid={group}
@@ -685,46 +708,49 @@ export default function Home() {
               onShowPaymentSettings={() => setPaymentDialogMode("settings")}
             />
           </div>
-        </>
-      )     
-      /* Case B: No user yet, but we fetched sharedMembers → ask “Who are you?” */ 
-      : sharedMembers ? (
-        <IdentityPrompt
-          members={sharedMembers}
-          onSelect={(member) => {
-            // Save the chosen member as our anonUser and hide the prompt
-            localStorage.setItem("anon_member", JSON.stringify(member));
-            setAnonUser(member);
-            setShowIdentityChoice(false);
-            setSharedMembers(null);
-          }}
-        />
-      ): (
-        <>
-          <LandingPage
-            onGoogle={handleGoogleSignIn}
-            onMicrosoft={handleMicrosoftSignIn}
-            onFacebook={handleFacebookSignIn}
-            onContinueWithoutSignIn={handleContinueWithoutSignIn}
-          />
-          <IdentityModal
-            open={showIdentityChoice}
-            existingName={existingName}
-            isNewUser={isNewUser}
-            tempName={tempName}
-            onSetTempName={setTempName}
-            onSetIsNewUser={setIsNewUser}
-            onClose={() => {
+        </div>
+      </div>
+    )     
+    /* Case B: No user yet, but we fetched sharedMembers → ask “Who are you?” */ 
+    : sharedMembers ? (
+      <div className="min-h-screen bg-slate-50/80 px-4 py-10">
+        <div className="mx-auto w-full max-w-3xl">
+          <IdentityPrompt
+            members={sharedMembers}
+            onSelect={(member) => {
+              localStorage.setItem("anon_member", JSON.stringify(member));
+              setAnonUser(member);
               setShowIdentityChoice(false);
-              setIsNewUser(false);
-              setTempName("");
+              setSharedMembers(null);
             }}
-            onSelectExisting={handleSelectExistingIdentity}
-            onSubmitNew={handleSubmitIdentityName}
           />
-        </>
-      )}
-    </div>
+        </div>
+      </div>
+    ): (
+      <>
+        <LandingPage
+          onGoogle={handleGoogleSignIn}
+          onMicrosoft={handleMicrosoftSignIn}
+          onFacebook={handleFacebookSignIn}
+          onContinueWithoutSignIn={handleContinueWithoutSignIn}
+        />
+        <IdentityModal
+          open={showIdentityChoice}
+          existingName={existingName}
+          isNewUser={isNewUser}
+          tempName={tempName}
+          onSetTempName={setTempName}
+          onSetIsNewUser={setIsNewUser}
+          onClose={() => {
+            setShowIdentityChoice(false);
+            setIsNewUser(false);
+            setTempName("");
+          }}
+          onSelectExisting={handleSelectExistingIdentity}
+          onSubmitNew={handleSubmitIdentityName}
+        />
+      </>
+    )}
       <PaymentSettingsDialog
         open={paymentDialogMode !== null}
         mode={paymentDialogMode ?? "settings"}

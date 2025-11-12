@@ -881,39 +881,40 @@ const JournalExperience = () => {
   }
 
   return (
-    <>
-      <AppTopBar
-        product="journal"
-        actions={
-          <div className="flex flex-col items-stretch gap-2 sm:items-end">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <Button
-                variant="outline"
-                onClick={handleCopyLink}
-                disabled={!shareUrl}
-                className="border-slate-300"
-              >
-                Copy journal link
-              </Button>
-              <Button variant="secondary" onClick={() => setLibraryOpen(true)}>
-                Browse past entries
-              </Button>
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-16">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+      <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-10">
+        <AppTopBar
+          product="journal"
+          heading="Story"
+          subheading="Capture the story behind the numbers, one guided reflection at a time."
+          actions={
+            <div className="flex flex-col items-stretch gap-2 sm:items-end">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Button
+                  variant="outline"
+                  onClick={handleCopyLink}
+                  disabled={!shareUrl}
+                  className="border-slate-300"
+                >
+                  Copy journal link
+                </Button>
+                <Button variant="secondary" onClick={() => setLibraryOpen(true)}>
+                  Browse past entries
+                </Button>
+              </div>
+              <span className="text-xs text-slate-500">{journalStatus}</span>
             </div>
-            <span className="text-xs text-slate-500">{journalStatus}</span>
-          </div>
-        }
-        userSlot={
-          <AppUserMenu
-            product="journal"
-            displayName={displayName}
-            sections={journalMenuSections}
-            onSignOut={user ? handleSignOut : undefined}
-          />
-        }
-      />
-      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-16">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
+          }
+          userSlot={
+            <AppUserMenu
+              product="journal"
+              displayName={displayName}
+              sections={journalMenuSections}
+              onSignOut={user ? handleSignOut : undefined}
+            />
+          }
+        />
         <header className="space-y-4 text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.35em] text-rose-400">
             Toodl Story
@@ -1194,7 +1195,6 @@ const JournalExperience = () => {
           </div>
         </Card>
       </div>
-    </div>
       <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>
         <SheetContent
           side="right"
@@ -1276,7 +1276,7 @@ const JournalExperience = () => {
           </div>
         </SheetContent>
       </Sheet>
-    </>
+    </div>
   );
 };
 

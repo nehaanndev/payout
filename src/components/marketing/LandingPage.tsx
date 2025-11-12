@@ -644,7 +644,6 @@ function PhotoIntegrationCallout() {
             <div className="grid grid-cols-3 gap-3">
               {Array.from({ length: 6 }).map((_, index) => (
                 <div
-                  // eslint-disable-next-line react/no-array-index-key
                   key={`photo-${index}`}
                   className="h-20 rounded-2xl bg-gradient-to-br from-slate-200 via-white to-slate-100 shadow-inner"
                 />

@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { AppUserMenu } from "@/components/AppUserMenu";
-import { auth } from "@/lib/firebase";
+import { auth, signOut } from "@/lib/firebase";
 import {
   ensureFlowPlan,
   fetchFlowPlanSnapshot,
@@ -442,6 +442,14 @@ export default function DailyDashboardPage() {
   const greetingName = user?.displayName?.split(" ")[0] ?? "friend";
   const userDisplayName = user?.displayName ?? user?.email ?? "You";
 
+  const handleSignOut = useCallback(async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Failed to sign out", error);
+    }
+  }, []);
+
   return (
     <div className={cn("min-h-screen w-full bg-gradient-to-b px-4 py-10", palette.gradient)}>
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
@@ -477,6 +485,7 @@ export default function DailyDashboardPage() {
                 product="dashboard"
                 displayName={userDisplayName}
                 avatarSrc={user.photoURL}
+                onSignOut={handleSignOut}
               />
             ) : null}
           </div>
