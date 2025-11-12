@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, MouseEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   CalendarDays,
   ExternalLink,
@@ -201,6 +202,7 @@ export function ScratchPadExperience() {
   );
   const [linksOnly, setLinksOnly] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (current) => {
@@ -260,7 +262,8 @@ export function ScratchPadExperience() {
 
   const handleSignOut = useCallback(async () => {
     await signOut(auth);
-  }, []);
+    router.replace("/");
+  }, [router]);
 
   const resetUploadForm = useCallback(() => {
     setUploadFile(null);

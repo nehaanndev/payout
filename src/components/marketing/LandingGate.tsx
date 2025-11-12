@@ -55,11 +55,12 @@ export function LandingGate() {
             ? facebookProvider
             : provider;
         await signInWithPopup(auth, selectedProvider);
+        router.replace("/dashboard");
       } catch (error) {
         console.error("Sign-in failed", error);
       }
     },
-    []
+    [router]
   );
 
   const handleContinueWithoutSignIn = useCallback(() => {

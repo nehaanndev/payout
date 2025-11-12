@@ -703,10 +703,11 @@ const JournalExperience = () => {
   const handleSignOut = useCallback(async () => {
     try {
       await signOut(auth);
+      router.replace("/");
     } catch (error) {
       console.error("Failed to sign out", error);
     }
-  }, []);
+  }, [router]);
 
   const journalMenuSections: AppUserMenuSection[] = useMemo(
     () => [

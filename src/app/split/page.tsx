@@ -549,6 +549,7 @@ export default function Home() {
   const handleSignOut = async () => {
     try {
       await signOut(auth);
+      router.replace("/");
     } catch (error) {
       console.error("Error signing out: ", error);
     }

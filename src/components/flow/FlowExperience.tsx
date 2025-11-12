@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CalendarClock,
   Check,
@@ -500,6 +501,7 @@ export function FlowExperience() {
   const [reflectionMoodId, setReflectionMoodId] = useState<string | null>(null);
   const [reflectionNote, setReflectionNote] = useState("");
   const [reflectionSaving, setReflectionSaving] = useState(false);
+  const router = useRouter();
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -1019,7 +1021,8 @@ export function FlowExperience() {
 
   const handleSignOut = useCallback(async () => {
     await signOut(auth);
-  }, []);
+    router.replace("/");
+  }, [router]);
 
   const handleDismissError = useCallback((id: string) => {
     setErrors((prev) => prev.filter((error) => error.id !== id));

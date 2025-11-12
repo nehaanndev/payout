@@ -1919,10 +1919,11 @@ const BudgetExperience = () => {
   const handleSignOut = useCallback(async () => {
     try {
       await signOut(auth);
+      router.replace("/");
     } catch (error) {
       console.error("Failed to sign out", error);
     }
-  }, []);
+  }, [router]);
 
   const budgetMenuSections: AppUserMenuSection[] = useMemo(() => {
     const sections: AppUserMenuSection[] = [];
