@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { AppUserMenu } from "@/components/AppUserMenu";
 import { auth } from "@/lib/firebase";
 import {
   ensureFlowPlan,
@@ -439,6 +440,7 @@ export default function DailyDashboardPage() {
 
   const palette = THEMES[theme];
   const greetingName = user?.displayName?.split(" ")[0] ?? "friend";
+  const userDisplayName = user?.displayName ?? user?.email ?? "You";
 
   return (
     <div className={cn("min-h-screen w-full bg-gradient-to-b px-4 py-10", palette.gradient)}>
@@ -450,24 +452,33 @@ export default function DailyDashboardPage() {
             theme === "night" ? "text-white" : "text-slate-900"
           )}
         >
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs font-semibold uppercase tracking-[0.4em] text-current/70">
-              Ritual dashboard
-            </span>
-            <div className="flex gap-2 rounded-full border border-white/40 bg-white/20 p-1 text-xs font-semibold text-white">
-              {Object.values(THEMES).map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() => setTheme(option.id)}
-                  className={cn(
-                    "rounded-full px-3 py-1",
-                    theme === option.id ? "bg-white/80 text-slate-900" : "text-white/80"
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-xs font-semibold uppercase tracking-[0.4em] text-current/70">
+                Ritual dashboard
+              </span>
+              <div className="flex gap-2 rounded-full border border-white/40 bg-white/20 p-1 text-xs font-semibold text-white">
+                {Object.values(THEMES).map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => setTheme(option.id)}
+                    className={cn(
+                      "rounded-full px-3 py-1",
+                      theme === option.id ? "bg-white/80 text-slate-900" : "text-white/80"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
+            {user ? (
+              <AppUserMenu
+                product="dashboard"
+                displayName={userDisplayName}
+                avatarSrc={user.photoURL}
+              />
+            ) : null}
           </div>
           <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -476,17 +487,6 @@ export default function DailyDashboardPage() {
                 See → Do → Feel → Reflect without bouncing tabs.
               </p>
             </div>
-            <Button
-              variant="outline"
-              className={cn(
-                theme === "night"
-                  ? "border-white/50 bg-white/10 text-white hover:bg-white/20"
-                  : "border-slate-200 text-slate-800"
-              )}
-              onClick={() => router.push("/flow")}
-            >
-              Open Flow timeline
-            </Button>
           </div>
         </header>
 
@@ -499,8 +499,6 @@ export default function DailyDashboardPage() {
             completedTasks={completedTasks}
             totalTasks={flowPlan.tasks?.length ?? 0}
             latestReflection={latestReflection}
-            onAddExpense={() => router.push("/")}
-            onAddNote={() => router.push("/scratch-pad")}
             onAddJournal={() => router.push("/journal")}
             onReflect={() => router.push("/flow")}
           />
@@ -508,14 +506,24 @@ export default function DailyDashboardPage() {
           <SkeletonBanner label={flowError ?? "Sign in to see Flow insights"} />
         )}
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="grid gap-6 lg:grid-cols-2">
           <GroupSummaryCard
             loading={splitLoading}
             error={splitError}
             summaries={splitTotals}
             primary={primarySummary}
+            onAddExpense={() => router.push("/split")}
           />
 
+          <BudgetPulseCard
+            loading={budgetLoading}
+            error={budgetError}
+            summary={budgetPulse}
+            onOpenBudget={() => router.push("/budget")}
+          />
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
           <Card className="rounded-[28px] border border-indigo-200 bg-indigo-50/70 p-6 shadow-sm">
             <CardHeader className="p-0">
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-500">Mood + photo</p>
@@ -576,21 +584,20 @@ export default function DailyDashboardPage() {
               </Button>
             </CardContent>
           </Card>
-        </div>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          <BudgetPulseCard
-            loading={budgetLoading}
-            error={budgetError}
-            summary={budgetPulse}
-            onOpenBudget={() => router.push("/budget")}
-          />
           <Card className="rounded-[28px] border border-indigo-200 bg-white/95 p-6 shadow-sm">
             <CardHeader className="p-0">
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-500">Saved links</p>
               <CardTitle className="text-xl text-slate-900">AI recaps</CardTitle>
             </CardHeader>
             <CardContent className="mt-4 space-y-4">
+              <Button
+                variant="outline"
+                className="w-full border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                onClick={() => router.push("/scratch-pad")}
+              >
+                Add a note or save a link
+              </Button>
               {aiHighlights.map((item) => (
                 <div key={item.id} className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4">
                   <p className="text-sm font-semibold text-indigo-700">{item.title}</p>
@@ -609,16 +616,16 @@ export default function DailyDashboardPage() {
               ))}
             </CardContent>
           </Card>
-
-          {isSunday ? (
-            <WeeklyDigestCard
-              summary={weeklySummary}
-              loading={weeklyLoading}
-              error={weeklyError}
-              moments={timelineMoments}
-            />
-          ) : null}
         </div>
+
+        {isSunday ? (
+          <WeeklyDigestCard
+            summary={weeklySummary}
+            loading={weeklyLoading}
+            error={weeklyError}
+            moments={timelineMoments}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -630,8 +637,6 @@ function FlowCards({
   completedTasks,
   totalTasks,
   latestReflection,
-  onAddExpense,
-  onAddNote,
   onAddJournal,
   onReflect,
 }: {
@@ -640,8 +645,6 @@ function FlowCards({
   completedTasks: number;
   totalTasks: number;
   latestReflection: FlowReflection | null;
-  onAddExpense: () => void;
-  onAddNote: () => void;
   onAddJournal: () => void;
   onReflect: () => void;
 }) {
@@ -709,17 +712,6 @@ function FlowCards({
             </Button>
           </div>
         </div>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Button variant="outline" className="border-slate-200" onClick={onAddExpense}>
-            + Add expense
-          </Button>
-          <Button variant="outline" className="border-slate-200" onClick={onAddNote}>
-            + Add note
-          </Button>
-          <Button variant="outline" className="border-slate-200" onClick={onAddJournal}>
-            + Journal
-          </Button>
-        </div>
       </Card>
     );
   }
@@ -749,6 +741,9 @@ function FlowCards({
       <div className="mt-auto flex flex-wrap gap-3 px-6 pb-6">
         <Button variant="ghost" className="text-white hover:bg-white/10" onClick={onReflect}>
           + Reflect now
+        </Button>
+        <Button variant="ghost" className="text-white hover:bg-white/10" onClick={onAddJournal}>
+          + Journal
         </Button>
       </div>
     </Card>
@@ -861,17 +856,30 @@ function GroupSummaryCard({
   error,
   summaries,
   primary,
+  onAddExpense,
 }: {
   loading: boolean;
   error: string | null;
   summaries: CurrencySummary[];
   primary: CurrencySummary | null;
+  onAddExpense: () => void;
 }) {
   return (
     <Card className="rounded-[28px] border border-emerald-200 bg-white/95 p-6 shadow-sm">
-      <CardHeader className="p-0">
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-500">Groups</p>
-        <CardTitle className="text-xl text-slate-900">Money pulse</CardTitle>
+      <CardHeader className="flex flex-col gap-3 p-0">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-500">Groups</p>
+            <CardTitle className="text-xl text-slate-900">Money pulse</CardTitle>
+          </div>
+          <Button
+            variant="outline"
+            className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            onClick={onAddExpense}
+          >
+            + Add expense
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="mt-4 space-y-4">
         {loading ? (

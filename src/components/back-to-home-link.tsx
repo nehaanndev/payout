@@ -17,7 +17,7 @@ export function BackToHomeLink({
 }: BackToHomeLinkProps) {
   return (
     <Link
-      href="/"
+      href="/dashboard"
       className={cn(
         buttonVariants({ variant: "outline", size: "sm" }),
         "w-fit",

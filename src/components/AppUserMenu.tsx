@@ -3,14 +3,14 @@
 import { MouseEvent as ReactMouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, LogOut, X } from "lucide-react";
+import { Menu, LogOut, X, Home } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-type ProductKey = "expense" | "budget" | "journal" | "orbit" | "flow";
+type ProductKey = "dashboard" | "expense" | "budget" | "journal" | "orbit" | "flow";
 
 type MenuAction = {
   label: string;
@@ -39,7 +39,7 @@ type AppUserMenuProps = {
 };
 
 const PRODUCT_DESTINATIONS: Array<{
-  product: ProductKey;
+  product: Exclude<ProductKey, "dashboard">;
   label: string;
   href: string;
   icon: string;
@@ -47,7 +47,7 @@ const PRODUCT_DESTINATIONS: Array<{
   {
     product: "expense",
     label: "Split",
-    href: "/",
+    href: "/split",
     icon: "/brand/toodl-expense.svg",
   },
   {
@@ -93,30 +93,37 @@ export function AppUserMenu({
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const crossAppSection: AppUserMenuSection = useMemo(() => {
-    const homeDestination = PRODUCT_DESTINATIONS.find((destination) => destination.product === "expense");
-    const remainingDestinations = PRODUCT_DESTINATIONS.filter((destination) => destination.product !== "expense");
+    const coreItems = PRODUCT_DESTINATIONS.map((destination) => ({
+      label: destination.label,
+      href: destination.href,
+      icon: (
+        <Image
+          src={destination.icon}
+          alt={destination.label}
+          width={20}
+          height={20}
+          className="brand-logo h-5 w-5"
+        />
+      ),
+      disabled: product === destination.product,
+      badge: product === destination.product ? "Current" : undefined,
+    }));
 
-    const ordered = homeDestination
-      ? [homeDestination, ...remainingDestinations]
-      : PRODUCT_DESTINATIONS;
+    const homeItem = {
+      label: "Dashboard",
+      href: "/dashboard",
+      icon: (
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-r from-amber-400 via-orange-400 to-pink-500 text-white shadow-inner">
+          <Home className="h-4 w-4" />
+        </span>
+      ),
+      disabled: product === "dashboard",
+      badge: product === "dashboard" ? "Current" : undefined,
+    };
 
     return {
       title: "Jump to",
-      items: ordered.map((destination) => ({
-        label: destination.label,
-        href: destination.href,
-        icon: (
-          <Image
-            src={destination.icon}
-            alt={destination.label}
-            width={20}
-            height={20}
-            className="brand-logo h-5 w-5"
-          />
-        ),
-        disabled: product === destination.product,
-        badge: product === destination.product ? "Current" : undefined,
-      })),
+      items: [homeItem, ...coreItems],
     };
   }, [product]);
 

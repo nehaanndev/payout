@@ -804,7 +804,7 @@ const JournalExperience = () => {
             actions={
               <Button
                 className="bg-primary text-white hover:bg-payoutHover"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/split")}
               >
                 Sign in
               </Button>
@@ -828,7 +828,7 @@ const JournalExperience = () => {
               </p>
               <Button
                 className="w-full bg-primary text-white hover:bg-payoutHover"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/split")}
               >
                 Go to sign-in
               </Button>

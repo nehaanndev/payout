@@ -2583,7 +2583,7 @@ const BudgetExperience = () => {
             actions={
               <Button
                 className="bg-emerald-600 text-white hover:bg-emerald-500"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/split")}
               >
                 Sign in
               </Button>
@@ -2606,7 +2606,7 @@ const BudgetExperience = () => {
               </p>
               <Button
                 className="w-full bg-emerald-600 text-white hover:bg-emerald-500"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/split")}
               >
                 Go to sign-in
               </Button>
