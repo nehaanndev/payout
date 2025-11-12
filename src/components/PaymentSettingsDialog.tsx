@@ -135,6 +135,18 @@ export function PaymentSettingsDialog({
             <p className="text-xs text-slate-500">
               Anything pasted here will appear when friends settle with you.
             </p>
+            <p className="text-xs text-slate-500">
+              Need to create one?{" "}
+              <a
+                href="https://www.paypal.com/paypalme/"
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-emerald-600 underline underline-offset-2 hover:text-emerald-500"
+              >
+                Follow PayPal’s PayPal.Me setup guide
+              </a>
+              .
+            </p>
             {error ? (
               <p className="text-sm font-medium text-rose-600">{error}</p>
             ) : null}
