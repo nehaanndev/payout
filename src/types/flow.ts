@@ -41,6 +41,8 @@ export type FlowReflection = {
   taskId: string | null;
   note: string;
   sentiment: FlowReflectionSentiment;
+  mood?: string | null;
+  moodLabel?: string | null;
   createdAt: string;
 };
 
