@@ -102,6 +102,19 @@ export interface ExpensesPanelProps {
   // ① compute balances with the correct args using minor units
   const balances: Record<string, number> = calculateRawBalancesMinor(members, expenses, currency);
   const openBalances = calculateOpenBalancesMinor(members, expenses, settlements, currency);
+  const openBalanceEntries = Object.entries(openBalances) as [string, number][];
+  const yourBalance = openBalances[youId] ?? 0;
+  const membersWhoOweYou = openBalanceEntries.filter(
+    ([id, bal]) => id !== youId && bal < 0
+  );
+  const membersYouOwe = openBalanceEntries.filter(
+    ([id, bal]) => id !== youId && bal > 0
+  );
+  const totalOwedToYou = yourBalance > 0 ? yourBalance : 0;
+  const totalYouOwe = yourBalance < 0 ? Math.abs(yourBalance) : 0;
+  const pendingSettlements = settlements.filter((settlement) => settlement.status === "pending");
+  const pendingTotal = pendingSettlements.reduce((sum, settlement) => sum + settlement.amount, 0);
+  const originalBalanceEntries = Object.entries(balances) as [string, number][];
 
   // ② per‐member color palette
   /*const memberColors = useMemo(() => {
@@ -577,122 +590,222 @@ export interface ExpensesPanelProps {
         )}
 
         {isIdleState && expenses.length > 0 && (
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 space-y-4 hover:bg-slate-50">
-            <div className="flex items-center justify-between">
-              <h3 className="text-black font-semibold">Settlements</h3>
-              {settlements.length > 0 ? (
-                <span className="text-xs text-slate-500">
-                  Showing {settlements.length} settlement{settlements.length === 1 ? "" : "s"}
-                </span>
-              ) : null}
-            </div>
-
-            {settlements.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                Record payments from the overview tab to mark debts as settled.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {settlements.map((settlement) => {
-                  const payer = membersMapById[settlement.payerId]?.firstName ?? settlement.payerId;
-                  const payee = membersMapById[settlement.payeeId]?.firstName ?? settlement.payeeId;
-                  const methodLabel = getSettlementMethodLabel(settlement.method);
-                  const statusLabel = settlement.status === "pending" ? "Awaiting confirmation" : "Confirmed";
-                  const statusBadgeClass =
-                    settlement.status === "pending"
-                      ? "border-amber-300/70 text-amber-700"
-                      : "border-emerald-300/70 text-emerald-700";
-                  const amountLabel = formatMoneySafeGivenCurrency(toMinor(settlement.amount, currency), currency);
-                  const note = settlement.paymentNote;
-                  const isPayee = settlement.payeeId === youId;
-                  const isPending = settlement.status === "pending";
-
-                  return (
-                    <div
-                      key={settlement.id}
-                      className="space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
-                    >
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">
-                            {payer} <span className="text-slate-400">→</span> {payee}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {amountLabel} on {new Date(settlement.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant="outline" className="border-slate-200 text-slate-600">
-                            {methodLabel}
-                          </Badge>
-                          <Badge variant="outline" className={statusBadgeClass}>
-                            {statusLabel}
-                          </Badge>
-                        </div>
-                      </div>
-                      {note ? (
-                        <p className="text-xs italic text-slate-500">
-                          “{note}”
-                        </p>
-                      ) : null}
-                      {isPending ? (
-                        <div className="flex justify-end">
-                          {isPayee ? (
-                            <Button
-                              size="sm"
-                              className="bg-emerald-600 text-white hover:bg-emerald-500"
-                              onClick={() => {
-                                void onConfirmSettlement(settlement);
-                              }}
-                            >
-                              Mark as received
-                            </Button>
-                          ) : (
-                            <span className="text-xs text-slate-500">
-                              Waiting for {payee} to confirm
-                            </span>
-                          )}
-                        </div>
-                      ) : null}
+          <div className="mt-8 space-y-6">
+            <div className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm shadow-slate-200/60">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
+                    Settlements & balances
+                  </p>
+                  <h3 className="text-xl font-semibold text-slate-900">Keep the ledger honest</h3>
+                  <p className="text-sm text-slate-500">
+                    Pending paybacks automatically adjust everyone’s balance.
+                  </p>
+                </div>
+                <div className="grid w-full gap-3 sm:grid-cols-3 md:w-auto">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+                      You’re owed
+                    </p>
+                    <div className="text-2xl font-semibold text-emerald-700">
+                      {formatMoney(totalOwedToYou, currency)}
                     </div>
-                  );
-                })}
+                    <p className="text-xs text-slate-500">
+                      {totalOwedToYou > 0
+                        ? `From ${Math.max(membersWhoOweYou.length, 1)} roommate${
+                            Math.max(membersWhoOweYou.length, 1) > 1 ? "s" : ""
+                          }`
+                        : "No one owes you right now."}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+                      You owe
+                    </p>
+                    <div className="text-2xl font-semibold text-rose-600">
+                      {formatMoney(totalYouOwe, currency)}
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {totalYouOwe > 0
+                        ? `To ${Math.max(membersYouOwe.length, 1)} friend${
+                            Math.max(membersYouOwe.length, 1) > 1 ? "s" : ""
+                          }`
+                        : "Nothing due on your side."}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+                      Pending
+                    </p>
+                    <div className="text-2xl font-semibold text-indigo-600">
+                      {pendingSettlements.length ? formatMoney(pendingTotal, currency) : "—"}
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {pendingSettlements.length
+                        ? `${pendingSettlements.length} settlement${pendingSettlements.length > 1 ? "s" : ""} awaiting confirmation`
+                        : "All recent payments are confirmed."}
+                    </p>
+                  </div>
+                </div>
               </div>
-            )}
 
-            <hr className="my-2" />
+              <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.9fr)]">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Recent settlements</p>
+                      <p className="text-xs text-slate-500">
+                        {settlements.length
+                          ? "Track what’s pending versus confirmed."
+                          : "Record payments from the overview tab to list them here."}
+                      </p>
+                    </div>
+                    {settlements.length ? (
+                      <Badge variant="outline" className="border-slate-200 text-xs text-slate-600">
+                        {settlements.length} total
+                      </Badge>
+                    ) : null}
+                  </div>
+                  {settlements.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 p-6 text-center text-sm text-slate-500">
+                      Record payments from the overview tab to mark debts as settled.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {settlements.map((settlement) => {
+                        const payer = membersMapById[settlement.payerId]?.firstName ?? settlement.payerId;
+                        const payee = membersMapById[settlement.payeeId]?.firstName ?? settlement.payeeId;
+                        const methodLabel = getSettlementMethodLabel(settlement.method);
+                        const statusLabel =
+                          settlement.status === "pending" ? "Awaiting confirmation" : "Confirmed";
+                        const statusBadgeClass =
+                          settlement.status === "pending"
+                            ? "border-amber-300/70 text-amber-700"
+                            : "border-emerald-300/70 text-emerald-700";
+                        const amountLabel = formatMoneySafeGivenCurrency(
+                          toMinor(settlement.amount, currency),
+                          currency
+                        );
+                        const note = settlement.paymentNote;
+                        const isPayee = settlement.payeeId === youId;
+                        const isPending = settlement.status === "pending";
 
-            <h3 className="text-black font-semibold">Balances after confirmed settlements</h3>
-            {(Object.entries(openBalances) as [string, number][]).map(([id, bal]) => {
-              const name = membersMapById[id]?.firstName ?? id;
-              return (
-                <div key={id} className="flex justify-between text-sm">
-                  <span className="text-black">{name}</span>
-                  <span className={bal >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
-                    {formatMoney(bal, currency)}
-                  </span>
+                        return (
+                          <div
+                            key={settlement.id}
+                            className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                          >
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                <p className="text-sm font-medium text-slate-800">
+                                  {payer} <span className="text-slate-400">→</span> {payee}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {amountLabel} on {new Date(settlement.createdAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className="border-slate-200 text-slate-600">
+                                  {methodLabel}
+                                </Badge>
+                                <Badge variant="outline" className={statusBadgeClass}>
+                                  {statusLabel}
+                                </Badge>
+                              </div>
+                            </div>
+                            {note ? (
+                              <p className="text-xs italic text-slate-500">“{note}”</p>
+                            ) : null}
+                            {isPending ? (
+                              <div className="flex justify-end">
+                                {isPayee ? (
+                                  <Button
+                                    size="sm"
+                                    className="bg-emerald-600 text-white hover:bg-emerald-500"
+                                    onClick={() => {
+                                      void onConfirmSettlement(settlement);
+                                    }}
+                                  >
+                                    Mark as received
+                                  </Button>
+                                ) : (
+                                  <span className="text-xs text-slate-500">
+                                    Waiting for {payee} to confirm
+                                  </span>
+                                )}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-slate-900">
+                        Balances after confirmed settlements
+                      </h4>
+                      <Badge variant="secondary" className="text-xs uppercase tracking-wide">
+                        Live
+                      </Badge>
+                    </div>
+                    {settlements.length === 0 ? (
+                      <p className="mt-3 text-sm text-slate-500">
+                        No settlements have been recorded yet.
+                      </p>
+                    ) : openBalanceEntries.length ? (
+                      <div className="mt-3 space-y-2">
+                        {openBalanceEntries.map(([id, bal]) => {
+                          const name = membersMapById[id]?.firstName ?? id;
+                          const positive = bal >= 0;
+                          return (
+                            <div key={id} className="flex items-center justify-between text-sm">
+                              <span className="text-slate-700">{name}</span>
+                              <span className={positive ? "text-emerald-600 font-medium" : "text-rose-600 font-medium"}>
+                                {formatMoney(bal, currency)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-sm text-slate-500">Everyone is square for now.</p>
+                    )}
+                  </div>
 
-        {isIdleState && expenses.length > 0 && (
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 space-y-4 hover:bg-slate-50">
-            <h3 className="text-black font-semibold mb-2">{settlements.length > 0 ? "Original " : ""}Balances</h3>
-
-            {/* ← Assert the entry type so TS knows bal is a number: */}
-            {(Object.entries(balances) as [string, number][]).map(([id, bal]) => {
-              const name = membersMapById[id]?.firstName ?? id;
-              return (
-                <div key={id} className="text-sm flex justify-between">
-                  <span>{name}</span>
-                  <span className={bal >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
-                    {formatMoney(bal, currency)}
-                  </span>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-slate-900">
+                        {settlements.length > 0 ? "Balances before settlements" : "Current balances"}
+                      </h4>
+                      <Badge variant="outline" className="border-slate-200 text-xs text-slate-600">
+                        Snapshot
+                      </Badge>
+                    </div>
+                    {originalBalanceEntries.length ? (
+                      <div className="mt-3 space-y-2">
+                        {originalBalanceEntries.map(([id, bal]) => {
+                          const name = membersMapById[id]?.firstName ?? id;
+                          const positive = bal >= 0;
+                          return (
+                            <div key={id} className="flex items-center justify-between text-sm">
+                              <span className="text-slate-700">{name}</span>
+                              <span className={positive ? "text-emerald-600 font-medium" : "text-rose-600 font-medium"}>
+                                {formatMoney(bal, currency)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-sm text-slate-500">No balances to show just yet.</p>
+                    )}
+                  </div>
                 </div>
-              );
-            })}
+              </div>
+            </div>
           </div>
         )}
 

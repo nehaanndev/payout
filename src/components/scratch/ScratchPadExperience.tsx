@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, MouseEvent } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -13,6 +13,7 @@ import {
   Sparkles,
   Tag,
   Trash2,
+  X,
 } from "lucide-react";
 
 import { AppTopBar } from "@/components/AppTopBar";
@@ -20,7 +21,7 @@ import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
 import { OrbitFlowNav } from "@/components/OrbitFlowNav";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
@@ -199,6 +200,7 @@ export function ScratchPadExperience() {
     null
   );
   const [linksOnly, setLinksOnly] = useState(false);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (current) => {
@@ -544,6 +546,24 @@ export function ScratchPadExperience() {
     [summaries]
   );
 
+  const handleLinkCardClick = useCallback(
+    (event: MouseEvent<HTMLElement>, link: SharedLink) => {
+      if (link.contentType !== "note") {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("button, a, input, textarea")) {
+        return;
+      }
+      setSelectedNoteId(link.id);
+    },
+    []
+  );
+
+  const handleCloseNotePreview = useCallback(() => {
+    setSelectedNoteId(null);
+  }, []);
+
   const statusFilteredLinks = useMemo(() => {
     if (filter === "all") {
       return allLinks;
@@ -620,6 +640,26 @@ export function ScratchPadExperience() {
     };
   }, [allLinks]);
 
+  const selectedNote = useMemo(
+    () =>
+      allLinks.find(
+        (link) => link.id === selectedNoteId && link.contentType === "note"
+      ) ?? null,
+    [allLinks, selectedNoteId]
+  );
+
+  useEffect(() => {
+    if (selectedNoteId && !allLinks.some((link) => link.id === selectedNoteId)) {
+      setSelectedNoteId(null);
+    }
+  }, [allLinks, selectedNoteId]);
+
+  useEffect(() => {
+    if (selectedNoteId && !visibleLinks.some((link) => link.id === selectedNoteId)) {
+      setSelectedNoteId(null);
+    }
+  }, [selectedNoteId, visibleLinks]);
+
   return (
     <div className="min-h-screen bg-slate-50/80 p-4 pb-12 sm:p-6">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
@@ -687,8 +727,14 @@ export function ScratchPadExperience() {
               </div>
             </div>
 
+            <div
+              className={cn(
+                "grid gap-6",
+                !linksOnly && "lg:grid-cols-[360px_minmax(0,1fr)]"
+              )}
+            >
             {!linksOnly ? (
-              <>
+              <div className="space-y-6">
                 <Card className="border-slate-200 bg-white/95 p-5 shadow-lg shadow-slate-200/40 backdrop-blur">
                   <div className="space-y-4">
                     <div>
@@ -917,65 +963,61 @@ export function ScratchPadExperience() {
                     </div>
                   </div>
                 </Card>
-
-                <Separator className="my-5" />
-              </>
-            ) : null}
-
-            <Card className="border border-slate-200 bg-white/95 shadow-xl shadow-slate-200/50">
-              <div
-                className={cn(
-                  "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
-                  linksOnly ? "mt-4" : undefined
-                )}
-              >
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">Your links</h2>
-                  <p className="text-sm text-slate-500">
-                    Filter by status to move items from your intake queue to your saved list.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <Input
-                      value={tagQuery}
-                      onChange={(event) => setTagQuery(event.target.value)}
-                      placeholder="Filter by #tag"
-                      className="pl-9 pr-8"
-                    />
-                    {tagQuery ? (
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-slate-400"
-                        onClick={() => setTagQuery("")}
-                        aria-label="Clear tag search"
-                      >
-                        X
-                      </Button>
-                    ) : null}
-                  </div>
-                  {FILTERS.map((option) => (
-                    <Button
-                      key={option.id}
-                      variant={option.id === filter ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setFilter(option.id)}
-                      className={cn(
-                        option.id === filter
-                          ? "bg-indigo-500 text-white hover:bg-indigo-400"
-                          : "border-slate-200 text-slate-600 hover:bg-slate-100"
-                      )}
-                    >
-                      {option.label}
-                    </Button>
-                  ))}
-                </div>
               </div>
+            ) : null}
+              <div className="space-y-6">
+            <Card className="border border-slate-200 bg-white/95 shadow-xl shadow-slate-200/50">
+              <CardHeader className="border-b border-slate-100 px-5 py-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <CardTitle className="text-lg font-semibold text-slate-900">Your links</CardTitle>
+                    <p className="text-sm text-slate-500">
+                      Filter by status to move items from your intake queue to your saved list.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        value={tagQuery}
+                        onChange={(event) => setTagQuery(event.target.value)}
+                        placeholder="Filter by #tag"
+                        className="pl-9 pr-8"
+                      />
+                      {tagQuery ? (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-slate-400"
+                          onClick={() => setTagQuery("")}
+                          aria-label="Clear tag search"
+                        >
+                          X
+                        </Button>
+                      ) : null}
+                    </div>
+                    {FILTERS.map((option) => (
+                      <Button
+                        key={option.id}
+                        variant={option.id === filter ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setFilter(option.id)}
+                        className={cn(
+                          option.id === filter
+                            ? "bg-indigo-500 text-white hover:bg-indigo-400"
+                            : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                        )}
+                      >
+                        {option.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4 p-5">
               {weeklyDigest ? (
-                <div className="mt-4 rounded-3xl border border-indigo-200 bg-indigo-50/60 p-4">
+                <div className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-indigo-700">
                       <CalendarDays className="h-5 w-5" />
@@ -1068,7 +1110,16 @@ export function ScratchPadExperience() {
                     return (
                       <article
                         key={link.id}
-                        className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm shadow-slate-200 transition hover:border-indigo-200 hover:shadow-md md:flex-row md:items-center md:justify-between"
+                        onClick={(event) => handleLinkCardClick(event, link)}
+                        className={cn(
+                          "flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm shadow-slate-200 transition md:flex-row md:items-center md:justify-between",
+                          link.contentType === "note"
+                            ? "cursor-pointer hover:border-indigo-200 hover:shadow-md"
+                            : "hover:border-indigo-100",
+                          selectedNoteId === link.id && link.contentType === "note"
+                            ? "border-indigo-300 bg-indigo-50/60 shadow-md"
+                            : ""
+                        )}
                       >
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
@@ -1192,7 +1243,51 @@ export function ScratchPadExperience() {
                   })}
                 </div>
               )}
+            </CardContent>
             </Card>
+                {selectedNote ? (
+                  <Card className="border border-indigo-200 bg-white/95 shadow-md">
+                    <CardHeader className="flex flex-row items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <CardTitle className="text-base font-semibold text-slate-900">
+                          {selectedNote.title || "Orbit note"}
+                        </CardTitle>
+                        <p className="text-xs text-slate-500">
+                          Saved {new Date(selectedNote.createdAt).toLocaleString()}
+                          {selectedNote.sourceApp ? ` · via ${selectedNote.sourceApp}` : ""}
+                        </p>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-slate-500 hover:text-slate-700"
+                        onClick={handleCloseNotePreview}
+                        aria-label="Close note preview"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 whitespace-pre-wrap">
+                        {selectedNote.description || "This note is currently empty."}
+                      </div>
+                      {selectedNote.tags?.length ? (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedNote.tags.map((tag) => (
+                            <Badge key={tag} variant="outline" className="border-slate-200 text-xs">
+                              #{tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div className="text-xs text-slate-500">
+                        Status: {STATUS_LABEL[selectedNote.status]}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
+              </div>
+            </div>
           </>
         )}
       </div>
