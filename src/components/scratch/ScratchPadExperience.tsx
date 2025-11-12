@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   auth,
   provider,
@@ -52,14 +53,14 @@ import { cn } from "@/lib/utils";
 type ScratchPadFilter = SharedLinkStatus | "all";
 
 const FILTERS: Array<{ id: ScratchPadFilter; label: string }> = [
-  { id: "new", label: "New" },
+  { id: "new", label: "Unread" },
   { id: "saved", label: "Saved" },
   { id: "archived", label: "Archived" },
   { id: "all", label: "All" },
 ];
 
 const STATUS_LABEL: Record<SharedLinkStatus, string> = {
-  new: "New",
+  new: "Unread",
   saved: "Saved",
   archived: "Archived",
 };
@@ -197,6 +198,7 @@ export function ScratchPadExperience() {
   const [createSuccessSource, setCreateSuccessSource] = useState<"link" | "note" | "file" | null>(
     null
   );
+  const [linksOnly, setLinksOnly] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (current) => {
@@ -664,238 +666,269 @@ export function ScratchPadExperience() {
           </Card>
         ) : (
           <>
-            <Card className="border-slate-200 bg-white/95 p-5 shadow-lg shadow-slate-200/40 backdrop-blur">
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900">Drop a link</h2>
-                  <p className="text-sm text-slate-500">
-                    Paste a URL and add optional notes or tags. Anything you save lands in the queue below.
-                  </p>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="text-sm font-medium text-slate-700" htmlFor="scratch-url">
-                      Link URL<span className="text-rose-500">*</span>
-                    </label>
-                    <Input
-                      id="scratch-url"
-                      value={linkUrl}
-                      onChange={(event) => setLinkUrl(event.target.value)}
-                      placeholder="https://"
-                      disabled={createBusy}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700" htmlFor="scratch-title">
-                      Title (optional)
-                    </label>
-                    <Input
-                      id="scratch-title"
-                      value={linkTitle}
-                      onChange={(event) => setLinkTitle(event.target.value)}
-                      placeholder="A quick headline"
-                      disabled={createBusy}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700" htmlFor="scratch-tags">
-                      Tags (comma separated)
-                    </label>
-                    <Input
-                      id="scratch-tags"
-                      value={linkTags}
-                      onChange={(event) => setLinkTags(event.target.value)}
-                      placeholder="read later, video, trip"
-                      disabled={createBusy}
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="text-sm font-medium text-slate-700" htmlFor="scratch-notes">
-                      Notes (optional)
-                    </label>
-                    <Textarea
-                      id="scratch-notes"
-                      value={linkNotes}
-                      onChange={(event) => setLinkNotes(event.target.value)}
-                      placeholder="Why this link matters…"
-                      disabled={createBusy}
-                      className="min-h-[96px]"
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    onClick={handleCreateLink}
-                    disabled={!linkUrl.trim() || createBusy}
-                    className="bg-indigo-500 text-white hover:bg-indigo-400"
-                  >
-                    {createBusy ? (
-                      <>
-                        <Spinner size="sm" className="mr-2" />
-                        Saving…
-                      </>
-                    ) : (
-                      "Save link"
-                    )}
-                  </Button>
-                  {createSuccessSource === "link" && createSuccess ? (
-                    <span className="text-sm text-emerald-600">{createSuccess}</span>
-                  ) : null}
-                </div>
-              </div>
-
-              <Separator className="my-5" />
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Upload an image or PDF</h3>
-                  <p className="text-sm text-slate-500">
-                    Drop a screenshot, receipt, or research packet. Orbit uploads it to encrypted
-                    Firebase Storage and keeps the download link handy.
-                  </p>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file">
-                      File<span className="text-rose-500">*</span>
-                    </label>
-                    <Input
-                      key={fileInputKey}
-                      id="orbit-file"
-                      type="file"
-                      accept="image/*,application/pdf"
-                      onChange={handleFileSelection}
-                      disabled={createBusy}
-                    />
-                    <p className="text-xs text-slate-400">
-                      Images or PDFs up to {maxUploadMb} MB.
-                    </p>
-                    {uploadFile ? (
-                      <p className="text-xs text-slate-500">
-                        Selected: <span className="font-medium">{uploadFile.name}</span> (
-                        {formatFileSize(uploadFile.size)})
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file-title">
-                      Title
-                    </label>
-                    <Input
-                      id="orbit-file-title"
-                      value={uploadTitle}
-                      onChange={(event) => setUploadTitle(event.target.value)}
-                      placeholder="Launch visuals"
-                      disabled={createBusy}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file-tags">
-                      Tags (optional)
-                    </label>
-                    <Input
-                      id="orbit-file-tags"
-                      value={uploadTags}
-                      onChange={(event) => setUploadTags(event.target.value)}
-                      placeholder="receipts, launch, design"
-                      disabled={createBusy}
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <label
-                      className="text-sm font-medium text-slate-700"
-                      htmlFor="orbit-file-notes"
-                    >
-                      Notes
-                    </label>
-                    <Textarea
-                      id="orbit-file-notes"
-                      value={uploadNotes}
-                      onChange={(event) => setUploadNotes(event.target.value)}
-                      placeholder="Any context you want to remember when this file resurfaces."
-                      disabled={createBusy}
-                      className="min-h-[96px]"
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    onClick={handleUploadFile}
-                    disabled={!uploadFile || createBusy}
-                    className="bg-slate-900 text-white hover:bg-slate-800"
-                  >
-                    {createBusy ? (
-                      <>
-                        <Spinner size="sm" className="mr-2" />
-                        Uploading…
-                      </>
-                    ) : (
-                      "Save file"
-                    )}
-                  </Button>
-                  {createSuccessSource === "file" && createSuccess ? (
-                    <span className="text-sm text-emerald-600">{createSuccess}</span>
-                  ) : null}
-                </div>
-              </div>
-
-              <Separator className="my-5" />
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Paste a quick note</h3>
-                  <p className="text-sm text-slate-500">
-                    Drop meeting notes, reminders, or ideas without a link. They stay alongside your read-later queue.
-                  </p>
-                </div>
-                <div className="space-y-3">
-                  <Textarea
-                    value={noteBody}
-                    onChange={(event) => setNoteBody(event.target.value)}
-                    placeholder="What do you want to remember?"
-                    className="min-h-[120px]"
-                    disabled={createBusy}
-                  />
-                  <div className="space-y-1">
-                    <label
-                      className="text-sm font-medium text-slate-700"
-                      htmlFor="scratch-note-tags"
-                    >
-                      Tags (optional)
-                    </label>
-                    <Input
-                      id="scratch-note-tags"
-                      value={noteTags}
-                      onChange={(event) => setNoteTags(event.target.value)}
-                      placeholder="brainstorm, follow-up"
-                      disabled={createBusy}
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Button
-                      onClick={handleCreateNote}
-                      disabled={!noteBody.trim() || createBusy}
-                      variant="outline"
-                    >
-                      {createBusy ? (
-                        <>
-                          <Spinner size="sm" className="mr-2" />
-                          Saving…
-                        </>
-                      ) : (
-                        "Save note"
-                      )}
-                    </Button>
-                    {createSuccessSource === "note" && createSuccess ? (
-                      <span className="text-sm text-emerald-600">{createSuccess}</span>
-                    ) : null}
-                    <span className="text-xs text-slate-400">
-                      Tip: paste text from your clipboard — we keep the formatting.
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <Separator className="my-5" />
+            <div className="flex flex-col gap-2 rounded-3xl border border-slate-200 bg-white/80 px-4 py-3 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Links focus</p>
+                  <p className="text-xs text-slate-500">
+                    Collapse Orbit’s capture tools to keep only “Your links” in view.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-slate-600">
+                    {linksOnly ? "Links only" : "Capture + links"}
+                  </span>
+                  <Switch
+                    checked={linksOnly}
+                    onCheckedChange={setLinksOnly}
+                    aria-label="Toggle links-only view"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {!linksOnly ? (
+              <>
+                <Card className="border-slate-200 bg-white/95 p-5 shadow-lg shadow-slate-200/40 backdrop-blur">
+                  <div className="space-y-4">
+                    <div>
+                      <h2 className="text-lg font-semibold text-slate-900">Drop a link</h2>
+                      <p className="text-sm text-slate-500">
+                        Paste a URL and add optional notes or tags. Anything you save lands in the
+                        queue below.
+                      </p>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="text-sm font-medium text-slate-700" htmlFor="scratch-url">
+                          Link URL<span className="text-rose-500">*</span>
+                        </label>
+                        <Input
+                          id="scratch-url"
+                          value={linkUrl}
+                          onChange={(event) => setLinkUrl(event.target.value)}
+                          placeholder="https://"
+                          disabled={createBusy}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700" htmlFor="scratch-title">
+                          Title (optional)
+                        </label>
+                        <Input
+                          id="scratch-title"
+                          value={linkTitle}
+                          onChange={(event) => setLinkTitle(event.target.value)}
+                          placeholder="A quick headline"
+                          disabled={createBusy}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700" htmlFor="scratch-tags">
+                          Tags (comma separated)
+                        </label>
+                        <Input
+                          id="scratch-tags"
+                          value={linkTags}
+                          onChange={(event) => setLinkTags(event.target.value)}
+                          placeholder="read later, video, trip"
+                          disabled={createBusy}
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="text-sm font-medium text-slate-700" htmlFor="scratch-notes">
+                          Notes (optional)
+                        </label>
+                        <Textarea
+                          id="scratch-notes"
+                          value={linkNotes}
+                          onChange={(event) => setLinkNotes(event.target.value)}
+                          placeholder="Why this link matters…"
+                          disabled={createBusy}
+                          className="min-h-[96px]"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        onClick={handleCreateLink}
+                        disabled={!linkUrl.trim() || createBusy}
+                        className="bg-indigo-500 text-white hover:bg-indigo-400"
+                      >
+                        {createBusy ? (
+                          <>
+                            <Spinner size="sm" className="mr-2" />
+                            Saving…
+                          </>
+                        ) : (
+                          "Save link"
+                        )}
+                      </Button>
+                      {createSuccessSource === "link" && createSuccess ? (
+                        <span className="text-sm text-emerald-600">{createSuccess}</span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <Separator className="my-5" />
+
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900">Upload an image or PDF</h3>
+                      <p className="text-sm text-slate-500">
+                        Drop a screenshot, receipt, or research packet. Orbit uploads it to encrypted
+                        Firebase Storage and keeps the download link handy.
+                      </p>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file">
+                          File<span className="text-rose-500">*</span>
+                        </label>
+                        <Input
+                          key={fileInputKey}
+                          id="orbit-file"
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={handleFileSelection}
+                          disabled={createBusy}
+                        />
+                        <p className="text-xs text-slate-400">
+                          Images or PDFs up to {maxUploadMb} MB.
+                        </p>
+                        {uploadFile ? (
+                          <p className="text-xs text-slate-500">
+                            Selected: <span className="font-medium">{uploadFile.name}</span> (
+                            {formatFileSize(uploadFile.size)})
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file-title">
+                          Title
+                        </label>
+                        <Input
+                          id="orbit-file-title"
+                          value={uploadTitle}
+                          onChange={(event) => setUploadTitle(event.target.value)}
+                          placeholder="Launch visuals"
+                          disabled={createBusy}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file-tags">
+                          Tags (optional)
+                        </label>
+                        <Input
+                          id="orbit-file-tags"
+                          value={uploadTags}
+                          onChange={(event) => setUploadTags(event.target.value)}
+                          placeholder="receipts, launch, design"
+                          disabled={createBusy}
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file-notes">
+                          Notes
+                        </label>
+                        <Textarea
+                          id="orbit-file-notes"
+                          value={uploadNotes}
+                          onChange={(event) => setUploadNotes(event.target.value)}
+                          placeholder="Any context you want to remember when this file resurfaces."
+                          disabled={createBusy}
+                          className="min-h-[96px]"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        onClick={handleUploadFile}
+                        disabled={!uploadFile || createBusy}
+                        className="bg-slate-900 text-white hover:bg-slate-800"
+                      >
+                        {createBusy ? (
+                          <>
+                            <Spinner size="sm" className="mr-2" />
+                            Uploading…
+                          </>
+                        ) : (
+                          "Save file"
+                        )}
+                      </Button>
+                      {createSuccessSource === "file" && createSuccess ? (
+                        <span className="text-sm text-emerald-600">{createSuccess}</span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <Separator className="my-5" />
+
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-900">Paste a quick note</h3>
+                      <p className="text-sm text-slate-500">
+                        Drop meeting notes, reminders, or ideas without a link. They stay alongside your
+                        read-later queue.
+                      </p>
+                    </div>
+                    <div className="space-y-3">
+                      <Textarea
+                        value={noteBody}
+                        onChange={(event) => setNoteBody(event.target.value)}
+                        placeholder="What do you want to remember?"
+                        className="min-h-[120px]"
+                        disabled={createBusy}
+                      />
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium text-slate-700" htmlFor="scratch-note-tags">
+                          Tags (optional)
+                        </label>
+                        <Input
+                          id="scratch-note-tags"
+                          value={noteTags}
+                          onChange={(event) => setNoteTags(event.target.value)}
+                          placeholder="brainstorm, follow-up"
+                          disabled={createBusy}
+                        />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                          onClick={handleCreateNote}
+                          disabled={!noteBody.trim() || createBusy}
+                          variant="outline"
+                        >
+                          {createBusy ? (
+                            <>
+                              <Spinner size="sm" className="mr-2" />
+                              Saving…
+                            </>
+                          ) : (
+                            "Save note"
+                          )}
+                        </Button>
+                        {createSuccessSource === "note" && createSuccess ? (
+                          <span className="text-sm text-emerald-600">{createSuccess}</span>
+                        ) : null}
+                        <span className="text-xs text-slate-400">
+                          Tip: paste text from your clipboard — we keep the formatting.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Separator className="my-5" />
+              </>
+            ) : null}
+
+            <Card className="border border-slate-200 bg-white/95 shadow-xl shadow-slate-200/50">
+              <div
+                className={cn(
+                  "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
+                  linksOnly ? "mt-4" : undefined
+                )}
+              >
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">Your links</h2>
                   <p className="text-sm text-slate-500">
