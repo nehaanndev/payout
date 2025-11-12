@@ -193,7 +193,7 @@ export default function Summary({
         </CardHeader>
         <CardContent className="space-y-4 text-sm text-slate-600">
           <p>Spin up your first tab to start splitting expenses with friends.</p>
-          <Button onClick={onCreateGroup} className="bg-slate-900 hover:bg-slate-800">
+          <Button onClick={onCreateGroup} className="bg-slate-900 text-white hover:bg-slate-800">
             Create a group
           </Button>
       </CardContent>
