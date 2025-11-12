@@ -720,15 +720,21 @@ export function FlowExperience() {
     if (!plan || !settings || settingsApplied || !user) {
       return;
     }
-    setPlan((prev) => {
-      if (!prev) {
-        return prev;
-      }
-      const applied = applySettingsToPlan(prev, settings);
-      setStartTime(applied.startTime);
-      void persistPlan(applied);
-      return applied;
-    });
+
+    if (plan.tasks.length === 0) {
+      setPlan((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        const applied = applySettingsToPlan(prev, settings);
+        setStartTime(applied.startTime);
+        void persistPlan(applied);
+        return applied;
+      });
+    } else {
+      setStartTime(plan.startTime || settings.workStart);
+    }
+
     setSettingsApplied(true);
   }, [plan, persistPlan, settings, settingsApplied, user]);
 
