@@ -439,6 +439,7 @@ export default function DailyDashboardPage() {
   }, []);
 
   const palette = THEMES[theme];
+  const isNight = theme === "night";
   const greetingName = user?.displayName?.split(" ")[0] ?? "friend";
   const userDisplayName = user?.displayName ?? user?.email ?? "You";
 
@@ -523,6 +524,7 @@ export default function DailyDashboardPage() {
             summaries={splitTotals}
             primary={primarySummary}
             onAddExpense={() => router.push("/split")}
+            dark={isNight}
           />
 
           <BudgetPulseCard
@@ -530,23 +532,52 @@ export default function DailyDashboardPage() {
             error={budgetError}
             summary={budgetPulse}
             onOpenBudget={() => router.push("/budget")}
+            dark={isNight}
           />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="rounded-[28px] border border-indigo-200 bg-indigo-50/70 p-6 shadow-sm">
+          <Card
+            className={cn(
+              "rounded-[28px] p-6 shadow-sm",
+              isNight
+                ? "border-white/15 bg-slate-900/60 text-white"
+                : "border border-indigo-200 bg-indigo-50/70 text-slate-900"
+            )}
+          >
             <CardHeader className="p-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-500">Mood + photo</p>
-              <CardTitle className="text-xl text-indigo-900">Drop a feeling and a photo</CardTitle>
+              <p
+                className={cn(
+                  "text-xs font-semibold uppercase tracking-[0.35em]",
+                  isNight ? "text-indigo-200" : "text-indigo-500"
+                )}
+              >
+                Mood + photo
+              </p>
+              <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-indigo-900")}>
+                Drop a feeling and a photo
+              </CardTitle>
             </CardHeader>
             <CardContent className="mt-4 space-y-4">
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-500">Mood</label>
+                  <label
+                    className={cn(
+                      "text-xs font-semibold uppercase tracking-[0.35em]",
+                      isNight ? "text-indigo-100" : "text-indigo-500"
+                    )}
+                  >
+                    Mood
+                  </label>
                   <select
                     value={reflectionMood}
                     onChange={(event) => setReflectionMood(event.target.value)}
-                    className="mt-2 w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-indigo-300 focus:outline-none"
+                    className={cn(
+                      "mt-2 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none",
+                      isNight
+                        ? "border-white/30 bg-slate-900/50 text-white focus:border-indigo-200"
+                        : "border-indigo-200 bg-white text-slate-700 focus:border-indigo-300"
+                    )}
                   >
                     {FLOW_MOOD_OPTIONS.map((option) => (
                       <option key={option.id} value={option.id}>
@@ -556,17 +587,27 @@ export default function DailyDashboardPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-500">
+                  <label
+                    className={cn(
+                      "text-xs font-semibold uppercase tracking-[0.35em]",
+                      isNight ? "text-indigo-100" : "text-indigo-500"
+                    )}
+                  >
                     Photo
                   </label>
                   <Input
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    className="mt-2 cursor-pointer border-indigo-200 text-sm"
+                    className={cn(
+                      "mt-2 cursor-pointer text-sm",
+                      isNight
+                        ? "border-white/30 bg-slate-900/50 text-white"
+                        : "border-indigo-200"
+                    )}
                     onChange={handlePhotoChange}
                   />
-                  <p className="mt-1 text-xs text-indigo-500">
+                  <p className={cn("mt-1 text-xs", isNight ? "text-indigo-200" : "text-indigo-500")}>
                     {reflectionPhotoName
                       ? `Attached: ${reflectionPhotoName}`
                       : "Optional — shows up in Flow reflections."}
@@ -574,19 +615,34 @@ export default function DailyDashboardPage() {
                 </div>
               </div>
               <div>
-                <label className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-500">Reflection</label>
+                <label
+                  className={cn(
+                    "text-xs font-semibold uppercase tracking-[0.35em]",
+                    isNight ? "text-indigo-100" : "text-indigo-500"
+                  )}
+                >
+                  Reflection
+                </label>
                 <Textarea
-                  className="mt-2 min-h-[100px] border-indigo-200"
+                  className={cn(
+                    "mt-2 min-h-[100px]",
+                    isNight
+                      ? "border-white/30 bg-slate-900/40 text-white placeholder:text-slate-400"
+                      : "border-indigo-200"
+                  )}
                   placeholder="What moment stands out?"
                   value={reflectionNote}
                   onChange={(event) => setReflectionNote(event.target.value)}
                 />
               </div>
               {reflectionStatus ? (
-                <p className="text-sm text-indigo-700">{reflectionStatus}</p>
+                <p className={cn("text-sm", isNight ? "text-indigo-200" : "text-indigo-700")}>{reflectionStatus}</p>
               ) : null}
               <Button
-                className="bg-indigo-600 text-white hover:bg-indigo-500"
+                className={cn(
+                  "text-white",
+                  isNight ? "bg-indigo-500 hover:bg-indigo-400" : "bg-indigo-600 hover:bg-indigo-500"
+                )}
                 onClick={handleReflectionSubmit}
                 disabled={reflectionBusy}
               >
@@ -595,28 +651,70 @@ export default function DailyDashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-[28px] border border-indigo-200 bg-white/95 p-6 shadow-sm">
-            <CardHeader className="p-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-500">Saved links</p>
-              <CardTitle className="text-xl text-slate-900">AI recaps</CardTitle>
+          <Card
+            className={cn(
+              "rounded-[28px] p-6 shadow-sm",
+              isNight
+                ? "border-white/20 bg-slate-900/60 text-white"
+                : "border border-indigo-200 bg-white/95 text-slate-900"
+            )}
+          >
+            <CardHeader className="flex flex-col gap-3 p-0">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p
+                    className={cn(
+                      "text-xs font-semibold uppercase tracking-[0.35em]",
+                      isNight ? "text-indigo-200" : "text-indigo-500"
+                    )}
+                  >
+                    Saved links
+                  </p>
+                  <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-slate-900")}>
+                    AI recaps
+                  </CardTitle>
+                </div>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "text-sm font-semibold",
+                    isNight
+                      ? "border-transparent bg-indigo-500/90 text-slate-900 hover:bg-indigo-400"
+                      : "border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                  )}
+                  onClick={() => router.push("/scratch-pad")}
+                >
+                  Add a note or save a link
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="mt-4 space-y-4">
-              <Button
-                variant="outline"
-                className="w-full border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                onClick={() => router.push("/scratch-pad")}
-              >
-                Add a note or save a link
-              </Button>
               {aiHighlights.map((item) => (
-                <div key={item.id} className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4">
-                  <p className="text-sm font-semibold text-indigo-700">{item.title}</p>
-                  <p className="mt-1 text-sm text-indigo-600">{item.summary}</p>
+                <div
+                  key={item.id}
+                  className={cn(
+                    "rounded-2xl border p-4",
+                    isNight
+                      ? "border-white/15 bg-white/5"
+                      : "border-indigo-100 bg-indigo-50/70"
+                  )}
+                >
+                  <p className={cn("text-sm font-semibold", isNight ? "text-indigo-100" : "text-indigo-700")}>
+                    {item.title}
+                  </p>
+                  <p className={cn("mt-1 text-sm", isNight ? "text-indigo-50/80" : "text-indigo-600")}>
+                    {item.summary}
+                  </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {item.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="rounded-full border border-white/60 bg-white/80 px-3 py-0.5 text-xs font-medium text-indigo-600"
+                        className={cn(
+                          "rounded-full border px-3 py-0.5 text-xs font-medium",
+                          isNight
+                            ? "border-white/10 bg-white/5 text-indigo-100"
+                            : "border-white/60 bg-white/80 text-indigo-600"
+                        )}
                       >
                         #{tag}
                       </span>
@@ -729,7 +827,13 @@ function FlowCards({
     ? `${completedTasks}/${totalTasks} tasks finished`
     : "Nothing planned yet.";
   return (
-    <Card className="rounded-[28px] border-none bg-slate-900 text-white">
+      <Card className="relative overflow-hidden rounded-[28px] border-none bg-slate-900 text-white">
+        {!isMorning ? (
+          <>
+            <span className="pointer-events-none absolute -top-12 right-4 h-32 w-32 rounded-full bg-gradient-to-br from-amber-200 via-yellow-100 to-white opacity-80 animate-dashboard-moon" />
+            <span className="pointer-events-none absolute -top-10 right-0 h-40 w-40 rounded-full bg-amber-200/25 blur-3xl animate-dashboard-moon-glow" />
+          </>
+      ) : null}
       <CardHeader>
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Evening reflection</p>
         <CardTitle className="text-2xl">That’s a wrap.</CardTitle>
@@ -765,12 +869,15 @@ function BudgetPulseCard({
   error,
   summary,
   onOpenBudget,
+  dark = false,
 }: {
   loading: boolean;
   error: string | null;
   summary: BudgetPulseSummary | null;
   onOpenBudget: () => void;
+  dark?: boolean;
 }) {
+  const mutedText = dark ? "text-slate-300" : "text-slate-500";
   const streakLabel = summary
     ? summary.streak > 0
       ? `${summary.streak}-day pace`
@@ -788,10 +895,40 @@ function BudgetPulseCard({
   const streakDisplay = summary ? streakLabel ?? "—" : null;
   const streakMessage = summary ? streakHint ?? "Stay on plan today to start a streak." : null;
   return (
-    <Card className="rounded-[28px] border border-violet-200 bg-white/95 p-6 shadow-sm">
-      <CardHeader className="p-0">
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-violet-500">Budget</p>
-        <CardTitle className="text-xl text-slate-900">This month’s budget</CardTitle>
+    <Card
+      className={cn(
+        "rounded-[28px] p-6 shadow-sm",
+        dark ? "border-white/15 bg-slate-900/60 text-white" : "border-violet-200 bg-white/95 text-slate-900"
+      )}
+    >
+      <CardHeader className="flex flex-col gap-3 p-0">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p
+              className={cn(
+                "text-xs font-semibold uppercase tracking-[0.35em]",
+                dark ? "text-violet-200" : "text-violet-500"
+              )}
+            >
+              Budget
+            </p>
+            <CardTitle className={cn("text-xl", dark ? "text-white" : "text-slate-900")}>
+              This month’s budget
+            </CardTitle>
+          </div>
+          <Button
+            variant="outline"
+            className={cn(
+              "text-sm font-semibold",
+              dark
+                ? "bg-violet-500/90 text-slate-900 hover:bg-violet-400 border-transparent"
+                : "border-slate-200 text-slate-700 hover:bg-slate-100"
+            )}
+            onClick={onOpenBudget}
+          >
+            Open budget
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="mt-4 space-y-4">
         {loading ? (
@@ -800,47 +937,70 @@ function BudgetPulseCard({
           <p className="text-sm text-rose-500">{error}</p>
         ) : summary ? (
           <>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+            <p
+              className={cn(
+                "text-xs font-semibold uppercase tracking-[0.3em]",
+                dark ? "text-slate-200" : "text-slate-400"
+              )}
+            >
               {summary.title}
             </p>
-            <div className="rounded-2xl border border-violet-100 bg-violet-50/70 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-violet-500">
+            <div
+              className={cn(
+                "rounded-2xl border p-4",
+                dark ? "border-violet-200/30 bg-violet-500/10" : "border-violet-100 bg-violet-50/70"
+              )}
+            >
+              <p
+                className={cn(
+                  "text-xs font-semibold uppercase tracking-[0.3em]",
+                  dark ? "text-violet-200" : "text-violet-500"
+                )}
+              >
                 {summary.monthLabel}
               </p>
-              <p className="text-2xl font-semibold text-violet-900">
+              <p className={cn("text-2xl font-semibold", dark ? "text-white" : "text-violet-900")}>
                 {formatCurrency(summary.spent, summary.currency)}
               </p>
-              <p className="text-xs text-violet-700">Spent so far</p>
+              <p className={cn("text-xs", dark ? "text-violet-100" : "text-violet-700")}>Spent so far</p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500">
+              <div
+                className={cn(
+                  "rounded-2xl border p-4",
+                  dark ? "border-emerald-200/30 bg-emerald-500/10" : "border-emerald-100 bg-emerald-50/70"
+                )}
+              >
+                <p
+                  className={cn(
+                    "text-xs font-semibold uppercase tracking-[0.3em]",
+                    dark ? "text-emerald-200" : "text-emerald-500"
+                  )}
+                >
                   Remaining
                 </p>
-                <p className="text-xl font-semibold text-emerald-900">
+                <p className={cn("text-xl font-semibold", dark ? "text-emerald-200" : "text-emerald-900")}>
                   {formatCurrency(summary.remaining, summary.currency)}
                 </p>
-                <p className="text-xs text-emerald-700">
+                <p className={cn("text-xs", dark ? "text-emerald-100" : "text-emerald-700")}>
                   Of {formatCurrency(summary.allowance, summary.currency)} planned
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+              <div
+                className={cn(
+                  "rounded-2xl border p-4",
+                  dark ? "border-white/10 bg-white/5" : "border-slate-200 bg-slate-50/80"
+                )}
+              >
+                <p className={cn("text-xs font-semibold uppercase tracking-[0.3em]", mutedText)}>
                   Streak
                 </p>
-                <p className="text-xl font-semibold text-slate-900">
+                <p className={cn("text-xl font-semibold", dark ? "text-white" : "text-slate-900")}>
                   {streakDisplay}
                 </p>
-                <p className="text-xs text-slate-500">{streakMessage}</p>
+                <p className={cn("text-xs", mutedText)}>{streakMessage}</p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              className="w-full border-slate-200 text-slate-700 hover:bg-slate-100"
-              onClick={onOpenBudget}
-            >
-              Open budget
-            </Button>
           </>
         ) : (
           <>
@@ -867,24 +1027,40 @@ function GroupSummaryCard({
   summaries,
   primary,
   onAddExpense,
+  dark = false,
 }: {
   loading: boolean;
   error: string | null;
   summaries: CurrencySummary[];
   primary: CurrencySummary | null;
   onAddExpense: () => void;
+  dark?: boolean;
 }) {
+  const baseCard = dark
+    ? "border-white/15 bg-slate-900/60 text-white"
+    : "border-emerald-200 bg-white/95 text-slate-900";
+  const owedLabel = dark ? "text-emerald-200" : "text-emerald-500";
+  const owedValue = dark ? "text-emerald-300" : "text-emerald-700";
+  const oweLabel = dark ? "text-slate-300" : "text-slate-500";
+  const mutedText = dark ? "text-slate-300" : "text-slate-500";
+  const cardSurface = dark ? "border-white/10 bg-white/5" : "border-slate-200 bg-slate-50";
+
   return (
-    <Card className="rounded-[28px] border border-emerald-200 bg-white/95 p-6 shadow-sm">
+    <Card className={cn("rounded-[28px] p-6 shadow-sm", baseCard)}>
       <CardHeader className="flex flex-col gap-3 p-0">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-500">Groups</p>
-            <CardTitle className="text-xl text-slate-900">Money pulse</CardTitle>
+            <p className={cn("text-xs font-semibold uppercase tracking-[0.35em]", owedLabel)}>Groups</p>
+            <CardTitle className={cn("text-xl", dark ? "text-white" : "text-slate-900")}>Money pulse</CardTitle>
           </div>
           <Button
             variant="outline"
-            className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            className={cn(
+              "text-sm font-semibold",
+              dark
+                ? "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400 border-transparent"
+                : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            )}
             onClick={onAddExpense}
           >
             + Add expense
@@ -898,28 +1074,43 @@ function GroupSummaryCard({
           <p className="text-sm text-rose-500">{error}</p>
         ) : primary ? (
           <>
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-500">You’re owed</p>
-              <p className="text-2xl font-semibold text-emerald-700">{formatCurrency(primary.owed, primary.currency)}</p>
-              <p className="text-xs text-emerald-700">
+            <div
+              className={cn(
+                "rounded-2xl border p-4",
+                dark ? "border-emerald-200/30 bg-emerald-500/10" : "border-emerald-100 bg-emerald-50/60"
+              )}
+            >
+              <p className={cn("text-xs font-semibold uppercase tracking-[0.3em]", owedLabel)}>You’re owed</p>
+              <p className={cn("text-2xl font-semibold", owedValue)}>
+                {formatCurrency(primary.owed, primary.currency)}
+              </p>
+              <p className={cn("text-xs", dark ? "text-emerald-100" : "text-emerald-700")}>
                 From {primary.owedGroups.length || 1} group{primary.owedGroups.length > 1 ? "s" : ""}
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">You owe</p>
-              <p className="text-2xl font-semibold text-slate-700">
+            <div className={cn("rounded-2xl border p-4", cardSurface)}>
+              <p className={cn("text-xs font-semibold uppercase tracking-[0.3em]", oweLabel)}>You owe</p>
+              <p className={cn("text-2xl font-semibold", dark ? "text-white" : "text-slate-700")}>
                 {primary.owe ? formatCurrency(primary.owe, primary.currency) : "—"}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className={cn("text-xs", mutedText)}>
                 {primary.owe ? `To ${primary.oweGroups.length || 1} friend${primary.oweGroups.length > 1 ? "s" : ""}` : "All square for now."}
               </p>
             </div>
             {summaries.length > 1 ? (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">Other currencies</p>
-                <div className="mt-2 space-y-2 text-sm text-slate-600">
+                <p className={cn("text-xs font-semibold uppercase tracking-[0.35em]", mutedText)}>
+                  Other currencies
+                </p>
+                <div className={cn("mt-2 space-y-2 text-sm", dark ? "text-slate-200" : "text-slate-600")}>
                   {summaries.slice(1).map((summary) => (
-                    <div key={summary.currency} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-3 py-2">
+                    <div
+                      key={summary.currency}
+                      className={cn(
+                        "flex items-center justify-between rounded-2xl border px-3 py-2",
+                        dark ? "border-white/10 bg-white/5" : "border-slate-100 bg-white"
+                      )}
+                    >
                       <span>{summary.currency}</span>
                       <span>{formatCurrency(summary.owed - summary.owe, summary.currency)}</span>
                     </div>
@@ -929,7 +1120,7 @@ function GroupSummaryCard({
             ) : null}
           </>
         ) : (
-          <p className="text-sm text-slate-500">Create a split group to see balances roll in.</p>
+          <p className={cn("text-sm", mutedText)}>Create a split group to see balances roll in.</p>
         )}
       </CardContent>
     </Card>

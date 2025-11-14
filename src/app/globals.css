@@ -91,3 +91,31 @@
   filter: saturate(1.5);
   transform: translateY(-1px);
 }
+
+@keyframes dashboard-moon-drift {
+  from {
+    transform: translateY(0) rotate(0deg);
+  }
+  to {
+    transform: translateY(12px) rotate(5deg);
+  }
+}
+
+@keyframes dashboard-moon-glow {
+  from {
+    opacity: 0.35;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 0.85;
+    transform: scale(1.05);
+  }
+}
+
+.animate-dashboard-moon {
+  animation: dashboard-moon-drift 9s ease-in-out infinite alternate;
+}
+
+.animate-dashboard-moon-glow {
+  animation: dashboard-moon-glow 7s ease-in-out infinite alternate;
+}

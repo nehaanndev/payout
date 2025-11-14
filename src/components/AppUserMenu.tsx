@@ -77,7 +77,7 @@ const PRODUCT_DESTINATIONS: Array<{
 ];
 
 const DROPDOWN_CLASSES =
-  "absolute right-0 top-0 mt-2 w-80 max-w-[calc(100vw-1.5rem)] transform overflow-visible rounded-3xl border border-slate-100 bg-white/95 shadow-2xl shadow-slate-900/15 backdrop-blur z-[80]";
+  "absolute right-0 top-0 mt-2 w-80 max-w-[calc(100vw-1.5rem)] transform overflow-visible rounded-3xl border border-slate-100 bg-white/95 shadow-2xl shadow-slate-900/15 backdrop-blur z-[9999]";
 
 export function AppUserMenu({
   product,
@@ -304,7 +304,7 @@ export function AppUserMenu({
   );
 
   return (
-    <div className="relative flex w-full items-center gap-2 md:w-auto md:justify-end">
+    <div className="relative z-[9998] flex w-full items-center gap-2 md:w-auto md:justify-end">
       <Button
         type="button"
         variant="ghost"
