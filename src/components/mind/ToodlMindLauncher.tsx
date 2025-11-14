@@ -54,6 +54,7 @@ export default function ToodlMindLauncher() {
   const [editableValues, setEditableValues] =
     useState<Record<string, string> | null>(null);
   const [debugEnabled, setDebugEnabled] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
 
   const applyTemplate = useMemo(
     () => (template: string, values: Record<string, string>) =>
@@ -97,6 +98,18 @@ export default function ToodlMindLauncher() {
     return () => {
       window.removeEventListener("open-toodl-mind", handleExternalOpen);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handleThemeChange = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail;
+      setDarkMode(detail === "night");
+    };
+    window.addEventListener("toodl-theme-change", handleThemeChange);
+    return () => window.removeEventListener("toodl-theme-change", handleThemeChange);
   }, []);
 
   const readyForCommands = useMemo(
@@ -250,7 +263,12 @@ export default function ToodlMindLauncher() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 via-indigo-500 to-violet-500 text-indigo-50 shadow-xl shadow-indigo-300/60 transition hover:from-indigo-500 hover:via-indigo-600 hover:to-violet-600 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:ring-offset-2"
+        className={cn(
+          "fixed bottom-6 right-6 z-[1500] flex h-14 w-14 items-center justify-center rounded-full text-indigo-50 shadow-xl transition focus:outline-none focus:ring-2 focus:ring-offset-2",
+          darkMode
+            ? "bg-gradient-to-br from-slate-800 via-slate-900 to-indigo-900 shadow-slate-900/50"
+            : "bg-gradient-to-br from-indigo-400 via-indigo-500 to-violet-500 shadow-indigo-300/60 hover:from-indigo-500 hover:via-indigo-600 hover:to-violet-600"
+        )}
         aria-label="Open Toodl Mind"
       >
         <Sparkles className="h-6 w-6" />
@@ -259,16 +277,33 @@ export default function ToodlMindLauncher() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
           side="right"
-          className="flex h-full max-h-screen w-full flex-col gap-4 rounded-t-3xl bg-white p-0 shadow-[0_16px_48px_-12px_rgba(79,70,229,0.35)] sm:max-w-md"
+          className={cn(
+            "flex h-full max-h-screen w-full flex-col gap-4 rounded-t-3xl p-0 sm:max-w-md",
+            darkMode
+              ? "bg-slate-900 text-white shadow-[0_16px_48px_-12px_rgba(2,6,23,0.7)]"
+              : "bg-white text-slate-900 shadow-[0_16px_48px_-12px_rgba(79,70,229,0.35)]"
+          )}
         >
           <SheetHeader className="px-6 pt-6">
-            <SheetTitle className="flex items-center gap-2 text-base font-semibold">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 via-indigo-500 to-violet-500 text-indigo-50">
+            <SheetTitle
+              className={cn(
+                "flex items-center gap-2 text-base font-semibold",
+                darkMode ? "text-white" : "text-slate-900"
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-full",
+                  darkMode
+                    ? "bg-gradient-to-br from-slate-700 via-slate-800 to-indigo-800 text-white"
+                    : "bg-gradient-to-br from-indigo-400 via-indigo-500 to-violet-500 text-indigo-50"
+                )}
+              >
                 <Sparkles className="h-4 w-4" />
               </span>
               Toodl Mind
             </SheetTitle>
-            <SheetDescription>
+            <SheetDescription className={cn(darkMode ? "text-slate-200" : "text-slate-500")}>
               Ask for help across expenses, budgets, flows, or links. Plan first,
               then confirm or dismiss.
             </SheetDescription>
@@ -276,13 +311,20 @@ export default function ToodlMindLauncher() {
 
           <div className="flex-1 overflow-y-auto px-6">
             <div className="flex flex-col space-y-4 pb-6">
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+              <div
+                className={cn(
+                  "rounded-xl border p-4",
+                  darkMode
+                    ? "border-slate-800 bg-slate-800/80 text-white"
+                    : "border-indigo-100 bg-indigo-50/60"
+                )}
+              >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-indigo-900">
+                    <p className={cn("text-sm font-semibold", darkMode ? "text-white" : "text-indigo-900")}>
                       Parser debug
                     </p>
-                    <p className="text-xs text-indigo-700/70">
+                    <p className={cn("text-xs", darkMode ? "text-slate-300" : "text-indigo-700/70")}>
                       Toggle to inspect how Toodl Mind extracted intent details.
                     </p>
                   </div>
@@ -384,8 +426,11 @@ export default function ToodlMindLauncher() {
           <div className="border-t border-muted px-6 pb-6">
             <form
               onSubmit={handlePlan}
-              className="flex flex-col gap-2 rounded-xl bg-muted/40 p-3"
-            >
+                    className={cn(
+                      "flex flex-col gap-2 rounded-xl p-3",
+                      darkMode ? "bg-slate-800/70" : "bg-muted/40"
+                    )}
+                  >
               <Textarea
                 value={utterance}
                 onChange={(event) => setUtterance(event.target.value)}
@@ -587,7 +632,14 @@ type MindDebugEntry = {
 const MindDebugPanel = ({ entries }: { entries: MindDebugEntry[] }) => {
   if (!entries.length) {
     return (
-      <div className="rounded-lg border border-dashed border-indigo-200 bg-white/70 p-4 text-xs text-indigo-900/70">
+      <div
+        className={cn(
+          "rounded-lg border border-dashed p-4 text-xs",
+          darkMode
+            ? "border-slate-700 bg-slate-800/70 text-slate-200"
+            : "border-indigo-200 bg-white/70 text-indigo-900/70"
+        )}
+      >
         No parser insights yet. Enter a request to see how intents are derived.
       </div>
     );

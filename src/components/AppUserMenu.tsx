@@ -36,6 +36,7 @@ type AppUserMenuProps = {
   onSignOut?: () => void | Promise<void>;
   signOutLabel?: string;
   identityLabel?: string;
+  dark?: boolean;
 };
 
 const PRODUCT_DESTINATIONS: Array<{
@@ -76,8 +77,10 @@ const PRODUCT_DESTINATIONS: Array<{
   },
 ];
 
-const DROPDOWN_CLASSES =
-  "absolute right-0 top-0 mt-2 w-80 max-w-[calc(100vw-1.5rem)] transform overflow-visible rounded-3xl border border-slate-100 bg-white/95 shadow-2xl shadow-slate-900/15 backdrop-blur z-[9999]";
+const getDropdownClasses = (dark: boolean) =>
+  dark
+    ? "absolute right-0 top-0 mt-2 w-80 max-w-[calc(100vw-1.5rem)] transform overflow-visible rounded-3xl border border-white/20 bg-slate-900/95 text-white shadow-2xl shadow-slate-900/50 backdrop-blur z-[9999]"
+    : "absolute right-0 top-0 mt-2 w-80 max-w-[calc(100vw-1.5rem)] transform overflow-visible rounded-3xl border border-slate-100 bg-white/95 shadow-2xl shadow-slate-900/15 backdrop-blur z-[9999]";
 
 export function AppUserMenu({
   product,
@@ -87,6 +90,7 @@ export function AppUserMenu({
   onSignOut,
   signOutLabel = "Sign out",
   identityLabel = "Signed in as",
+  dark = false,
 }: AppUserMenuProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -174,7 +178,10 @@ export function AppUserMenu({
   const renderSection = (section: AppUserMenuSection, sectionIndex: number) => (
     <div key={`${section.title ?? "section"}-${sectionIndex}`} className="space-y-3">
       {section.title ? (
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
+        <p className={cn(
+          "text-xs font-semibold uppercase tracking-[0.35em]",
+          dark ? "text-slate-300" : "text-slate-400"
+        )}>
           {section.title}
         </p>
       ) : null}
@@ -183,23 +190,45 @@ export function AppUserMenu({
           const content = (
             <div
               className={cn(
-                "flex items-center gap-3 rounded-2xl border border-slate-100 bg-white px-3 py-2 text-sm transition",
-                item.disabled ? "cursor-not-allowed opacity-50" : "hover:border-slate-200 hover:bg-slate-50"
+                "flex items-center gap-3 rounded-2xl border px-3 py-2 text-sm transition",
+                dark
+                  ? item.disabled
+                    ? "cursor-not-allowed opacity-50 border-white/10 bg-white/5"
+                    : "border-white/15 bg-white/5 hover:border-white/25 hover:bg-white/10"
+                  : item.disabled
+                    ? "cursor-not-allowed opacity-50 border-slate-100 bg-white"
+                    : "border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50"
               )}
             >
               {item.icon ? (
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100/60">
+                <span className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-xl",
+                  dark ? "bg-white/10" : "bg-slate-100/60"
+                )}>
                   {item.icon}
                 </span>
               ) : null}
-              <div className="flex flex-1 flex-col text-left text-slate-700">
+              <div className={cn(
+                "flex flex-1 flex-col text-left",
+                dark ? "text-slate-100" : "text-slate-700"
+              )}>
                 <span className="font-medium">{item.label}</span>
                 {item.description ? (
-                  <span className="text-xs text-slate-500">{item.description}</span>
+                  <span className={cn(
+                    "text-xs",
+                    dark ? "text-slate-400" : "text-slate-500"
+                  )}>
+                    {item.description}
+                  </span>
                 ) : null}
               </div>
               {item.badge ? (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                <span className={cn(
+                  "rounded-full px-2 py-0.5 text-xs font-medium",
+                  dark
+                    ? "bg-white/10 text-slate-300"
+                    : "bg-slate-100 text-slate-500"
+                )}>
                   {item.badge}
                 </span>
               ) : null}
@@ -261,23 +290,44 @@ export function AppUserMenu({
     <div className="space-y-6">
       <Card className="border-0 bg-transparent shadow-none">
         <CardHeader className="flex flex-col gap-3 p-0">
-          <CardTitle className="flex items-center gap-3 text-base font-semibold text-slate-900">
+          <CardTitle className={cn(
+            "flex items-center gap-3 text-base font-semibold",
+            dark ? "text-white" : "text-slate-900"
+          )}>
             {avatarSrc ? (
               <Image
                 src={avatarSrc}
                 alt="User avatar"
                 width={48}
                 height={48}
-                className="h-12 w-12 rounded-full border border-slate-100 object-cover shadow-sm"
+                className={cn(
+                  "h-12 w-12 rounded-full border object-cover shadow-sm",
+                  dark ? "border-white/20" : "border-slate-100"
+                )}
               />
             ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-sm font-semibold text-slate-600">
+              <div className={cn(
+                "flex h-12 w-12 items-center justify-center rounded-full border text-sm font-semibold",
+                dark
+                  ? "border-white/20 bg-white/10 text-slate-200"
+                  : "border-slate-200 bg-slate-100 text-slate-600"
+              )}>
                 {displayName.charAt(0).toUpperCase()}
               </div>
             )}
             <div className="flex flex-col">
-              <span className="text-xs font-medium uppercase tracking-[0.3em] text-slate-400">{identityLabel}</span>
-              <span className="text-sm font-semibold text-slate-900 truncate">{displayName}</span>
+              <span className={cn(
+                "text-xs font-medium uppercase tracking-[0.3em]",
+                dark ? "text-slate-300" : "text-slate-400"
+              )}>
+                {identityLabel}
+              </span>
+              <span className={cn(
+                "text-sm font-semibold truncate",
+                dark ? "text-white" : "text-slate-900"
+              )}>
+                {displayName}
+              </span>
             </div>
           </CardTitle>
         </CardHeader>
@@ -286,10 +336,18 @@ export function AppUserMenu({
         {menuSections.map((section, index) => renderSection(section, index))}
       </div>
       {onSignOut ? (
-        <div className="flex flex-col gap-3 border-t border-slate-100 pt-4">
+        <div className={cn(
+          "flex flex-col gap-3 border-t pt-4",
+          dark ? "border-white/10" : "border-slate-100"
+        )}>
           <Button
             variant="outline"
-            className="justify-start gap-2 border-slate-200 text-sm font-semibold text-slate-700 hover:border-slate-300 hover:text-slate-900"
+            className={cn(
+              "justify-start gap-2 text-sm font-semibold",
+              dark
+                ? "border-white/20 bg-white/5 text-slate-200 hover:border-white/30 hover:bg-white/10"
+                : "border-slate-200 text-slate-700 hover:border-slate-300 hover:text-slate-900"
+            )}
             onClick={() => {
               closeAll();
               void onSignOut();
@@ -309,7 +367,10 @@ export function AppUserMenu({
         type="button"
         variant="ghost"
         size="icon"
-        className="md:hidden -ml-1"
+        className={cn(
+          "md:hidden -ml-1",
+          dark ? "text-white hover:bg-white/10" : ""
+        )}
         onClick={() => setDrawerOpen(true)}
         aria-label="Open menu"
       >
@@ -317,7 +378,12 @@ export function AppUserMenu({
       </Button>
       <button
         type="button"
-        className="hidden items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-900 md:flex"
+        className={cn(
+          "hidden items-center gap-2 rounded-full border px-2.5 py-1.5 text-sm shadow-sm transition md:flex",
+          dark
+            ? "border-white/20 bg-white/10 text-white hover:border-white/30 hover:bg-white/15"
+            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:text-slate-900"
+        )}
         onClick={() => setMenuOpen((prev) => !prev)}
         aria-haspopup="dialog"
         aria-expanded={menuOpen}
@@ -328,29 +394,47 @@ export function AppUserMenu({
             alt="User avatar"
             width={28}
             height={28}
-            className="h-7 w-7 rounded-full border border-slate-100 object-cover shadow"
+            className={cn(
+              "h-7 w-7 rounded-full border object-cover shadow",
+              dark ? "border-white/20" : "border-slate-100"
+            )}
           />
         ) : (
-          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-xs font-semibold text-slate-600">
+          <div className={cn(
+            "flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold",
+            dark
+              ? "border-white/20 bg-white/10 text-slate-200"
+              : "border-slate-200 bg-slate-100 text-slate-600"
+          )}>
             {displayName.charAt(0).toUpperCase()}
           </div>
         )}
         <span className="font-medium">{displayName}</span>
       </button>
       {menuOpen ? (
-        <div ref={dropdownRef} className={DROPDOWN_CLASSES}>
+        <div ref={dropdownRef} className={getDropdownClasses(dark)}>
           <div className="p-6">{menuContent}</div>
         </div>
       ) : null}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent
           side="left"
-          className="w-[85vw] max-w-none border-r border-slate-100 bg-white/95 px-6 backdrop-blur transition-all duration-300 data-[state=open]:translate-x-0 data-[state=closed]:-translate-x-full"
+          className={cn(
+            "w-[85vw] max-w-none border-r px-6 backdrop-blur transition-all duration-300 data-[state=open]:translate-x-0 data-[state=closed]:-translate-x-full",
+            dark
+              ? "border-white/10 bg-slate-900/95"
+              : "border-slate-100 bg-white/95"
+          )}
         >
           <SheetHeader className="flex flex-row items-center justify-between gap-4">
-            <SheetTitle className="text-left text-base font-semibold text-slate-900">Menu</SheetTitle>
+            <SheetTitle className={cn(
+              "text-left text-base font-semibold",
+              dark ? "text-white" : "text-slate-900"
+            )}>
+              Menu
+            </SheetTitle>
             <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(false)}>
-              <X className="h-5 w-5" />
+              <X className={cn("h-5 w-5", dark ? "text-white" : "")} />
             </Button>
           </SheetHeader>
           <div className="mt-6 space-y-6">{menuContent}</div>

@@ -457,7 +457,7 @@ export default function DailyDashboardPage() {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
         <header
           className={cn(
-            "rounded-[32px] border border-white/40 p-6 shadow-lg backdrop-blur",
+            "relative z-10 rounded-[32px] border border-white/40 p-6 shadow-lg backdrop-blur",
             palette.hero,
             theme === "night" ? "text-white" : "text-slate-900"
           )}
@@ -471,7 +471,20 @@ export default function DailyDashboardPage() {
                 {Object.values(THEMES).map((option) => (
                   <button
                     key={option.id}
-                    onClick={() => setTheme(option.id)}
+                    onClick={() => {
+                      setTheme(option.id);
+                      if (typeof window !== "undefined") {
+                        window.document.documentElement.classList.toggle(
+                          "dashboard-night",
+                          option.id === "night"
+                        );
+                        window.dispatchEvent(
+                          new CustomEvent("toodl-theme-change", {
+                            detail: option.id,
+                          })
+                        );
+                      }
+                    }}
                     className={cn(
                       "rounded-full px-3 py-1",
                       theme === option.id ? "bg-white/80 text-slate-900" : "text-white/80"
@@ -488,6 +501,7 @@ export default function DailyDashboardPage() {
                 displayName={userDisplayName}
                 avatarSrc={user.photoURL}
                 onSignOut={handleSignOut}
+                dark={isNight}
               />
             ) : null}
           </div>
@@ -764,12 +778,14 @@ function FlowCards({
 
   if (isMorning) {
     return (
-      <Card className="rounded-[28px] border-none bg-white/90 p-6 shadow-lg">
+      <Card className="relative overflow-hidden rounded-[28px] border-none bg-white/90 p-6 shadow-lg">
+        <span className="pointer-events-none absolute -top-10 right-4 h-28 w-28 rounded-full bg-gradient-to-br from-amber-300 via-yellow-200 to-orange-200 opacity-70 animate-dashboard-sun" />
+        <span className="pointer-events-none absolute -top-8 right-0 h-36 w-36 rounded-full bg-amber-200/30 blur-3xl animate-dashboard-sun-glow" />
         <CardHeader className="p-0">
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-500">Morning calm</p>
           <CardTitle className="text-2xl text-slate-900">Good morning.</CardTitle>
           <p className="text-sm text-slate-500">
-            {upcomingTasks.length ? "Here’s how Flow lined up your next anchors." : "Add a task in Flow to start the day."}
+            {upcomingTasks.length ? "Here's how Flow lined up your next anchors." : "Add a task in Flow to start the day."}
           </p>
         </CardHeader>
         <CardContent className="mt-4 grid gap-4 sm:grid-cols-2">
