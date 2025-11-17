@@ -104,6 +104,7 @@ export default function ToodlMindLauncher() {
     if (typeof window === "undefined") {
       return;
     }
+    setDarkMode(window.document.documentElement.classList.contains("dashboard-night"));
     const handleThemeChange = (event: Event) => {
       const detail = (event as CustomEvent<string>).detail;
       setDarkMode(detail === "night");
@@ -336,8 +337,8 @@ export default function ToodlMindLauncher() {
                 </div>
                 {debugEnabled ? (
                   <div className="mt-4">
-                    <MindDebugPanel entries={debugEntries} />
-                  </div>
+                    <MindDebugPanel entries={debugEntries} darkMode={darkMode} />
+              </div>
                 ) : null}
               </div>
               {messages.length === 0 ? (
@@ -629,7 +630,13 @@ type MindDebugEntry = {
   debugTrace: MindDebugTrace[];
 };
 
-const MindDebugPanel = ({ entries }: { entries: MindDebugEntry[] }) => {
+const MindDebugPanel = ({
+  entries,
+  darkMode,
+}: {
+  entries: MindDebugEntry[];
+  darkMode: boolean;
+}) => {
   if (!entries.length) {
     return (
       <div
@@ -649,19 +656,27 @@ const MindDebugPanel = ({ entries }: { entries: MindDebugEntry[] }) => {
       {entries.map((entry) => (
         <div
           key={entry.id}
-          className="rounded-lg border border-white/60 bg-white/90 p-4 shadow-sm"
+          className={cn(
+            "rounded-lg border p-4 shadow-sm",
+            darkMode ? "border-slate-800 bg-slate-800/70 text-slate-100" : "border-white/60 bg-white/90"
+          )}
         >
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold text-indigo-900">
+              <p className={cn("text-sm font-semibold", darkMode ? "text-white" : "text-indigo-900")}>
                 {entry.utterance}
               </p>
-              <p className="text-xs text-indigo-500">
+              <p className={cn("text-xs", darkMode ? "text-slate-300" : "text-indigo-500")}>
                 Status: {entry.status}
                 {entry.error ? ` · ${entry.error}` : ""}
               </p>
             </div>
-            <span className="rounded-full bg-indigo-100 px-3 py-0.5 text-xs font-semibold uppercase tracking-wide text-indigo-700">
+            <span
+              className={cn(
+                "rounded-full px-3 py-0.5 text-xs font-semibold uppercase tracking-wide",
+                darkMode ? "bg-slate-700 text-slate-100" : "bg-indigo-100 text-indigo-700"
+              )}
+            >
               {entry.intent?.tool ?? "pending"}
             </span>
           </div>
@@ -674,9 +689,21 @@ const MindDebugPanel = ({ entries }: { entries: MindDebugEntry[] }) => {
             </div>
           ) : null}
           {entry.contextHints ? (
-            <div className="mt-3 rounded-md bg-slate-950/5 p-2">
-              <p className="text-xs font-medium text-indigo-700">contextHints</p>
-              <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words text-[11px] text-slate-700">
+            <div
+              className={cn(
+                "mt-3 rounded-md p-2",
+                darkMode ? "bg-slate-900/40" : "bg-slate-950/5"
+              )}
+            >
+              <p className={cn("text-xs font-medium", darkMode ? "text-slate-200" : "text-indigo-700")}>
+                contextHints
+              </p>
+              <pre
+                className={cn(
+                  "mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words text-[11px]",
+                  darkMode ? "text-slate-200" : "text-slate-700"
+                )}
+              >
                 {JSON.stringify(entry.contextHints, null, 2)}
               </pre>
             </div>

@@ -452,6 +452,16 @@ export default function DailyDashboardPage() {
     }
   }, [router]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.document.documentElement.classList.toggle(
+      "dashboard-night",
+      theme === "night"
+    );
+  }, [theme]);
+
   return (
     <div className={cn("min-h-screen w-full bg-gradient-to-b px-4 py-10", palette.gradient)}>
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
