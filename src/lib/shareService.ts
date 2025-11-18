@@ -144,6 +144,63 @@ export const updateSharedLinkStatus = async (
   });
 };
 
+export const updateSharedLink = async (
+  userId: string,
+  shareId: string,
+  payload: SharedLinkWritePayload
+) => {
+  if (!userId || !shareId) {
+    throw new Error("User ID and share ID are required");
+  }
+
+  const shareRef = doc(userSharesCollection(userId), shareId);
+  const now = new Date().toISOString();
+  const updateData: Record<string, unknown> = {
+    updatedAt: payload.updatedAt ?? now,
+    serverUpdatedAt: serverTimestamp(),
+  };
+
+  const allowedKeys: Array<keyof SharedLinkWritePayload> = [
+    "url",
+    "title",
+    "description",
+    "sourceApp",
+    "platform",
+    "contentType",
+    "tags",
+    "previewImageUrl",
+    "storagePath",
+    "status",
+  ];
+
+  for (const key of allowedKeys) {
+    if (!(key in payload)) {
+      continue;
+    }
+    const value = payload[key];
+    if (value === undefined) {
+      continue;
+    }
+
+    if (key === "tags") {
+      updateData.tags = value ?? [];
+      continue;
+    }
+    if (key === "contentType" && value) {
+      updateData.contentType = normalizeContentType(value);
+      continue;
+    }
+    if (key === "status" && value) {
+      updateData.status = normalizeStatus(value);
+      continue;
+    }
+
+    updateData[key] = value ?? null;
+  }
+
+  await updateDoc(shareRef, updateData);
+};
+
 export const deleteSharedLink = async (
   userId: string,
   shareId: string,

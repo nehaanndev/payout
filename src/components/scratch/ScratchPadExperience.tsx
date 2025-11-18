@@ -24,6 +24,13 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
@@ -43,6 +50,7 @@ import {
   createSharedLink,
   deleteSharedLink,
   observeSharedLinks,
+  updateSharedLink,
   updateSharedLinkStatus,
 } from "@/lib/shareService";
 import {
@@ -199,11 +207,17 @@ export function ScratchPadExperience() {
   const [summaries, setSummaries] = useState<Record<string, string>>({});
   const [summarizingIds, setSummarizingIds] = useState<Record<string, boolean>>({});
   const [digestExpanded, setDigestExpanded] = useState<boolean>(false);
+  const [tagPaneOpen, setTagPaneOpen] = useState(false);
   const [createSuccessSource, setCreateSuccessSource] = useState<"link" | "note" | "file" | null>(
     null
   );
   const [linksOnly, setLinksOnly] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [noteEditorBody, setNoteEditorBody] = useState("");
+  const [noteEditorTags, setNoteEditorTags] = useState("");
+  const [noteEditorBusy, setNoteEditorBusy] = useState(false);
+  const [noteEditorMessage, setNoteEditorMessage] = useState<string | null>(null);
+  const [noteEditorError, setNoteEditorError] = useState<string | null>(null);
   const router = useRouter();
   const initialTheme = useMemo(
     () => (new Date().getHours() < 17 ? "morning" : "night"),
@@ -574,6 +588,36 @@ export function ScratchPadExperience() {
     setSelectedNoteId(null);
   }, []);
 
+  const handleAddTagToQuery = useCallback((rawTag: string) => {
+    const normalized = rawTag.trim().toLowerCase();
+    if (!normalized) {
+      return;
+    }
+    setTagQuery((prev) => {
+      const existing = parseTagQuery(prev);
+      if (existing.includes(normalized)) {
+        return prev;
+      }
+      const nextTags = [...existing, normalized];
+      return nextTags.map((tag) => `#${tag}`).join(" ");
+    });
+  }, []);
+
+  const handleRemoveTagFromQuery = useCallback((rawTag: string) => {
+    const normalized = rawTag.trim().toLowerCase();
+    setTagQuery((prev) => {
+      const remaining = parseTagQuery(prev).filter((tag) => tag !== normalized);
+      if (!remaining.length) {
+        return "";
+      }
+      return remaining.map((tag) => `#${tag}`).join(" ");
+    });
+  }, []);
+
+  const handleClearTagFilters = useCallback(() => {
+    setTagQuery("");
+  }, []);
+
   const statusFilteredLinks = useMemo(() => {
     if (filter === "all") {
       return allLinks;
@@ -581,7 +625,49 @@ export function ScratchPadExperience() {
     return allLinks.filter((link) => link.status === filter);
   }, [allLinks, filter]);
 
+  const tagStats = useMemo(() => {
+    const tagMap = new Map<
+      string,
+      { tag: string; count: number; lastUsed: number }
+    >();
+    const now = Date.now();
+    allLinks.forEach((link, index) => {
+      const createdAt = new Date(link.createdAt).getTime();
+      const recencyHint =
+        Number.isFinite(createdAt) && createdAt > 0
+          ? createdAt
+          : now - index;
+      (link.tags ?? []).forEach((rawTag) => {
+        const normalized = rawTag.trim().toLowerCase();
+        if (!normalized) {
+          return;
+        }
+        const existing = tagMap.get(normalized);
+        if (existing) {
+          existing.count += 1;
+          existing.lastUsed = Math.max(existing.lastUsed, recencyHint);
+          existing.tag = rawTag;
+        } else {
+          tagMap.set(normalized, {
+            tag: rawTag,
+            count: 1,
+            lastUsed: recencyHint,
+          });
+        }
+      });
+    });
+    return Array.from(tagMap.values()).sort(
+      (left, right) => right.lastUsed - left.lastUsed
+    );
+  }, [allLinks]);
+
+  const recentSearchTags = useMemo(
+    () => tagStats.slice(0, 6),
+    [tagStats]
+  );
+
   const queryTags = useMemo(() => parseTagQuery(tagQuery), [tagQuery]);
+  const hasTagFilters = queryTags.length > 0;
 
   const emptyStateLabel = useMemo(() => {
     if (filter === "all") {
@@ -669,6 +755,61 @@ export function ScratchPadExperience() {
       setSelectedNoteId(null);
     }
   }, [selectedNoteId, visibleLinks]);
+
+  useEffect(() => {
+    if (!selectedNote) {
+      setNoteEditorBody("");
+      setNoteEditorTags("");
+      setNoteEditorBusy(false);
+      setNoteEditorMessage(null);
+      setNoteEditorError(null);
+      return;
+    }
+    setNoteEditorBody(selectedNote.description ?? "");
+    setNoteEditorTags(selectedNote.tags?.join(", ") ?? "");
+    setNoteEditorBusy(false);
+    setNoteEditorMessage(null);
+    setNoteEditorError(null);
+  }, [selectedNote]);
+
+  const handleResetNoteEditor = useCallback(() => {
+    if (!selectedNote) {
+      return;
+    }
+    setNoteEditorBody(selectedNote.description ?? "");
+    setNoteEditorTags(selectedNote.tags?.join(", ") ?? "");
+    setNoteEditorMessage(null);
+    setNoteEditorError(null);
+  }, [selectedNote]);
+
+  const handleUpdateNote = useCallback(async () => {
+    if (!user || !selectedNote) {
+      return;
+    }
+    const trimmed = noteEditorBody.trim();
+    if (!trimmed) {
+      setNoteEditorError("Add note content before saving.");
+      return;
+    }
+    setNoteEditorBusy(true);
+    setNoteEditorError(null);
+    setNoteEditorMessage(null);
+    try {
+      const tags = normaliseTags(noteEditorTags);
+      const firstLine = trimmed.split("\n")[0]?.slice(0, 80) ?? "Orbit note";
+      await updateSharedLink(user.uid, selectedNote.id, {
+        description: trimmed,
+        tags,
+        title: firstLine,
+      });
+      setNoteEditorMessage("Note updated.");
+    } catch (err) {
+      console.error(err);
+      setNoteEditorError("We couldn't update this note. Please try again.");
+    } finally {
+      setNoteEditorBusy(false);
+    }
+  }, [noteEditorBody, noteEditorTags, selectedNote, user]);
 
   return (
     <div
@@ -989,56 +1130,146 @@ export function ScratchPadExperience() {
               <div className="space-y-6">
             <Card className="border border-slate-200 bg-white/95 shadow-xl shadow-slate-200/50">
               <CardHeader className="border-b border-slate-100 px-5 py-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="space-y-4">
                   <div>
                     <CardTitle className="text-lg font-semibold text-slate-900">Your links</CardTitle>
                     <p className="text-sm text-slate-500">
                       Filter by status to move items from your intake queue to your saved list.
                     </p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <Input
-                        value={tagQuery}
-                        onChange={(event) => setTagQuery(event.target.value)}
-                        placeholder="Filter by #tag"
-                        className="pl-9 pr-8"
-                      />
-                      {tagQuery ? (
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-slate-400"
-                          onClick={() => setTagQuery("")}
-                          aria-label="Clear tag search"
-                        >
-                          X
-                        </Button>
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div className="flex flex-1 flex-col gap-2">
+                      <div className="relative w-full">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Input
+                          value={tagQuery}
+                          onChange={(event) => setTagQuery(event.target.value)}
+                          placeholder="Filter by #tag"
+                          className="pl-9 pr-10"
+                        />
+                        {tagQuery ? (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                            onClick={handleClearTagFilters}
+                            aria-label="Clear tag search"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        ) : null}
+                      </div>
+                      {hasTagFilters ? (
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                          <span className="font-medium text-slate-600">Active tags:</span>
+                          {queryTags.map((tag) => (
+                            <button
+                              key={tag}
+                              type="button"
+                              className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600 hover:border-rose-200 hover:text-rose-600"
+                              onClick={() => handleRemoveTagFromQuery(tag)}
+                            >
+                              #{tag}
+                              <X className="h-3 w-3" />
+                            </button>
+                          ))}
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            className="text-xs"
+                            onClick={handleClearTagFilters}
+                          >
+                            Clear tags
+                          </Button>
+                        </div>
+                      ) : recentSearchTags.length ? (
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                          <Tag className="h-3.5 w-3.5 text-slate-400" />
+                          <span>Recent:</span>
+                          {recentSearchTags.map((tag) => (
+                            <button
+                              key={tag.tag}
+                              type="button"
+                              className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600"
+                              onClick={() => handleAddTagToQuery(tag.tag)}
+                            >
+                              #{tag.tag}
+                              <span className="ml-1 text-[10px] text-slate-400">({tag.count})</span>
+                            </button>
+                          ))}
+                        </div>
                       ) : null}
                     </div>
-                    {FILTERS.map((option) => (
-                      <Button
-                        key={option.id}
-                        variant={option.id === filter ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setFilter(option.id)}
-                        className={cn(
-                          option.id === filter
-                            ? "bg-indigo-500 text-white hover:bg-indigo-400"
-                            : "border-slate-200 text-slate-600 hover:bg-slate-100"
-                        )}
-                      >
-                        {option.label}
-                      </Button>
-                    ))}
+                    <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                      {FILTERS.map((option) => (
+                        <Button
+                          key={option.id}
+                          variant={option.id === filter ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setFilter(option.id)}
+                          className={cn(
+                            option.id === filter
+                              ? "bg-indigo-500 text-white hover:bg-indigo-400"
+                              : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                          )}
+                        >
+                          {option.label}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4 p-5">
-              {weeklyDigest ? (
-                <div className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-4">
+                {tagStats.length ? (
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50/70">
+                    <button
+                      type="button"
+                      onClick={() => setTagPaneOpen((prev) => !prev)}
+                      className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                        <Tag className="h-4 w-4 text-slate-500" />
+                        Tags quick filter
+                        <span className="text-xs font-normal text-slate-500">
+                          {tagStats.length} tracked
+                        </span>
+                      </div>
+                      <span className="text-xs font-medium text-indigo-600">
+                        {tagPaneOpen ? "Hide" : "Show"}
+                      </span>
+                    </button>
+                    {tagPaneOpen ? (
+                      <div className="flex flex-wrap gap-2 border-t border-slate-200 px-4 py-4">
+                        {tagStats.slice(0, 60).map((tag) => (
+                          <button
+                            key={tag.tag}
+                            type="button"
+                            className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600"
+                            onClick={() => handleAddTagToQuery(tag.tag)}
+                          >
+                            #{tag.tag}{" "}
+                            <span className="text-[10px] text-slate-400">({tag.count})</span>
+                          </button>
+                        ))}
+                        {hasTagFilters ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={handleClearTagFilters}
+                          >
+                            Clear tag filters
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {weeklyDigest ? (
+                  <div className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-indigo-700">
                       <CalendarDays className="h-5 w-5" />
@@ -1204,6 +1435,18 @@ export function ScratchPadExperience() {
                           ) : null}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
+                          {link.contentType === "note" ? (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedNoteId(link.id);
+                              }}
+                            >
+                              Open note
+                            </Button>
+                          ) : null}
                           {hasUrl ? (
                             <Button variant="ghost" size="sm" asChild>
                               <Link href={link.url ?? "#"} target="_blank" rel="noopener noreferrer">
@@ -1266,52 +1509,110 @@ export function ScratchPadExperience() {
               )}
             </CardContent>
             </Card>
-                {selectedNote ? (
-                  <Card className="border border-indigo-200 bg-white/95 shadow-md">
-                    <CardHeader className="flex flex-row items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <CardTitle className="text-base font-semibold text-slate-900">
-                          {selectedNote.title || "Orbit note"}
-                        </CardTitle>
-                        <p className="text-xs text-slate-500">
-                          Saved {new Date(selectedNote.createdAt).toLocaleString()}
-                          {selectedNote.sourceApp ? ` · via ${selectedNote.sourceApp}` : ""}
-                        </p>
-                      </div>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="text-slate-500 hover:text-slate-700"
-                        onClick={handleCloseNotePreview}
-                        aria-label="Close note preview"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 whitespace-pre-wrap">
-                        {selectedNote.description || "This note is currently empty."}
-                      </div>
-                      {selectedNote.tags?.length ? (
-                        <div className="flex flex-wrap gap-2">
-                          {selectedNote.tags.map((tag) => (
-                            <Badge key={tag} variant="outline" className="border-slate-200 text-xs">
-                              #{tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      ) : null}
-                      <div className="text-xs text-slate-500">
-                        Status: {STATUS_LABEL[selectedNote.status]}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : null}
               </div>
             </div>
           </>
         )}
       </div>
+      <Dialog
+        open={Boolean(selectedNote)}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCloseNotePreview();
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-indigo-100 bg-white/95 shadow-2xl">
+          {selectedNote ? (
+            <>
+              <DialogHeader className="space-y-1 text-left">
+                <DialogTitle className="text-xl font-semibold text-slate-900">
+                  {selectedNote.title || "Orbit note"}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  Saved {new Date(selectedNote.createdAt).toLocaleString()}
+                  {selectedNote.sourceApp ? ` · via ${selectedNote.sourceApp}` : ""}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="orbit-note-editor"
+                    className="text-sm font-medium text-slate-700"
+                  >
+                    Note body
+                  </label>
+                  <Textarea
+                    id="orbit-note-editor"
+                    value={noteEditorBody}
+                    onChange={(event) => setNoteEditorBody(event.target.value)}
+                    className="min-h-[220px]"
+                    placeholder="Add more context or edit the note."
+                    disabled={noteEditorBusy}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label
+                    htmlFor="orbit-note-tags-editor"
+                    className="text-sm font-medium text-slate-700"
+                  >
+                    Tags
+                  </label>
+                  <Input
+                    id="orbit-note-tags-editor"
+                    value={noteEditorTags}
+                    onChange={(event) => setNoteEditorTags(event.target.value)}
+                    placeholder="planning, research"
+                    disabled={noteEditorBusy}
+                  />
+                  <p className="text-xs text-slate-400">
+                    Separate tags with commas or #. We’ll lowercase and dedupe them.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <span>Status: {STATUS_LABEL[selectedNote.status]}</span>
+                  <span>·</span>
+                  <span>Updated {new Date(selectedNote.updatedAt).toLocaleString()}</span>
+                </div>
+                {noteEditorError ? (
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                    {noteEditorError}
+                  </div>
+                ) : null}
+                {noteEditorMessage ? (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-600">
+                    {noteEditorMessage}
+                  </div>
+                ) : null}
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    size="sm"
+                    onClick={handleUpdateNote}
+                    disabled={noteEditorBusy || !noteEditorBody.trim()}
+                  >
+                    {noteEditorBusy ? (
+                      <>
+                        <Spinner size="sm" className="mr-2" />
+                        Saving…
+                      </>
+                    ) : (
+                      "Save changes"
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleResetNoteEditor}
+                    disabled={noteEditorBusy}
+                  >
+                    Reset
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
