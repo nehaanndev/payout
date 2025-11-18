@@ -11,7 +11,8 @@ export const firebaseExpenseConverter: FirestoreDataConverter<Expense> = {
       paidBy: expense.paidBy,
       splits: expense.splits,
       amountMinor: expense.amountMinor,
-      splitsMinor: expense.splitsMinor
+      splitsMinor: expense.splitsMinor,
+      tags: expense.tags ?? [],
     };
   },
   fromFirestore(snapshot, options): Expense {
@@ -24,7 +25,8 @@ export const firebaseExpenseConverter: FirestoreDataConverter<Expense> = {
       paidBy: data.paidBy,
       splits: data.splits,
       amountMinor: data.amountMinor,
-      splitsMinor: data.splitsMinor
+      splitsMinor: data.splitsMinor,
+      tags: Array.isArray(data.tags) ? data.tags : [],
     };
   },
 };

@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
-import { Sparkles } from "lucide-react";
+import { ExternalLink, Search, Sparkles } from "lucide-react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
@@ -38,10 +39,12 @@ import {
   getMonthKey as getBudgetMonthKey,
 } from "@/lib/budgetService";
 import { calculateOpenBalancesMinor, getSettlementPlanMinor } from "@/lib/financeUtils";
+import { listSharedLinks } from "@/lib/shareService";
 import type { Group, Member, Expense } from "@/types/group";
 import type { Settlement } from "@/types/settlement";
 import type { BudgetDocument, BudgetMonth, BudgetLedgerEntry } from "@/types/budget";
 import { type CurrencyCode, fromMinor, FRACTION_DIGITS } from "@/lib/currency_core";
+import type { SharedLink } from "@/types/share";
 
 const THEMES = {
   morning: {
@@ -85,6 +88,81 @@ const FLOW_CATEGORY_LABELS: Record<FlowCategory, string> = {
   wellness: "Wellness",
   play: "Play",
   growth: "Growth",
+};
+
+type ProductKey = "orbit" | "flow" | "split" | "pulse";
+
+const PRODUCT_LABELS: Record<ProductKey, string> = {
+  orbit: "Orbit",
+  flow: "Flow",
+  split: "Split",
+  pulse: "Pulse",
+};
+
+const PRODUCT_BADGES: Record<ProductKey, string> = {
+  orbit: "border-indigo-200/80 bg-indigo-50 text-indigo-700",
+  flow: "border-emerald-200/80 bg-emerald-50 text-emerald-700",
+  split: "border-orange-200/80 bg-orange-50 text-orange-700",
+  pulse: "border-purple-200/80 bg-purple-50 text-purple-700",
+};
+
+type SearchResultItem = {
+  id: string;
+  product: ProductKey;
+  title: string;
+  subtitle?: string;
+  tags: string[];
+  normalizedTags: string[];
+  href?: string;
+  externalUrl?: string | null;
+};
+
+const normaliseTagList = (tags: Array<string | null | undefined>) => {
+  const display: string[] = [];
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of tags) {
+    if (!raw || typeof raw !== "string") {
+      continue;
+    }
+    const cleaned = raw.replace(/^#/, "").trim();
+    if (!cleaned) {
+      continue;
+    }
+    const lower = cleaned.toLowerCase();
+    if (seen.has(lower)) {
+      continue;
+    }
+    seen.add(lower);
+    display.push(cleaned);
+    normalized.push(lower);
+  }
+
+  return { display, normalized };
+};
+
+const normaliseQueryTokens = (query: string) =>
+  query
+    .toLowerCase()
+    .replace(/#/g, " ")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+const formatBudgetAmount = (value: number, currency: CurrencyCode | null | undefined) => {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "";
+  }
+  try {
+    return Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency ?? "USD",
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return value.toFixed(0);
+  }
 };
 
 const aiHighlights = [
@@ -132,6 +210,12 @@ export default function DailyDashboardPage() {
   const [budgetPulse, setBudgetPulse] = useState<BudgetPulseSummary | null>(null);
   const [budgetLoading, setBudgetLoading] = useState(false);
   const [budgetError, setBudgetError] = useState<string | null>(null);
+  const [orbitShares, setOrbitShares] = useState<SharedLink[]>([]);
+  const [orbitSharesLoading, setOrbitSharesLoading] = useState(false);
+  const [orbitSharesError, setOrbitSharesError] = useState<string | null>(null);
+  const [splitSources, setSplitSources] = useState<Array<{ group: Group; expenses: Expense[] }>>([]);
+  const [budgetEntries, setBudgetEntries] = useState<BudgetLedgerEntry[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -159,6 +243,38 @@ export default function DailyDashboardPage() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setOrbitShares([]);
+      setOrbitSharesError(null);
+      return;
+    }
+    let cancelled = false;
+    setOrbitSharesLoading(true);
+    setOrbitSharesError(null);
+    listSharedLinks(user.uid)
+      .then((shares) => {
+        if (!cancelled) {
+          setOrbitShares(shares);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load Orbit saves", error);
+        if (!cancelled) {
+          setOrbitShares([]);
+          setOrbitSharesError("We couldn't load your Orbit saves.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setOrbitSharesLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user) {
@@ -193,6 +309,7 @@ export default function DailyDashboardPage() {
   useEffect(() => {
     if (!user) {
       setSplitTotals([]);
+      setSplitSources([]);
       return;
     }
     let cancelled = false;
@@ -220,6 +337,12 @@ export default function DailyDashboardPage() {
         if (cancelled) {
           return;
         }
+        setSplitSources(
+          enriched.map(({ group, expenses }) => ({
+            group,
+            expenses,
+          }))
+        );
         const summary = buildSplitSummary(enriched, user);
         setSplitTotals(summary);
       } catch (error) {
@@ -287,6 +410,7 @@ export default function DailyDashboardPage() {
     if (!user?.uid) {
       setBudgetPulse(null);
       setBudgetError(null);
+      setBudgetEntries([]);
       return;
     }
     let cancelled = false;
@@ -299,6 +423,7 @@ export default function DailyDashboardPage() {
         if (!budgets.length) {
           if (!cancelled) {
             setBudgetPulse(null);
+            setBudgetEntries([]);
           }
           return;
         }
@@ -312,6 +437,7 @@ export default function DailyDashboardPage() {
         if (!primary) {
           if (!cancelled) {
             setBudgetPulse(null);
+            setBudgetEntries([]);
           }
           return;
         }
@@ -322,6 +448,7 @@ export default function DailyDashboardPage() {
         if (cancelled) {
           return;
         }
+        setBudgetEntries(month?.entries ?? []);
         const summary = buildBudgetPulseSummary(primary, month, monthKey);
         setBudgetPulse(summary);
       } catch (error) {
@@ -329,6 +456,7 @@ export default function DailyDashboardPage() {
         if (!cancelled) {
           setBudgetError("We couldn't load your budget.");
           setBudgetPulse(null);
+          setBudgetEntries([]);
         }
       } finally {
         if (!cancelled) {
@@ -365,6 +493,119 @@ export default function DailyDashboardPage() {
   const latestReflection = reflections[0] ?? null;
 
   const primarySummary = splitTotals[0] ?? null;
+  const searchTokens = useMemo(() => normaliseQueryTokens(searchQuery), [searchQuery]);
+  const searchableItems = useMemo(() => {
+    const items: SearchResultItem[] = [];
+
+    if (flowPlan?.tasks?.length) {
+      for (const task of flowPlan.tasks) {
+        const { display, normalized } = normaliseTagList([task.category]);
+        if (!display.length) {
+          continue;
+        }
+        items.push({
+          id: `flow-${task.id}`,
+          product: "flow",
+          title: task.title,
+          subtitle: `${FLOW_CATEGORY_LABELS[task.category]} · Flow task`,
+          tags: display,
+          normalizedTags: normalized,
+          href: "/flow",
+        });
+      }
+    }
+
+    if (orbitShares.length) {
+      for (const share of orbitShares) {
+        const { display, normalized } = normaliseTagList(share.tags ?? []);
+        if (!display.length) {
+          continue;
+        }
+        items.push({
+          id: `orbit-${share.id}`,
+          product: "orbit",
+          title: share.title ?? share.url ?? "Saved link",
+          subtitle: share.description ?? share.sourceApp ?? "Orbit link",
+          tags: display,
+          normalizedTags: normalized,
+          href: "/scratch-pad",
+          externalUrl: share.url,
+        });
+      }
+    }
+
+    if (splitSources.length) {
+      for (const { group, expenses } of splitSources) {
+        for (const expense of expenses) {
+          const { display, normalized } = normaliseTagList(expense.tags ?? []);
+          if (!display.length) {
+            continue;
+          }
+          items.push({
+            id: `split-${group.id}-${expense.id}`,
+            product: "split",
+            title: expense.description,
+            subtitle: `${group.name} · Split expense`,
+            tags: display,
+            normalizedTags: normalized,
+            href: `/split?groupId=${group.id}`,
+          });
+        }
+      }
+    }
+
+    if (budgetEntries.length) {
+      for (const entry of budgetEntries) {
+        const { display, normalized } = normaliseTagList(entry.tags ?? []);
+        if (!display.length) {
+          continue;
+        }
+        items.push({
+          id: `pulse-${entry.id}`,
+          product: "pulse",
+          title: entry.merchant ?? entry.category,
+          subtitle: `${entry.category} · ${formatBudgetAmount(
+            entry.amount,
+            budgetPulse?.currency
+          )}`,
+          tags: display,
+          normalizedTags: normalized,
+          href: "/budget",
+        });
+      }
+    }
+
+    return items;
+  }, [budgetEntries, budgetPulse?.currency, flowPlan?.tasks, orbitShares, splitSources]);
+
+  const filteredSearchResults = useMemo(() => {
+    if (!searchTokens.length) {
+      return [];
+    }
+    return searchableItems.filter((item) =>
+      searchTokens.every((token) => item.normalizedTags.some((tag) => tag.includes(token)))
+    );
+  }, [searchTokens, searchableItems]);
+
+  const isSearchActive = searchTokens.length > 0;
+  const searchLoading =
+    isSearchActive &&
+    (orbitSharesLoading || flowLoading || splitLoading || budgetLoading);
+  const searchErrors = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [flowError, splitError, budgetError, orbitSharesError].filter(
+            (message): message is string => Boolean(message)
+          )
+        )
+      ),
+    [budgetError, flowError, orbitSharesError, splitError]
+  );
+  const searchPlaceholder = user
+    ? "Search tags like #work or wellness"
+    : "Sign in to search your tags";
+  const searchDisabled = !user;
 
   const handleReflectionSubmit = useCallback(async () => {
     if (!user || !flowPlan) {
@@ -451,6 +692,32 @@ export default function DailyDashboardPage() {
     }
   }, [router]);
 
+  const handleSearchClear = useCallback(() => {
+    setSearchQuery("");
+  }, []);
+
+  const handleResultNavigate = useCallback(
+    (item: SearchResultItem) => {
+      if (item.href) {
+        router.push(item.href);
+        return;
+      }
+      if (item.externalUrl && typeof window !== "undefined") {
+        window.open(item.externalUrl, "_blank", "noopener,noreferrer");
+      }
+    },
+    [router]
+  );
+
+  const handleResultOpenExternal = useCallback((url: string | null | undefined) => {
+    if (!url) {
+      return;
+    }
+    if (typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }, []);
+
   return (
     <div className={cn("min-h-screen w-full bg-gradient-to-b px-4 py-10", palette.gradient)}>
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
@@ -500,6 +767,61 @@ export default function DailyDashboardPage() {
             </div>
           </div>
         </header>
+
+        <div
+          className={cn(
+            "rounded-[28px] border p-6 shadow-lg backdrop-blur",
+            isNight
+              ? "border-white/10 bg-slate-900/50 text-white"
+              : "border-white/70 bg-white/90 text-slate-900"
+          )}
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-500">
+                Search anything
+              </p>
+              <p className={cn("text-sm", isNight ? "text-indigo-100" : "text-slate-600")}>
+                Find Orbit saves, Flow anchors, Split expenses, and Pulse entries by tag.
+              </p>
+            </div>
+            <div className="relative w-full md:max-w-md">
+              <Search
+                className={cn(
+                  "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2",
+                  isNight ? "text-white/60" : "text-slate-500"
+                )}
+              />
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={searchPlaceholder}
+                disabled={searchDisabled}
+                aria-label="Search by tags"
+                className={cn(
+                  "pl-9",
+                  isNight
+                    ? "border-white/15 bg-white/10 text-white placeholder:text-white/40"
+                    : "border-slate-200 bg-white"
+                )}
+              />
+            </div>
+          </div>
+          {isSearchActive ? (
+            <div className="mt-4">
+              <SearchResultsPane
+                query={searchQuery}
+                results={filteredSearchResults}
+                loading={searchLoading}
+                errors={searchErrors}
+                onClear={handleSearchClear}
+                onNavigate={handleResultNavigate}
+                onOpenExternal={handleResultOpenExternal}
+                isNight={isNight}
+              />
+            </div>
+          ) : null}
+        </div>
 
         {flowLoading ? (
           <SkeletonBanner label="Loading Flow insights" />
@@ -736,6 +1058,156 @@ export default function DailyDashboardPage() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+function SearchResultsPane({
+  query,
+  results,
+  loading,
+  errors,
+  onClear,
+  onNavigate,
+  onOpenExternal,
+  isNight,
+}: {
+  query: string;
+  results: SearchResultItem[];
+  loading: boolean;
+  errors: string[];
+  onClear: () => void;
+  onNavigate: (item: SearchResultItem) => void;
+  onOpenExternal: (url: string) => void;
+  isNight: boolean;
+}) {
+  const dedupedErrors = Array.from(new Set(errors));
+  const hasResults = results.length > 0;
+  const statusTone = isNight ? "text-white/70" : "text-slate-600";
+
+  return (
+    <Card
+      className={cn(
+        "rounded-3xl border",
+        isNight ? "border-white/10 bg-slate-900/70 text-white" : "border-slate-100 bg-white"
+      )}
+    >
+      <div
+        className={cn(
+          "flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3",
+          isNight ? "border-white/10" : "border-slate-100"
+        )}
+      >
+        <div>
+          <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>
+            Results for “{query.trim()}”
+          </p>
+          <p className={cn("text-xs", statusTone)}>
+            {loading ? "Gathering tags across Orbit, Flow, Split, and Pulse…" : `${results.length} matches`}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onClear}
+          className={cn(
+            "text-xs font-semibold",
+            isNight ? "text-white/80 hover:text-white" : "text-slate-600 hover:text-slate-900"
+          )}
+        >
+          Clear
+        </Button>
+      </div>
+      {loading ? (
+        <div className="flex items-center gap-3 px-4 py-6 text-sm">
+          <Spinner className="h-4 w-4 text-indigo-500" />
+          <span className={statusTone}>Looking across your saved products…</span>
+        </div>
+      ) : null}
+      {!loading && hasResults ? (
+        <ul className="divide-y divide-slate-100/70">
+          {results.map((item) => (
+            <li
+              key={item.id}
+              className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between"
+            >
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-xs font-semibold",
+                      PRODUCT_BADGES[item.product],
+                      isNight && "border-white/20 bg-white/10 text-white"
+                    )}
+                  >
+                    {PRODUCT_LABELS[item.product]}
+                  </Badge>
+                  <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>
+                    {item.title}
+                  </p>
+                </div>
+                {item.subtitle ? (
+                  <p className={cn("text-xs", statusTone)}>{item.subtitle}</p>
+                ) : null}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {item.tags.map((tag) => (
+                    <span
+                      key={`${item.id}-${tag}`}
+                      className={cn(
+                        "rounded-full border px-3 py-0.5 text-xs font-medium",
+                        isNight ? "border-white/15 text-white/80" : "border-slate-200 text-slate-600"
+                      )}
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+                <Button
+                  size="sm"
+                  variant={isNight ? "secondary" : "outline"}
+                  onClick={() => onNavigate(item)}
+                  className="text-xs font-semibold"
+                >
+                  Go to {PRODUCT_LABELS[item.product]}
+                </Button>
+                {item.externalUrl ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="flex items-center gap-1 text-xs font-semibold"
+                    onClick={() => onOpenExternal(item.externalUrl)}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open link
+                  </Button>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {!loading && !hasResults ? (
+        <div className="px-4 py-6 text-sm">
+          <p className={statusTone}>
+            No items use that tag yet. Add tags from Orbit, Flow, Split, or Pulse to see them here.
+          </p>
+        </div>
+      ) : null}
+      {dedupedErrors.length ? (
+        <div
+          className={cn(
+            "border-t px-4 py-3 text-xs",
+            isNight ? "border-white/10 text-amber-200" : "border-slate-100 text-amber-700"
+          )}
+        >
+          {dedupedErrors.map((error) => (
+            <p key={error}>{error}</p>
+          ))}
+        </div>
+      ) : null}
+    </Card>
   );
 }
 

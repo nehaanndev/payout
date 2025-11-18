@@ -1,14 +1,15 @@
   import { CurrencyCode } from "@/lib/currency_core";
   // Define two interfaces for clarity
-  export interface NewExpense {
-    description: string;
-    amount: number;
-    paidBy: string;
-    createdAt: Date;
-    splits: Record<string, number>;
-    amountMinor: number;
-    splitsMinor: Record<string, number>;
-  }
+export interface NewExpense {
+  description: string;
+  amount: number;
+  paidBy: string;
+  createdAt: Date;
+  splits: Record<string, number>;
+  amountMinor: number;
+  splitsMinor: Record<string, number>;
+  tags?: string[];
+}
 
   export interface Expense extends NewExpense {
     id: string; // ID is required after retrieval from Firebase
