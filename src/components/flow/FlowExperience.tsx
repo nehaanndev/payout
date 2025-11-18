@@ -216,57 +216,45 @@ const reindexSequence = (tasks: FlowTask[]) =>
     sequence: index,
   }));
 
-const computeSchedule = (
+const isFinishedStatus = (status: FlowTaskStatus) =>
+  status === "done" || status === "skipped" || status === "failed";
+
+const generateAutoSchedule = (
   tasks: FlowTask[],
   dateKey: string,
-  startTime: string,
-  options: { anchorToNow?: boolean } = {}
+  startTime: string
 ) => {
   if (!tasks.length) {
     return tasks;
   }
-  const now = new Date();
   const base = parseTimeStringToDate(dateKey, startTime || "08:00");
   let cursor = new Date(base);
-
+  const ordered = reindexSequence(tasks).sort((a, b) => a.sequence - b.sequence);
   const updated: FlowTask[] = [];
 
-  const ordered = tasks.slice().sort((a, b) => a.sequence - b.sequence);
-
   ordered.forEach((task) => {
-    const estimateMs = Math.max(5, task.estimateMinutes) * 60 * 1000;
-    let startDate: Date;
-    let endDate: Date;
-
-    const actualStart = parseIso(task.actualStart);
-    const actualEnd = parseIso(task.actualEnd);
-    const scheduledStart = parseIso(task.scheduledStart);
-    const scheduledEnd = parseIso(task.scheduledEnd);
-
-    if (task.status === "done" && actualStart && actualEnd) {
-      startDate = new Date(actualStart);
-      endDate = new Date(actualEnd);
-    } else if (
-      (task.status === "done" || task.status === "skipped" || task.status === "failed") &&
-      scheduledStart &&
-      scheduledEnd
-    ) {
-      startDate = scheduledStart;
-      endDate = scheduledEnd;
-    } else if (task.locked && scheduledStart && scheduledEnd) {
-      startDate = scheduledStart;
-      endDate = scheduledEnd;
-    } else {
-      const anchor =
-        options.anchorToNow && now > cursor ? new Date(now) : new Date(cursor);
-      startDate =
-        task.status === "in_progress" && scheduledStart
-          ? scheduledStart
-          : anchor;
-      endDate = new Date(startDate.getTime() + estimateMs);
+    if (isFinishedStatus(task.status)) {
+      const end = parseIso(task.actualEnd) ?? parseIso(task.scheduledEnd);
+      if (end) {
+        cursor = new Date(Math.max(cursor.getTime(), end.getTime()));
+      }
+      updated.push(task);
+      return;
     }
 
-    cursor = new Date(Math.max(endDate.getTime(), cursor.getTime()));
+    if (task.locked && task.scheduledStart && task.scheduledEnd) {
+      const lockedEnd = parseIso(task.scheduledEnd);
+      if (lockedEnd) {
+        cursor = new Date(Math.max(cursor.getTime(), lockedEnd.getTime()));
+      }
+      updated.push(task);
+      return;
+    }
+
+    const estimateMs = Math.max(5, task.estimateMinutes) * 60 * 1000;
+    const startDate = new Date(cursor);
+    const endDate = new Date(cursor.getTime() + estimateMs);
+    cursor = new Date(endDate);
 
     updated.push({
       ...task,
@@ -277,16 +265,6 @@ const computeSchedule = (
   });
 
   return sortTasksBySchedule(updated);
-};
-
-const generateAutoSchedule = (
-  tasks: FlowTask[],
-  dateKey: string,
-  startTime: string
-) => {
-  const reindexed = reindexSequence(tasks);
-  const scheduled = computeSchedule(reindexed, dateKey, startTime);
-  return sortTasksBySchedule(scheduled);
 };
 
 const reschedulePendingTasks = (
@@ -812,9 +790,7 @@ export function FlowExperience() {
           }
           return next;
         });
-        const shouldReschedule =
-          autoSchedulingActive(current) &&
-          (status === "done" || status === "skipped" || status === "failed");
+        const shouldReschedule = autoSchedulingActive(current) && isFinishedStatus(status);
         const tasksWithSchedule = shouldReschedule
           ? reschedulePendingTasks(updatedTasks, current.date, current.startTime)
           : updatedTasks;
