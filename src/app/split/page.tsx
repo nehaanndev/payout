@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useMemo } from "react";
 import type { ComponentType, SVGProps } from "react";
 import { useRouter } from "next/navigation";
 import SearchParamsClient from '@/components/SearchParamsClient'
@@ -29,6 +29,7 @@ import { CurrencyCode } from "@/lib/currency_core";
 import { DEFAULT_CURRENCY, getGroupCurrency } from "@/lib/currency";
 import { AppTopBar } from "@/components/AppTopBar";
 import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   ArrowRight,
   BarChart3,
@@ -41,6 +42,8 @@ import {
   Wand2,
 } from "lucide-react";
 import PaymentSettingsDialog from "@/components/PaymentSettingsDialog";
+import { cn } from "@/lib/utils";
+import { useToodlTheme } from "@/hooks/useToodlTheme";
 import {
   fetchExpensePaymentPreferences,
   updateExpensePaymentPreferences,
@@ -381,6 +384,11 @@ export default function Home() {
   const [paymentDialogMode, setPaymentDialogMode] = useState<"prompt" | "settings" | null>(null);
   const [hasPromptedForPaypal, setHasPromptedForPaypal] = useState(false);
   const { setIdentity, identity } = useToodlMind();
+  const initialTheme = useMemo(
+    () => (new Date().getHours() < 17 ? "morning" : "night"),
+    []
+  );
+  const { theme, setTheme, isNight } = useToodlTheme(initialTheme);
     
 
   useEffect(() => {
@@ -649,7 +657,12 @@ export default function Home() {
   
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div
+        className={cn(
+          "flex h-screen items-center justify-center",
+          isNight ? "bg-slate-950 text-slate-100" : undefined
+        )}
+      >
         <Spinner size="lg" />
       </div>
     );
@@ -664,7 +677,12 @@ export default function Home() {
       </Suspense>
     { /* Case A: Signed-in or already-identified anon user → show the app */ }
     {session || anonUser ? (
-      <div className="min-h-screen bg-slate-50/80 px-4 py-6">
+      <div
+        className={cn(
+          "min-h-screen px-4 py-6",
+          isNight ? "bg-slate-950 text-slate-100" : "bg-slate-50/80"
+        )}
+      >
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
           <AppTopBar
             product="expense"
@@ -672,6 +690,7 @@ export default function Home() {
             subheading="Invite your crew, log purchases, and keep every tab honest."
             actions={
               <div className="flex flex-wrap gap-2">
+                <ThemeToggle theme={theme} onSelect={setTheme} />
                 <Button
                   variant="outline"
                   className="border-slate-200 text-slate-700 hover:bg-slate-100"
@@ -696,6 +715,7 @@ export default function Home() {
                 avatarSrc={avatar}
                 onSignOut={session ? handleSignOut : undefined}
                 sections={expenseMenuSections}
+                dark={isNight}
               />
             }
           />
@@ -714,7 +734,12 @@ export default function Home() {
     )     
     /* Case B: No user yet, but we fetched sharedMembers → ask “Who are you?” */ 
     : sharedMembers ? (
-      <div className="min-h-screen bg-slate-50/80 px-4 py-10">
+      <div
+        className={cn(
+          "min-h-screen px-4 py-10",
+          isNight ? "bg-slate-950 text-slate-100" : "bg-slate-50/80"
+        )}
+      >
         <div className="mx-auto w-full max-w-3xl">
           <IdentityPrompt
             members={sharedMembers}

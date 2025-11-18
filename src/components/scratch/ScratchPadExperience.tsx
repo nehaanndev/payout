@@ -20,6 +20,7 @@ import {
 import { AppTopBar } from "@/components/AppTopBar";
 import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
 import { OrbitFlowNav } from "@/components/OrbitFlowNav";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +52,7 @@ import {
 } from "@/lib/orbitStorage";
 import type { SharedLink, SharedLinkStatus } from "@/types/share";
 import { cn } from "@/lib/utils";
+import { useToodlTheme } from "@/hooks/useToodlTheme";
 
 type ScratchPadFilter = SharedLinkStatus | "all";
 
@@ -203,6 +205,11 @@ export function ScratchPadExperience() {
   const [linksOnly, setLinksOnly] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const router = useRouter();
+  const initialTheme = useMemo(
+    () => (new Date().getHours() < 17 ? "morning" : "night"),
+    []
+  );
+  const { theme, setTheme, isNight } = useToodlTheme(initialTheme);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (current) => {
@@ -664,13 +671,23 @@ export function ScratchPadExperience() {
   }, [selectedNoteId, visibleLinks]);
 
   return (
-    <div className="min-h-screen bg-slate-50/80 p-4 pb-12 sm:p-6">
+    <div
+      className={cn(
+        "min-h-screen p-4 pb-12 sm:p-6",
+        isNight ? "bg-slate-950 text-slate-100" : "bg-slate-50/80"
+      )}
+    >
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <AppTopBar
           product="orbit"
           heading="Orbit"
           subheading="Collect sparks, links, and notes. Organize them when you’re ready."
-          actions={<OrbitFlowNav />}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <OrbitFlowNav />
+              <ThemeToggle theme={theme} onSelect={setTheme} />
+            </div>
+          }
           userSlot={
             user ? (
               <AppUserMenu
@@ -679,6 +696,7 @@ export function ScratchPadExperience() {
                 avatarSrc={user.photoURL}
                 sections={menuSections}
                 onSignOut={handleSignOut}
+                dark={isNight}
               />
             ) : undefined
           }

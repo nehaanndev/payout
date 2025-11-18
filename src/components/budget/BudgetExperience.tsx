@@ -29,8 +29,10 @@ import { User, onAuthStateChanged, signOut } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useToodlTheme } from "@/hooks/useToodlTheme";
 import { AppTopBar } from "@/components/AppTopBar";
 import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -678,6 +680,11 @@ const isClient = () => typeof window !== "undefined";
 const BudgetExperience = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const initialTheme = useMemo(
+    () => (new Date().getHours() < 17 ? "morning" : "night"),
+    []
+  );
+  const { theme, setTheme, isNight } = useToodlTheme(initialTheme);
 
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -2567,7 +2574,14 @@ const BudgetExperience = () => {
 
   if (!authChecked) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-emerald-50 to-white">
+      <div
+        className={cn(
+          "flex min-h-screen items-center justify-center",
+          isNight
+            ? "bg-slate-950 text-slate-100"
+            : "bg-gradient-to-b from-emerald-50 to-white"
+        )}
+      >
         <Spinner size="lg" />
       </div>
     );
@@ -2575,25 +2589,36 @@ const BudgetExperience = () => {
 
   if (authChecked && !user) {
     return (
-      <div className="relative min-h-screen bg-gradient-to-br from-emerald-50 via-emerald-100/60 to-slate-50 px-4 py-10">
+      <div
+        className={cn(
+          "relative min-h-screen px-4 py-10",
+          isNight
+            ? "bg-slate-950 text-slate-100"
+            : "bg-gradient-to-br from-emerald-50 via-emerald-100/60 to-slate-50"
+        )}
+      >
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.65),transparent_60%)] opacity-60" />
         <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-8">
           <AppTopBar
             product="budget"
             subheading="Sign in to reopen Pulse or hop over to another Toodl space."
             actions={
-              <Button
-                className="bg-emerald-600 text-white hover:bg-emerald-500"
-                onClick={() => router.push("/split")}
-              >
-                Sign in
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <ThemeToggle theme={theme} onSelect={setTheme} />
+                <Button
+                  className="bg-emerald-600 text-white hover:bg-emerald-500"
+                  onClick={() => router.push("/split")}
+                >
+                  Sign in
+                </Button>
+              </div>
             }
             userSlot={
               <AppUserMenu
                 product="budget"
                 displayName="Guest"
                 identityLabel="Browsing as"
+                dark={isNight}
               />
             }
           />
@@ -2620,7 +2645,12 @@ const BudgetExperience = () => {
 
   if (!member) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div
+        className={cn(
+          "flex min-h-screen items-center justify-center",
+          isNight ? "bg-slate-950 text-slate-100" : undefined
+        )}
+      >
         <Spinner size="lg" />
       </div>
     );
@@ -2628,7 +2658,12 @@ const BudgetExperience = () => {
 
   if (budgetId && loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div
+        className={cn(
+          "flex min-h-screen items-center justify-center",
+          isNight ? "bg-slate-950 text-slate-100" : undefined
+        )}
+      >
         <div className="flex flex-col items-center gap-2 text-sm text-slate-500">
           <Spinner size="lg" />
           <span>Loading your budget...</span>
@@ -2639,7 +2674,14 @@ const BudgetExperience = () => {
 
   if (invalidBudget) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-slate-50 px-4">
+      <div
+        className={cn(
+          "relative flex min-h-screen items-center justify-center px-4",
+          isNight
+            ? "bg-slate-950 text-slate-100"
+            : "bg-gradient-to-br from-emerald-50 via-white to-slate-50"
+        )}
+      >
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.7),transparent_65%)] opacity-50" />
         <Card className="max-w-lg space-y-6 border-none bg-white/85 p-10 text-center shadow-2xl shadow-emerald-200/50 backdrop-blur-xl">
           <h2 className="text-2xl font-semibold text-slate-900">We couldn&apos;t open that budget.</h2>
@@ -2674,14 +2716,22 @@ const BudgetExperience = () => {
 
   if (!budgetId) {
     return (
-      <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-white p-4 md:p-8">
+      <div
+        className={cn(
+          "min-h-screen w-full p-4 md:p-8",
+          isNight
+            ? "bg-slate-950 text-slate-100"
+            : "bg-gradient-to-b from-slate-50 to-white"
+        )}
+      >
         <div className="mx-auto max-w-3xl space-y-6">
           <AppTopBar
             product="budget"
             heading="Your budgets"
             subheading="Pick a workspace to open or start a fresh one for a new goal."
             actions={
-              <div className="flex items-center justify-end">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <ThemeToggle theme={theme} onSelect={setTheme} />
                 <Button
                   className="bg-emerald-600 text-white hover:bg-emerald-500"
                   onClick={openCreateBudgetDialog}
@@ -2696,6 +2746,7 @@ const BudgetExperience = () => {
                 displayName={displayName}
                 sections={budgetMenuSections}
                 onSignOut={user ? handleSignOut : undefined}
+                dark={isNight}
               />
             }
           />
@@ -2784,7 +2835,12 @@ const BudgetExperience = () => {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 to-white p-4 md:p-8">
+    <div
+      className={cn(
+        "min-h-screen w-full p-4 md:p-8",
+        isNight ? "bg-slate-950 text-slate-100" : "bg-gradient-to-b from-slate-50 to-white"
+      )}
+    >
       <div className="mx-auto max-w-3xl">
         <AppTopBar
           product="budget"
@@ -2792,6 +2848,7 @@ const BudgetExperience = () => {
           subheading={lastUpdatedMessage ?? undefined}
           actions={
             <div className="flex flex-wrap items-center gap-2">
+              <ThemeToggle theme={theme} onSelect={setTheme} />
               <Button
                 variant="outline"
                 size="icon"
@@ -2827,6 +2884,7 @@ const BudgetExperience = () => {
               displayName={displayName}
               sections={budgetMenuSections}
               onSignOut={user ? handleSignOut : undefined}
+              dark={isNight}
             />
           }
         />

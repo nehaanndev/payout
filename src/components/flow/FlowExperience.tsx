@@ -23,6 +23,7 @@ import {
 import { AppTopBar } from "@/components/AppTopBar";
 import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
 import { OrbitFlowNav } from "@/components/OrbitFlowNav";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,6 +77,7 @@ import {
 } from "@/types/flow";
 import { FLOW_MOOD_OPTIONS } from "@/lib/flowMood";
 import { cn } from "@/lib/utils";
+import { useToodlTheme } from "@/hooks/useToodlTheme";
 
 type PlannerError = {
   id: string;
@@ -488,6 +490,11 @@ export function FlowExperience() {
   const [reflectionNote, setReflectionNote] = useState("");
   const [reflectionSaving, setReflectionSaving] = useState(false);
   const router = useRouter();
+  const initialTheme = useMemo(
+    () => (new Date().getHours() < 17 ? "morning" : "night"),
+    []
+  );
+  const { theme, setTheme, isNight } = useToodlTheme(initialTheme);
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -1046,13 +1053,23 @@ export function FlowExperience() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50">
+    <div
+      className={cn(
+        "min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 transition-colors",
+        isNight && "from-slate-950 via-slate-900 to-emerald-950 text-slate-100"
+      )}
+    >
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-16 pt-6 md:px-6">
         <AppTopBar
           product="flow"
           heading="Flow"
           subheading="Design your day, weave priorities with pause, and stay on tempo."
-          actions={<OrbitFlowNav />}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <OrbitFlowNav />
+              <ThemeToggle theme={theme} onSelect={setTheme} />
+            </div>
+          }
           userSlot={
             user ? (
               <AppUserMenu
@@ -1061,6 +1078,7 @@ export function FlowExperience() {
                 avatarSrc={user.photoURL}
                 sections={menuSections}
                 onSignOut={handleSignOut}
+                dark={isNight}
               />
             ) : undefined
           }

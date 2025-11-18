@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { useToodlTheme } from "@/hooks/useToodlTheme";
 import { AppUserMenu } from "@/components/AppUserMenu";
 import { auth, signOut } from "@/lib/firebase";
 import {
@@ -106,8 +107,7 @@ export default function DailyDashboardPage() {
   const hour = new Date().getHours();
   const isMorning = hour < 17;
   const isSunday = new Date().getDay() === 0;
-
-  const [theme, setTheme] = useState<"morning" | "night">(
+  const { theme, setTheme, isNight } = useToodlTheme(
     isMorning ? "morning" : "night"
   );
   const defaultMoodId = FLOW_MOOD_OPTIONS[0]?.id ?? "calm";
@@ -439,7 +439,6 @@ export default function DailyDashboardPage() {
   }, []);
 
   const palette = THEMES[theme];
-  const isNight = theme === "night";
   const greetingName = user?.displayName?.split(" ")[0] ?? "friend";
   const userDisplayName = user?.displayName ?? user?.email ?? "You";
 
@@ -451,16 +450,6 @@ export default function DailyDashboardPage() {
       console.error("Failed to sign out", error);
     }
   }, [router]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.document.documentElement.classList.toggle(
-      "dashboard-night",
-      theme === "night"
-    );
-  }, [theme]);
 
   return (
     <div className={cn("min-h-screen w-full bg-gradient-to-b px-4 py-10", palette.gradient)}>
@@ -481,20 +470,7 @@ export default function DailyDashboardPage() {
                 {Object.values(THEMES).map((option) => (
                   <button
                     key={option.id}
-                    onClick={() => {
-                      setTheme(option.id);
-                      if (typeof window !== "undefined") {
-                        window.document.documentElement.classList.toggle(
-                          "dashboard-night",
-                          option.id === "night"
-                        );
-                        window.dispatchEvent(
-                          new CustomEvent("toodl-theme-change", {
-                            detail: option.id,
-                          })
-                        );
-                      }
-                    }}
+                    onClick={() => setTheme(option.id)}
                     className={cn(
                       "rounded-full px-3 py-1",
                       theme === option.id ? "bg-white/80 text-slate-900" : "text-white/80"
