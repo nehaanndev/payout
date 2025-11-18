@@ -1077,7 +1077,7 @@ function SearchResultsPane({
   errors: string[];
   onClear: () => void;
   onNavigate: (item: SearchResultItem) => void;
-  onOpenExternal: (url: string) => void;
+  onOpenExternal: (url: string | null | undefined) => void;
   isNight: boolean;
 }) {
   const dedupedErrors = Array.from(new Set(errors));

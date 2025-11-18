@@ -155,7 +155,7 @@ export const updateSharedLink = async (
 
   const shareRef = doc(userSharesCollection(userId), shareId);
   const now = new Date().toISOString();
-  const updateData: Record<string, unknown> = {
+  const updateData: DocumentData = {
     updatedAt: payload.updatedAt ?? now,
     serverUpdatedAt: serverTimestamp(),
   };
@@ -187,11 +187,15 @@ export const updateSharedLink = async (
       continue;
     }
     if (key === "contentType" && value) {
-      updateData.contentType = normalizeContentType(value);
+      if (typeof value === "string") {
+        updateData.contentType = normalizeContentType(value as SharedLinkContentType);
+      }
       continue;
     }
     if (key === "status" && value) {
-      updateData.status = normalizeStatus(value);
+      if (typeof value === "string") {
+        updateData.status = normalizeStatus(value as SharedLinkStatus);
+      }
       continue;
     }
 
