@@ -335,6 +335,14 @@ const reschedulePendingTasks = (
   return sortTasksBySchedule(updated);
 };
 
+const ensureAutoScheduleState = (plan: FlowPlan): FlowPlan => ({
+  ...plan,
+  autoScheduleEnabled: plan.autoScheduleEnabled ?? true,
+});
+
+const autoSchedulingActive = (plan: FlowPlan) =>
+  plan.autoScheduleEnabled ?? true;
+
 const applySettingsToPlan = (
   plan: FlowPlan,
   settings: FlowSettings
@@ -593,7 +601,7 @@ export function FlowExperience() {
         if (isCancelled) {
           return;
         }
-        setPlan(loadedPlan);
+        setPlan(ensureAutoScheduleState(loadedPlan));
         setStartTime(loadedPlan.startTime || "08:00");
       })
       .catch((error) => {
@@ -655,7 +663,8 @@ export function FlowExperience() {
         if (!prev) {
           return prev;
         }
-        const mutated = mutator(prev);
+        const basePlan = ensureAutoScheduleState(prev);
+        const mutated = ensureAutoScheduleState(mutator(basePlan));
         const next = {
           ...mutated,
           updatedAt: new Date().toISOString(),
@@ -741,6 +750,7 @@ export function FlowExperience() {
       return {
         ...current,
         startTime,
+        autoScheduleEnabled: true,
         tasks: scheduledTasks,
       };
     });
@@ -755,7 +765,9 @@ export function FlowExperience() {
       updatePlan((current) => ({
         ...current,
         startTime: value,
-        tasks: reschedulePendingTasks(current.tasks, current.date, value),
+        tasks: autoSchedulingActive(current)
+          ? reschedulePendingTasks(current.tasks, current.date, value)
+          : current.tasks,
       }));
     },
     [plan, updatePlan]
@@ -800,10 +812,12 @@ export function FlowExperience() {
           }
           return next;
         });
-        const tasksWithSchedule =
-          status === "done" || status === "skipped" || status === "failed"
-            ? reschedulePendingTasks(updatedTasks, current.date, current.startTime)
-            : updatedTasks;
+        const shouldReschedule =
+          autoSchedulingActive(current) &&
+          (status === "done" || status === "skipped" || status === "failed");
+        const tasksWithSchedule = shouldReschedule
+          ? reschedulePendingTasks(updatedTasks, current.date, current.startTime)
+          : updatedTasks;
         return {
           ...current,
           tasks: tasksWithSchedule,
@@ -818,16 +832,22 @@ export function FlowExperience() {
       if (!plan) {
         return;
       }
-      updatePlan((current) => ({
-        ...current,
-        tasks: reschedulePendingTasks(
-          sortTasksBySchedule(
-            current.tasks.filter((task) => task.id !== taskId)
-          ),
-          current.date,
-          current.startTime
-        ),
-      }));
+      updatePlan((current) => {
+        const filtered = sortTasksBySchedule(
+          current.tasks.filter((task) => task.id !== taskId)
+        );
+        const nextTasks = autoSchedulingActive(current)
+          ? reschedulePendingTasks(
+              filtered,
+              current.date,
+              current.startTime
+            )
+          : filtered;
+        return {
+          ...current,
+          tasks: nextTasks,
+        };
+      });
     },
     [plan, updatePlan]
   );
@@ -853,11 +873,13 @@ export function FlowExperience() {
         const reindexed = sortTasksBySchedule(nextTasks);
         return {
           ...current,
-          tasks: reschedulePendingTasks(
-            reindexed,
-            current.date,
-            current.startTime
-          ),
+          tasks: autoSchedulingActive(current)
+            ? reschedulePendingTasks(
+                reindexed,
+                current.date,
+                current.startTime
+              )
+            : reindexed,
         };
       });
     },
@@ -918,6 +940,7 @@ export function FlowExperience() {
       });
       return {
         ...current,
+        autoScheduleEnabled: false,
         tasks: sortTasksBySchedule(updatedTasks),
       };
     });

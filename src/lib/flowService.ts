@@ -45,6 +45,7 @@ export const ensureFlowPlan = async (
     date: dateKey,
     timezone,
     startTime: "08:00",
+    autoScheduleEnabled: true,
     tasks: [],
     reflections: [],
     createdAt: nowIso,

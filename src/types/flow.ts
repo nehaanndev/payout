@@ -52,6 +52,7 @@ export type FlowPlan = {
   date: string;
   timezone: string;
   startTime: string;
+  autoScheduleEnabled?: boolean;
   tasks: FlowTask[];
   reflections: FlowReflection[];
   createdAt: string;
