@@ -823,6 +823,7 @@ export function ScratchPadExperience() {
           product="orbit"
           heading="Orbit"
           subheading="Collect sparks, links, and notes. Organize them when you’re ready."
+          dark={isNight}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <OrbitFlowNav />

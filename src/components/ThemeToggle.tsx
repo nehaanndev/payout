@@ -37,7 +37,9 @@ export function ThemeToggle({ theme, onSelect, className }: ThemeToggleProps) {
                 ? "bg-white/10 text-white"
                 : "bg-white text-slate-900"
               : option.id === "night"
-                ? "text-white/70 hover:text-white"
+                ? theme === "night"
+                  ? "text-white/70 hover:text-white"
+                  : "text-slate-500 hover:text-slate-800"
                 : "text-slate-500 hover:text-slate-800"
           )}
         >

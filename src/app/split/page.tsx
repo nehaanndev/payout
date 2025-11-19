@@ -688,6 +688,7 @@ export default function Home() {
             product="expense"
             heading="Split"
             subheading="Invite your crew, log purchases, and keep every tab honest."
+            dark={isNight}
             actions={
               <div className="flex flex-wrap gap-2">
                 <ThemeToggle theme={theme} onSelect={setTheme} />
@@ -698,13 +699,6 @@ export default function Home() {
                   disabled={!session}
                 >
                   Payment settings
-                </Button>
-                <Button
-                  variant="outline"
-                  className="border-slate-200 text-slate-700 hover:bg-slate-100"
-                  onClick={() => router.push("/dashboard")}
-                >
-                  Open dashboard
                 </Button>
               </div>
             }

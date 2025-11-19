@@ -1091,6 +1091,7 @@ export function FlowExperience() {
           product="flow"
           heading="Flow"
           subheading="Design your day, weave priorities with pause, and stay on tempo."
+          dark={isNight}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <OrbitFlowNav />

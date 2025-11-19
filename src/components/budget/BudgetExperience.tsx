@@ -2602,6 +2602,7 @@ const BudgetExperience = () => {
           <AppTopBar
             product="budget"
             subheading="Sign in to reopen Pulse or hop over to another Toodl space."
+            dark={isNight}
             actions={
               <div className="flex flex-wrap items-center gap-2">
                 <ThemeToggle theme={theme} onSelect={setTheme} />
@@ -2729,6 +2730,7 @@ const BudgetExperience = () => {
             product="budget"
             heading="Your budgets"
             subheading="Pick a workspace to open or start a fresh one for a new goal."
+            dark={isNight}
             actions={
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <ThemeToggle theme={theme} onSelect={setTheme} />
@@ -2846,6 +2848,7 @@ const BudgetExperience = () => {
           product="budget"
           heading={headingNode}
           subheading={lastUpdatedMessage ?? undefined}
+          dark={isNight}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <ThemeToggle theme={theme} onSelect={setTheme} />

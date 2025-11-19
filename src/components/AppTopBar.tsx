@@ -47,6 +47,7 @@ export function AppTopBar({
   actions,
   userSlot,
   className,
+  dark = false,
 }: {
   product: ProductKey;
   heading?: ReactNode;
@@ -54,6 +55,7 @@ export function AppTopBar({
   actions?: React.ReactNode;
   userSlot?: React.ReactNode;
   className?: string;
+  dark?: boolean;
 }) {
   const meta = PRODUCT_META[product];
   const mobileUserSlot = useMemo(() => {
@@ -76,14 +78,28 @@ export function AppTopBar({
     return userSlot;
   }, [userSlot]);
 
+  const headingTextClass = dark ? "text-white" : "text-slate-900";
+  const subheadingTextClass = dark ? "text-slate-300" : "text-slate-500";
+  const containerColors = dark
+    ? "border-slate-800/70 bg-slate-950/70 text-white"
+    : "border-slate-200 bg-white/80 text-slate-900";
+  const shadowClass = dark
+    ? "shadow-[0_25px_60px_-35px_rgba(15,23,42,0.85)]"
+    : "shadow-[0_15px_45px_-25px_rgba(15,23,42,0.45)]";
+  const overlayClass = dark
+    ? "bg-gradient-to-r from-slate-900/80 via-slate-800/40 to-slate-900/0"
+    : "bg-gradient-to-r from-white/70 via-white/40 to-white/10";
+
   return (
     <header
       className={cn(
-        "relative z-[30] mb-6 overflow-visible rounded-3xl border border-slate-200 bg-white/80 px-4 py-5 shadow-[0_15px_45px_-25px_rgba(15,23,42,0.45)] backdrop-blur md:px-6",
+        "relative z-[30] mb-6 overflow-visible rounded-3xl px-4 py-5 backdrop-blur md:px-6",
+        containerColors,
+        shadowClass,
         className
       )}
     >
-      <div className="absolute inset-0 bg-gradient-to-r from-white/70 via-white/40 to-white/10" />
+      <div className={cn("pointer-events-none absolute inset-0 rounded-3xl", overlayClass)} />
       <div className="relative flex flex-col gap-4 md:gap-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-2">
@@ -105,7 +121,7 @@ export function AppTopBar({
                     const headingContent = heading ?? meta.title;
                     if (isValidElement(headingContent)) {
                       return (
-                        <div className="text-lg font-semibold text-slate-900 md:text-2xl">
+                        <div className={cn("text-lg font-semibold md:text-2xl", headingTextClass)}>
                           {headingContent}
                         </div>
                       );
@@ -115,13 +131,13 @@ export function AppTopBar({
                       typeof headingContent === "number"
                     ) {
                       return (
-                        <h1 className="text-lg font-semibold text-slate-900 md:text-2xl">
+                        <h1 className={cn("text-lg font-semibold md:text-2xl", headingTextClass)}>
                           {headingContent}
                         </h1>
                       );
                     }
                     return (
-                      <div className="text-lg font-semibold text-slate-900 md:text-2xl">
+                      <div className={cn("text-lg font-semibold md:text-2xl", headingTextClass)}>
                         {headingContent}
                       </div>
                     );
@@ -133,7 +149,7 @@ export function AppTopBar({
                     }
                     if (isValidElement(subheadingContent)) {
                       return (
-                        <div className="text-xs text-slate-500 md:text-base">
+                        <div className={cn("text-xs md:text-base", subheadingTextClass)}>
                           {subheadingContent}
                         </div>
                       );
@@ -143,13 +159,13 @@ export function AppTopBar({
                       typeof subheadingContent === "number"
                     ) {
                       return (
-                        <p className="text-xs text-slate-500 md:text-base">
+                        <p className={cn("text-xs md:text-base", subheadingTextClass)}>
                           {subheadingContent}
                         </p>
                       );
                     }
                     return (
-                      <div className="text-xs text-slate-500 md:text-base">
+                      <div className={cn("text-xs md:text-base", subheadingTextClass)}>
                         {subheadingContent}
                       </div>
                     );
