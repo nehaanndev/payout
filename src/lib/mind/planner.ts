@@ -299,6 +299,7 @@ const extractJson = (content: string): string => {
 // Model used when the environment does not override OPENAI_MIND_MODEL.
 const defaultModel = "gpt-4o-mini";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class OpenAIMindPlanner implements MindPlanner {
   constructor(
     private readonly apiKey: string,
@@ -408,9 +409,9 @@ const trimSnapshot = (snapshot: MindExperienceSnapshot) => ({
 });
 
 export const createMindPlanner = (): MindPlanner => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (apiKey) {
-    return new OpenAIMindPlanner(apiKey);
-  }
+  //const apiKey = process.env.OPENAI_API_KEY;
+  //if (apiKey) {
+  //  return new OpenAIMindPlanner(apiKey);
+  // }
   return new RuleBasedMindPlanner();
 };

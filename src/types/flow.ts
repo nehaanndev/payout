@@ -72,7 +72,38 @@ export type FlowFixedEventPreference = {
   category: FlowCategory;
   startTime: string;
   durationMinutes: number;
+  days?: FlowDayOfWeek[];
+  tags?: string[];
 };
+
+export type FlowDayOfWeek =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
+
+export const FLOW_DAY_ORDER: FlowDayOfWeek[] = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
+
+export type FlowSleepOverrides = Partial<
+  Record<
+    FlowDayOfWeek,
+    {
+      sleepStart: string;
+      sleepEnd: string;
+    }
+  >
+>;
 
 export type FlowSettings = {
   workStart: string;
@@ -81,6 +112,7 @@ export type FlowSettings = {
   sleepEnd: string;
   meals: FlowMealPreference[];
   fixedEvents: FlowFixedEventPreference[];
+  sleepOverrides?: FlowSleepOverrides;
   updatedAt: string;
   timezone: string;
 };

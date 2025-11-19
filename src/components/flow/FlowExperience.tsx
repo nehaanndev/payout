@@ -67,6 +67,7 @@ import {
 import { generateId } from "@/lib/id";
 import {
   FlowCategory,
+  FlowDayOfWeek,
   FlowPlan,
   FlowReflection,
   FlowReflectionSentiment,
@@ -74,6 +75,7 @@ import {
   FlowTask,
   FlowTaskStatus,
   FlowTaskType,
+  FLOW_DAY_ORDER,
 } from "@/types/flow";
 import { FLOW_MOOD_OPTIONS } from "@/lib/flowMood";
 import { cn } from "@/lib/utils";
@@ -191,6 +193,26 @@ const toTimeInputValue = (iso: string | null | undefined) => {
   }
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
+
+const DAY_INDEX_TO_FLOW_DAY: FlowDayOfWeek[] = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+];
+
+const getFlowDayFromDateKey = (dateKey: string): FlowDayOfWeek => {
+  const [year, month, day] = dateKey.split("-").map((value) => Number(value));
+  const date = new Date(year, (month ?? 1) - 1, day ?? 1);
+  const index = date.getDay();
+  return DAY_INDEX_TO_FLOW_DAY[index] ?? "monday";
+};
+
+const ensureEventDays = (days?: FlowDayOfWeek[]) =>
+  days && days.length ? days : FLOW_DAY_ORDER.slice();
 
 const sortTasksBySchedule = (tasks: FlowTask[]) =>
   tasks
@@ -328,6 +350,7 @@ const applySettingsToPlan = (
   settings: FlowSettings
 ): FlowPlan => {
   const dateKey = plan.date;
+  const dayOfWeek = getFlowDayFromDateKey(dateKey);
   const manualTasks = plan.tasks.filter((task) => !task.templateId);
   const existingTemplateMap = new Map(
     plan.tasks
@@ -383,6 +406,10 @@ const applySettingsToPlan = (
   });
 
   settings.fixedEvents.forEach((event) => {
+    const activeDays = ensureEventDays(event.days);
+    if (!activeDays.includes(dayOfWeek)) {
+      return;
+    }
     templateTasks.push(
       buildLockedTask(
         `fixed:${event.id}`,
