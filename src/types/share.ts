@@ -22,6 +22,7 @@ export type SharedLink = {
   previewImageUrl: string | null;
   storagePath: string | null;
   status: SharedLinkStatus;
+  summarizable?: boolean; // Mark as article/video/PDF for AI summarization
   createdAt: string;
   updatedAt: string;
 };
@@ -37,6 +38,7 @@ export type SharedLinkWritePayload = {
   previewImageUrl?: string | null;
   storagePath?: string | null;
   status?: SharedLinkStatus;
+  summarizable?: boolean;
   createdAt?: string;
   updatedAt?: string;
 };

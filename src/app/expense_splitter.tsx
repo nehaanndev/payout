@@ -62,7 +62,8 @@ const [currentExpense, setCurrentExpense] = useState<Omit<Expense, 'amount'> & {
   splits: {},
   createdAt: new Date(),
   amountMinor: 0,
-  splitsMinor: {}
+  splitsMinor: {},
+  tags: [],
 });
 
 const [isEditingExpense, setIsEditingExpense] = useState(false);
@@ -299,7 +300,8 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
       splits: {},
       createdAt: new Date(),
       amountMinor: 0,
-      splitsMinor: {}
+      splitsMinor: {},
+      tags: [],
     });
   }
 
@@ -331,6 +333,7 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
       createdAt: new Date(),
       amountMinor: 0,
       splitsMinor: {},
+      tags: [],
     });
 
     setSplitMode(nextSplitMode);
@@ -419,7 +422,7 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
       ]);
     } else {
       // 2️⃣ If we’re editing an existing group’s details, just push the member/name changes
-      await updateGroupMembers(activeGroupId, members);
+      await updateGroupMembers(activeGroupId, members, { name: groupName, currency });
       setSavedGroups(prev =>
         prev.map(g =>
           g.id === activeGroupId

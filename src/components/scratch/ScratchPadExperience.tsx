@@ -53,6 +53,8 @@ import {
   updateSharedLink,
   updateSharedLinkStatus,
 } from "@/lib/shareService";
+import { getUserInterests } from "@/lib/orbitSummaryService";
+import { InterestWizard } from "@/components/orbit/InterestWizard";
 import {
   getOrbitContentTypeForFile,
   uploadOrbitAttachment,
@@ -218,6 +220,8 @@ export function ScratchPadExperience() {
   const [noteEditorBusy, setNoteEditorBusy] = useState(false);
   const [noteEditorMessage, setNoteEditorMessage] = useState<string | null>(null);
   const [noteEditorError, setNoteEditorError] = useState<string | null>(null);
+  const [showInterestWizard, setShowInterestWizard] = useState(false);
+  const [interestsChecked, setInterestsChecked] = useState(false);
   const router = useRouter();
   const initialTheme = useMemo(
     () => (new Date().getHours() < 17 ? "morning" : "night"),
@@ -238,6 +242,8 @@ export function ScratchPadExperience() {
       setAllLinks([]);
       setLoading(false);
       setError(null);
+      setShowInterestWizard(false);
+      setInterestsChecked(false);
       return;
     }
     setLoading(true);
@@ -257,6 +263,30 @@ export function ScratchPadExperience() {
     );
     return () => unsubscribe();
   }, [user]);
+
+  // Check if user has set interests
+  useEffect(() => {
+    if (!user?.uid || interestsChecked) {
+      return;
+    }
+    let cancelled = false;
+    getUserInterests(user.uid)
+      .then((interests) => {
+        if (!cancelled) {
+          setShowInterestWizard(!interests || interests.interests.length === 0);
+          setInterestsChecked(true);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to check interests", error);
+        if (!cancelled) {
+          setInterestsChecked(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, interestsChecked]);
 
   const maxUploadMb = useMemo(
     () => Math.round((ORBIT_UPLOAD_MAX_BYTES / (1024 * 1024)) * 10) / 10,
@@ -843,6 +873,16 @@ export function ScratchPadExperience() {
             ) : undefined
           }
         />
+        {user && showInterestWizard ? (
+          <InterestWizard
+            userId={user.uid}
+            onComplete={() => {
+              setShowInterestWizard(false);
+              setInterestsChecked(false);
+            }}
+            dark={isNight}
+          />
+        ) : null}
         {!user ? (
           <Card className="flex flex-col items-center gap-4 border-slate-200 bg-white/90 p-10 text-center shadow-xl shadow-slate-300/40 backdrop-blur">
             <Sparkles className="h-10 w-10 text-indigo-400" />
@@ -1413,27 +1453,6 @@ export function ScratchPadExperience() {
                             Shared {new Date(link.createdAt).toLocaleString()}
                             {link.sourceApp ? ` · via ${link.sourceApp}` : ""}
                           </p>
-                          {isReadLater ? (
-                            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-xs text-indigo-600">
-                              <div className="flex items-center gap-2">
-                                <Sparkles className="h-3.5 w-3.5" /> AI summary
-                                {!summary ? (
-                                  <Button
-                                    size="sm"
-                                    variant="link"
-                                    className="px-0 text-indigo-500"
-                                    onClick={() => handleGenerateSummary(link)}
-                                    disabled={summarizing}
-                                  >
-                                    {summarizing ? "Thinking…" : "Generate"}
-                                  </Button>
-                                ) : null}
-                              </div>
-                              <div className="mt-1 text-[11px] leading-relaxed text-indigo-700">
-                                {summary ? summary : "Preview the key points before diving in."}
-                              </div>
-                            </div>
-                          ) : null}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           {link.contentType === "note" ? (

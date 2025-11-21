@@ -66,6 +66,7 @@ export const createSharedLink = async (
     previewImageUrl: payload.previewImageUrl ?? null,
     storagePath: payload.storagePath ?? null,
     status: normalizeStatus(payload.status),
+    summarizable: payload.summarizable ?? false,
     createdAt: payload.createdAt ?? nowIso,
     updatedAt: payload.updatedAt ?? nowIso,
     serverCreatedAt: serverTimestamp(),
@@ -91,6 +92,7 @@ const mapShareDoc = (snapshot: QueryDocumentSnapshot<DocumentData>) => {
     previewImageUrl: data.previewImageUrl ?? null,
     storagePath: data.storagePath ?? null,
     status: normalizeStatus(data.status),
+    summarizable: data.summarizable ?? false,
     createdAt:
       data.createdAt ??
       (data.serverCreatedAt?.toDate
@@ -171,6 +173,7 @@ export const updateSharedLink = async (
     "previewImageUrl",
     "storagePath",
     "status",
+    "summarizable",
   ];
 
   for (const key of allowedKeys) {
@@ -196,6 +199,10 @@ export const updateSharedLink = async (
       if (typeof value === "string") {
         updateData.status = normalizeStatus(value as SharedLinkStatus);
       }
+      continue;
+    }
+    if (key === "summarizable") {
+      updateData.summarizable = value === true;
       continue;
     }
 

@@ -198,6 +198,7 @@ export interface ExpensesPanelProps {
     // 3. Persist & update local state
     let updatedExpenses: Expense[] = [];
     const amountMinor = toMinor(parsedAmount, currency);
+    const computedSplitsMinor = splitByWeights(amountMinor, computedSplits);
     if (isEditingExpense) {
       // a) Persist the edit to Firestore
       await updateExpense(activeGroupId, currentExpense.id, {
@@ -207,13 +208,19 @@ export interface ExpensesPanelProps {
         splits: computedSplits,
         createdAt: currentExpense.createdAt,
         amountMinor: amountMinor,
-        splitsMinor: splitByWeights(amountMinor, computedSplits)
+        splitsMinor: computedSplitsMinor,
       });
   
       // b) Update in-memory list
       updatedExpenses = expenses.map(exp =>
         exp.id === currentExpense.id
-          ? { ...currentExpense, amount:parsedAmount, splits: computedSplits }
+          ? {
+              ...currentExpense,
+              amount: parsedAmount,
+              splits: computedSplits,
+              amountMinor,
+              splitsMinor: computedSplitsMinor,
+            }
           : exp
       );
     } else {
@@ -225,7 +232,7 @@ export interface ExpensesPanelProps {
         splits: computedSplits,
         createdAt: currentExpense.createdAt,
         amountMinor: amountMinor,
-        splitsMinor: splitByWeights(amountMinor, computedSplits)
+        splitsMinor: computedSplitsMinor,
       };
       const newExpenseId = await addExpense(
         activeGroupId,
@@ -235,7 +242,7 @@ export interface ExpensesPanelProps {
         newExpensePayload.splits,
         newExpensePayload.createdAt,
         amountMinor,
-        splitByWeights(amountMinor, newExpensePayload.splits)
+        computedSplitsMinor
       );
   
       // b) Append to local state
@@ -265,7 +272,8 @@ export interface ExpensesPanelProps {
             splits: {},
             createdAt: new Date(),
             amountMinor: 0,
-            splitsMinor: {}
+            splitsMinor: {},
+            tags: [],
         });
         };
 

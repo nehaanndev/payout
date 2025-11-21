@@ -1,6 +1,8 @@
 import { db, auth } from "./firebase";
 import { collection, addDoc, serverTimestamp, updateDoc, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { firebaseExpenseConverter } from "./firebaseExpenseConverter";
+import { CurrencyCode } from "./currency_core";
+import { extractTagsFromText } from "./tagHelpers";
 
 export const createGroup = async (
   groupName: string,
@@ -30,6 +32,7 @@ export const createGroup = async (
     createdAt: serverTimestamp(),
     lastUpdated: serverTimestamp(),
     expenses: [],
+    tags: extractTagsFromText(groupName),
   });
 
   return docRef.id;
@@ -42,7 +45,11 @@ export const createGroup = async (
  */
 export const updateGroupMembers = async (
   groupId: string,
-  members: Member[]
+  members: Member[],
+  options?: {
+    name?: string;
+    currency?: CurrencyCode;
+  }
 ) => {
   if (!groupId || !members) {
     console.error("Invalid group ID or members");
@@ -63,12 +70,20 @@ export const updateGroupMembers = async (
     console.log(members);
     console.log(groupId);
     console.log(groupRef);
-    await updateDoc(groupRef, {
+    const updatePayload: Record<string, unknown> = {
       members: formattedMembers,                    // Save the updated members array
       memberEmails,               // Save only emails for easier querying
       memberIds,                 // Save only IDs for easier querying
       lastUpdated: serverTimestamp(),
-    });
+    };
+    if (options?.name) {
+      updatePayload.name = options.name;
+      updatePayload.tags = extractTagsFromText(options.name);
+    }
+    if (options?.currency) {
+      updatePayload.currency = options.currency;
+    }
+    await updateDoc(groupRef, updatePayload);
 
     console.log(`Group ${groupId} updated successfully`);
   } catch (error) {
@@ -150,7 +165,6 @@ export const signInToFirebase = async (accessToken: string) => {
 
 import {  orderBy, Timestamp } from "firebase/firestore";
 import { Settlement, SettlementMethod, SettlementStatus } from "@/types/settlement";
-import { CurrencyCode } from "./currency_core";
 
 // ✅ Add expense to Firestore
 export const addExpense = async (
@@ -161,7 +175,8 @@ export const addExpense = async (
   splits: Record<string, number>,
   createdAt: Date,
   amountMinor: number,
-  splitsMinor: Record<string, number>
+  splitsMinor: Record<string, number>,
+  tags: string[] = []
 ) => {
   try {
     const expenseRef = collection(db, "groups", groupId, "expenses");
@@ -173,7 +188,8 @@ export const addExpense = async (
       splits,
       createdAt: Timestamp.fromDate(createdAt),
       amountMinor,
-      splitsMinor
+      splitsMinor,
+      tags,
     };
     // Help with debugging
     console.log(groupId, newExpense)
@@ -240,10 +256,15 @@ export async function updateExpense(
     createdAt: string | Date;
     amountMinor: number;
     splitsMinor: Record<string, number>;
+    tags?: string[];
   }
 ) {
   const ref = doc(db, 'groups', groupId, 'expenses', expenseId);
-  await setDoc(ref, data, { merge: true });
+  const payload = { ...data };
+  if (typeof payload.tags === "undefined") {
+    delete (payload as { tags?: string[] }).tags;
+  }
+  await setDoc(ref, payload, { merge: true });
 }
 
 /** Delete an expense document */

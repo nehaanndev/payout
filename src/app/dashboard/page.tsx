@@ -45,6 +45,8 @@ import type { Settlement } from "@/types/settlement";
 import type { BudgetDocument, BudgetMonth, BudgetLedgerEntry } from "@/types/budget";
 import { type CurrencyCode, fromMinor, FRACTION_DIGITS } from "@/lib/currency_core";
 import type { SharedLink } from "@/types/share";
+import { extractTagsFromText, mergeTagLists } from "@/lib/tagHelpers";
+import { getUserInterests } from "@/lib/orbitSummaryService";
 
 const THEMES = {
   morning: {
@@ -165,21 +167,6 @@ const formatBudgetAmount = (value: number, currency: CurrencyCode | null | undef
   }
 };
 
-const aiHighlights = [
-  {
-    id: "ai-1",
-    title: "Grow the side hustle",
-    summary:
-      "3/5 saves mention passive income ideas. Start with the Indie Hackers interview and the Stripe Atlas guide.",
-    tags: ["indiehacker", "marketing"],
-  },
-  {
-    id: "ai-2",
-    title: "Curiosity spiral",
-    summary: "Saved two deep-dives on geothermal energy. Build a reading session for Sunday afternoon.",
-    tags: ["energy", "climate"],
-  },
-];
 
 export default function DailyDashboardPage() {
   const hour = new Date().getHours();
@@ -213,6 +200,13 @@ export default function DailyDashboardPage() {
   const [orbitShares, setOrbitShares] = useState<SharedLink[]>([]);
   const [orbitSharesLoading, setOrbitSharesLoading] = useState(false);
   const [orbitSharesError, setOrbitSharesError] = useState<string | null>(null);
+  const [dailySummary, setDailySummary] = useState<{
+    summary: string;
+    linkTitle?: string;
+    linkUrl?: string;
+    linkDescription?: string;
+  } | null>(null);
+  const [dailySummaryLoading, setDailySummaryLoading] = useState(false);
   const [splitSources, setSplitSources] = useState<Array<{ group: Group; expenses: Expense[] }>>([]);
   const [budgetEntries, setBudgetEntries] = useState<BudgetLedgerEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -275,6 +269,63 @@ export default function DailyDashboardPage() {
       cancelled = true;
     };
   }, [user?.uid]);
+
+
+  // Load personalized daily summary in the morning
+  useEffect(() => {
+    if (!user?.uid || !isMorning) {
+      setDailySummary(null);
+      setDailySummaryLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setDailySummaryLoading(true);
+
+    const loadDailySummary = async () => {
+      try {
+        const response = await fetch(`/api/orbit/daily-summary?userId=${user.uid}`);
+        if (!response.ok) {
+          if (!cancelled) {
+            setDailySummary(null);
+            setDailySummaryLoading(false);
+          }
+          return;
+        }
+
+        const data = await response.json();
+        if (data.message || !data.summary) {
+          if (!cancelled) {
+            setDailySummary(null);
+            setDailySummaryLoading(false);
+          }
+          return;
+        }
+
+        if (!cancelled) {
+          setDailySummary({
+            summary: data.summary,
+            linkTitle: data.linkTitle,
+            linkUrl: data.linkUrl,
+            linkDescription: data.linkDescription,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to load daily summary", error);
+        if (!cancelled) {
+          setDailySummary(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setDailySummaryLoading(false);
+        }
+      }
+    };
+
+    void loadDailySummary();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, isMorning]);
 
   useEffect(() => {
     if (!user) {
@@ -536,6 +587,25 @@ export default function DailyDashboardPage() {
 
     if (splitSources.length) {
       for (const { group, expenses } of splitSources) {
+        const groupTagList = mergeTagLists(group.tags ?? [], extractTagsFromText(group.name));
+        const groupTagInfo = normaliseTagList(groupTagList);
+        const normalizedGroupName = group.name?.toLowerCase().trim() ?? "";
+        const groupNormalizedTokens = normalizedGroupName
+          ? Array.from(new Set([...groupTagInfo.normalized, normalizedGroupName]))
+          : groupTagInfo.normalized;
+
+        if (groupNormalizedTokens.length) {
+          items.push({
+            id: `split-group-${group.id}`,
+            product: "split",
+            title: group.name,
+            subtitle: "Split group",
+            tags: groupTagInfo.display,
+            normalizedTags: groupNormalizedTokens,
+            href: `/split?groupId=${group.id}`,
+          });
+        }
+
         for (const expense of expenses) {
           const { display, normalized } = normaliseTagList(expense.tags ?? []);
           if (!display.length) {
@@ -823,6 +893,97 @@ export default function DailyDashboardPage() {
           ) : null}
         </div>
 
+        {isMorning ? (
+          <Card
+            className={cn(
+              "rounded-[28px] p-6 shadow-sm",
+              isNight
+                ? "border-white/20 bg-gradient-to-br from-indigo-900/60 via-violet-900/40 to-purple-900/60 text-white"
+                : "border-indigo-200 bg-gradient-to-br from-indigo-50 via-violet-50 to-purple-50 text-slate-900"
+            )}
+          >
+            <CardHeader className="p-0">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className={cn("h-5 w-5", isNight ? "text-indigo-300" : "text-indigo-500")} />
+                <p
+                  className={cn(
+                    "text-xs font-semibold uppercase tracking-[0.35em]",
+                    isNight ? "text-indigo-200" : "text-indigo-500"
+                  )}
+                >
+                  Daily Summary
+                </p>
+              </div>
+              <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-slate-900")}>
+                Your Morning Read
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="mt-4 space-y-4">
+              {dailySummaryLoading ? (
+                <div className={cn("text-sm", isNight ? "text-indigo-200" : "text-indigo-600")}>
+                  <Spinner size="sm" className="mr-2" />
+                  Generating your personalized summary...
+                </div>
+              ) : dailySummary ? (
+                <>
+                  <div
+                    className={cn(
+                      "rounded-2xl border p-4",
+                      isNight
+                        ? "border-white/15 bg-white/5"
+                        : "border-indigo-100 bg-white/70"
+                    )}
+                  >
+                    <p className={cn("text-sm whitespace-pre-line", isNight ? "text-indigo-50/80" : "text-indigo-600")}>
+                      {dailySummary.summary}
+                    </p>
+                  </div>
+                  {dailySummary.linkTitle && dailySummary.linkUrl ? (
+                    <div
+                      className={cn(
+                        "rounded-2xl border p-4",
+                        isNight
+                          ? "border-white/15 bg-white/5"
+                          : "border-indigo-100 bg-white/70"
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <p className={cn("text-sm font-semibold", isNight ? "text-indigo-100" : "text-indigo-700")}>
+                            {dailySummary.linkTitle}
+                          </p>
+                          {dailySummary.linkDescription ? (
+                            <p className={cn("mt-1 text-xs", isNight ? "text-indigo-50/70" : "text-indigo-600")}>
+                              {dailySummary.linkDescription}
+                            </p>
+                          ) : null}
+                        </div>
+                        <button
+                          onClick={() => {
+                            if (typeof window !== "undefined") {
+                              window.open(dailySummary.linkUrl!, "_blank", "noopener,noreferrer");
+                            }
+                          }}
+                          className={cn(
+                            "text-xs font-medium underline flex-shrink-0",
+                            isNight ? "text-indigo-300" : "text-indigo-600"
+                          )}
+                        >
+                          Open
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <p className={cn("text-sm", isNight ? "text-indigo-200" : "text-indigo-600")}>
+                  No summary available yet. Check back tomorrow morning!
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
+
         {flowLoading ? (
           <SkeletonBanner label="Loading Flow insights" />
         ) : flowPlan ? (
@@ -970,80 +1131,6 @@ export default function DailyDashboardPage() {
               >
                 {reflectionBusy ? <Spinner size="sm" className="text-white" /> : "Sync to Flow"}
               </Button>
-            </CardContent>
-          </Card>
-
-          <Card
-            className={cn(
-              "rounded-[28px] p-6 shadow-sm",
-              isNight
-                ? "border-white/20 bg-slate-900/60 text-white"
-                : "border border-indigo-200 bg-white/95 text-slate-900"
-            )}
-          >
-            <CardHeader className="flex flex-col gap-3 p-0">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p
-                    className={cn(
-                      "text-xs font-semibold uppercase tracking-[0.35em]",
-                      isNight ? "text-indigo-200" : "text-indigo-500"
-                    )}
-                  >
-                    Saved links
-                  </p>
-                  <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-slate-900")}>
-                    AI recaps
-                  </CardTitle>
-                </div>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "text-sm font-semibold",
-                    isNight
-                      ? "border-transparent bg-indigo-500/90 text-slate-900 hover:bg-indigo-400"
-                      : "border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                  )}
-                  onClick={() => router.push("/scratch-pad")}
-                >
-                  Add a note or save a link
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="mt-4 space-y-4">
-              {aiHighlights.map((item) => (
-                <div
-                  key={item.id}
-                  className={cn(
-                    "rounded-2xl border p-4",
-                    isNight
-                      ? "border-white/15 bg-white/5"
-                      : "border-indigo-100 bg-indigo-50/70"
-                  )}
-                >
-                  <p className={cn("text-sm font-semibold", isNight ? "text-indigo-100" : "text-indigo-700")}>
-                    {item.title}
-                  </p>
-                  <p className={cn("mt-1 text-sm", isNight ? "text-indigo-50/80" : "text-indigo-600")}>
-                    {item.summary}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {item.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className={cn(
-                          "rounded-full border px-3 py-0.5 text-xs font-medium",
-                          isNight
-                            ? "border-white/10 bg-white/5 text-indigo-100"
-                            : "border-white/60 bg-white/80 text-indigo-600"
-                        )}
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
             </CardContent>
           </Card>
         </div>

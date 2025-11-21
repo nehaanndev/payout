@@ -2728,7 +2728,7 @@ const BudgetExperience = () => {
         <div className="mx-auto max-w-3xl space-y-6">
           <AppTopBar
             product="budget"
-            heading="Your budgets"
+            heading="Pulse"
             subheading="Pick a workspace to open or start a fresh one for a new goal."
             dark={isNight}
             actions={

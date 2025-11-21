@@ -94,7 +94,7 @@ export async function PUT(
       splits: normalizedSplits,
       createdAt: expenseDate,
       amountMinor,
-      splitsMinor: normalizedSplitsMinor
+      splitsMinor: normalizedSplitsMinor,
     });
 
     // Return success response
@@ -110,7 +110,7 @@ export async function PUT(
         createdAt: expenseDate.toISOString(),
         currency,
         amountMinor,
-        splitsMinor: normalizedSplitsMinor
+        splitsMinor: normalizedSplitsMinor,
       },
       message: `Expense "${description}" updated successfully for ${currency} ${expenseAmount.toFixed(fractionDigits)}`
     });
@@ -158,4 +158,3 @@ export async function DELETE(
     );
   }
 }
-

@@ -32,6 +32,7 @@ export interface NewExpense {
     createdAt: string;
     lastUpdated: string;
     currency: CurrencyCode; 
+    tags?: string[];
   }
   
 import { User as FirebaseUser } from "firebase/auth";

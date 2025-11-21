@@ -112,7 +112,7 @@ export async function POST(
         createdAt: expenseDate.toISOString(),
         currency,
         amountMinor,
-        splitsMinor: normalizedSplitsMinor
+        splitsMinor: normalizedSplitsMinor,
       },
       message: `Expense "${description}" of ${currency} ${expenseAmount.toFixed(fractionDigits)} added successfully`
     });
