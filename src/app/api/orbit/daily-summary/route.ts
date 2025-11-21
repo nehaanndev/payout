@@ -15,7 +15,9 @@ import type { SharedLink } from "@/types/share";
 import type {
   DailySummaryPayload,
   OrbitInsightPreferences,
+  OrbitInsightCard,
   WorkTaskHighlight,
+  OrbitInsightType,
 } from "@/types/orbit";
 
 function getTodayDateKey(): string {
@@ -222,7 +224,7 @@ async function generatePersonalizedSummary(
     ? (parsed?.insights as AiInsightResponse[])
     : [];
 
-  let insights: DailySummaryPayload["insights"] = rawInsights
+  let insights: OrbitInsightCard[] = rawInsights
     .slice(0, 2)
     .map((raw, index) => {
       const summaryText =
@@ -251,7 +253,7 @@ async function generatePersonalizedSummary(
             : `New development ${index + 1}`,
         summary: summaryText,
         paragraphs,
-        type: raw.type === "concept" ? "concept" : "news",
+        type: (raw.type === "concept" ? "concept" : "news") as OrbitInsightType,
         referenceUrl:
           typeof raw.referenceUrl === "string" && raw.referenceUrl.length
             ? raw.referenceUrl

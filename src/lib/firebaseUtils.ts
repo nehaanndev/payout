@@ -1,5 +1,5 @@
 import { db, auth } from "./firebase";
-import { collection, addDoc, serverTimestamp, updateDoc, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, updateDoc, doc, getDoc, setDoc, deleteDoc, type DocumentData } from "firebase/firestore";
 import { firebaseExpenseConverter } from "./firebaseExpenseConverter";
 import { CurrencyCode } from "./currency_core";
 import { extractTagsFromText } from "./tagHelpers";
@@ -70,7 +70,7 @@ export const updateGroupMembers = async (
     console.log(members);
     console.log(groupId);
     console.log(groupRef);
-    const updatePayload: Record<string, unknown> = {
+    const updatePayload: DocumentData = {
       members: formattedMembers,                    // Save the updated members array
       memberEmails,               // Save only emails for easier querying
       memberIds,                 // Save only IDs for easier querying

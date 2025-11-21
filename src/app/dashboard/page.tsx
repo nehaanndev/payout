@@ -508,11 +508,7 @@ export default function DailyDashboardPage() {
           const reflections = plan?.reflections ?? [];
           const hasReflections = reflections.length > 0;
           if (!latestReflection && hasReflections) {
-            latestReflection =
-              reflections[0]?.createdAt ??
-              reflections[0]?.updatedAt ??
-              plan?.updatedAt ??
-              null;
+            latestReflection = reflections[0]?.createdAt ?? plan?.updatedAt ?? null;
           }
           if (!started && index === 0 && !hasReflections) {
             continue;
