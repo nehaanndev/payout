@@ -286,11 +286,9 @@ export async function GET(request: NextRequest) {
 
     const dateKey = getTodayDateKey();
 
-    // Check if we've already generated a summary today
     const existingDaily = await getDailySummary(userId, dateKey);
-    if (existingDaily) {
-      // Return cached summary (we'll need to store the full summary text)
-      // For now, regenerate if cached
+    if (existingDaily?.payload) {
+      return NextResponse.json(existingDaily.payload);
     }
 
     // Only show daily summary in the morning
@@ -362,7 +360,7 @@ export async function GET(request: NextRequest) {
 
     // Persist that we generated something today so we can avoid duplicates later
     const summaryId = summary.insights[0]?.id ?? "ai-summary";
-    await saveDailySummary(userId, dateKey, summaryId);
+    await saveDailySummary(userId, dateKey, summary, summaryId);
 
     return NextResponse.json(summary);
   } catch (error) {

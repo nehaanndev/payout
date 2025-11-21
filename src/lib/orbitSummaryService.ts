@@ -5,6 +5,7 @@ import {
   DailySummary,
   OrbitInsightPreferences,
   InsightVoteDirection,
+  DailySummaryPayload,
 } from "@/types/orbit";
 
 
@@ -75,6 +76,7 @@ export const getDailySummary = async (
       date: data.date ?? date,
       shownAt: data.shownAt ?? new Date().toISOString(),
       createdAt: data.createdAt ?? new Date().toISOString(),
+      payload: data.payload ?? null,
     };
   }
 
@@ -84,17 +86,20 @@ export const getDailySummary = async (
 export const saveDailySummary = async (
   userId: string,
   date: string,
-  shareId: string
+  payload: DailySummaryPayload,
+  shareId?: string
 ): Promise<void> => {
-  if (!userId || !date || !shareId) {
-    throw new Error("User ID, date, and share ID are required");
+  if (!userId || !date) {
+    throw new Error("User ID and date are required");
   }
 
+  const resolvedShareId = shareId ?? payload?.insights?.[0]?.id ?? "ai-summary";
   const ref = dailySummaryDoc(userId, date);
   await setDoc(
     ref,
     {
-      shareId,
+      shareId: resolvedShareId,
+      payload,
       date,
       shownAt: new Date().toISOString(),
       createdAt: serverTimestamp(),

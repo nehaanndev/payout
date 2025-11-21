@@ -802,6 +802,19 @@ export function ScratchPadExperience() {
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <OrbitFlowNav />
+              {user ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "border-indigo-200 text-indigo-700 hover:bg-indigo-50",
+                    isNight && "border-white/20 text-white hover:bg-white/10"
+                  )}
+                  onClick={() => setShowInterestWizard(true)}
+                >
+                  Interests wizard
+                </Button>
+              ) : null}
               <ThemeToggle theme={theme} onSelect={setTheme} />
             </div>
           }

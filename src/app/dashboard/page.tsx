@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
-import { BookmarkPlus, ExternalLink, Search, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import { BookmarkPlus, ChevronLeft, ChevronRight, ExternalLink, Search, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import Image from "next/image";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useRouter } from "next/navigation";
@@ -52,6 +52,7 @@ import type {
   DailySummaryPayload,
   InsightVoteDirection,
   OrbitInsightCard,
+  WorkTaskHighlight,
 } from "@/types/orbit";
 
 const THEMES = {
@@ -174,6 +175,8 @@ const formatBudgetAmount = (value: number, currency: CurrencyCode | null | undef
   }
 };
 
+const normalizeTaskTitle = (title: string) => title.trim().toLowerCase();
+
 
 export default function DailyDashboardPage() {
   const hour = new Date().getHours();
@@ -218,6 +221,7 @@ export default function DailyDashboardPage() {
   const [splitSources, setSplitSources] = useState<Array<{ group: Group; expenses: Expense[] }>>([]);
   const [budgetEntries, setBudgetEntries] = useState<BudgetLedgerEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [anchorAddState, setAnchorAddState] = useState<Record<string, "adding" | "added">>({});
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -245,6 +249,10 @@ export default function DailyDashboardPage() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    setAnchorAddState({});
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -879,6 +887,75 @@ export default function DailyDashboardPage() {
     }
   }, []);
 
+  const handleAddAnchorToFlow = useCallback(
+    (task: WorkTaskHighlight) => {
+      if (!user || !flowPlan) {
+        return;
+      }
+      const key = normalizeTaskTitle(task.title);
+      if (!key || anchorAddState[key] === "adding" || anchorAddState[key] === "added") {
+        return;
+      }
+      const alreadyInFlow =
+        flowPlan.tasks?.some(
+          (existing) => normalizeTaskTitle(existing.title) === key
+        ) ?? false;
+      if (alreadyInFlow) {
+        setAnchorAddState((prev) => ({ ...prev, [key]: "added" }));
+        return;
+      }
+      setAnchorAddState((prev) => ({ ...prev, [key]: "adding" }));
+      const nowIso = new Date().toISOString();
+      setFlowPlan((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        const sequence = (prev.tasks?.length ?? 0) + 1;
+        const nextTask: FlowTask = {
+          id: generateId(),
+          title: task.title,
+          type: "priority",
+          category: "work",
+          estimateMinutes: 45,
+          sequence,
+          status: "pending",
+          notes: task.note ?? null,
+          scheduledStart: null,
+          scheduledEnd: null,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        };
+        const updated = {
+          ...prev,
+          tasks: [...prev.tasks, nextTask],
+          updatedAt: nowIso,
+        } satisfies FlowPlan;
+        void persistFlowPlan(updated);
+        return updated;
+      });
+      setAnchorAddState((prev) => ({ ...prev, [key]: "added" }));
+    },
+    [anchorAddState, flowPlan, persistFlowPlan, user]
+  );
+
+  const anchorStatusLookup = useCallback(
+    (task: WorkTaskHighlight) => {
+      const key = normalizeTaskTitle(task.title);
+      if (!key) {
+        return null;
+      }
+      const alreadyInFlow =
+        flowPlan?.tasks?.some(
+          (existing) => normalizeTaskTitle(existing.title) === key
+        ) ?? false;
+      if (alreadyInFlow) {
+        return "added";
+      }
+      return anchorAddState[key] ?? null;
+    },
+    [anchorAddState, flowPlan]
+  );
+
   const handleInsightVote = useCallback(
     async (insight: OrbitInsightCard, direction: InsightVoteDirection) => {
       if (!user?.uid) {
@@ -1072,34 +1149,60 @@ export default function DailyDashboardPage() {
         </div>
 
         {isMorning ? (
-          <div className="space-y-6">
-            <DailyWorkSummaryCard summary={dailySummary} loading={dailySummaryLoading} isNight={isNight} />
-            <DailyRecommendationCard summary={dailySummary} loading={dailySummaryLoading} isNight={isNight} />
-            <InsightCarousel
-              insights={dailySummary?.insights ?? []}
-              loading={dailySummaryLoading}
-              isNight={isNight}
-              votes={insightVotes}
-              messages={insightMessages}
-              savingInsightId={savingInsightId}
-              onVote={handleInsightVote}
-              onSave={handleInsightSave}
-              canInteract={Boolean(user)}
-            />
-          </div>
-        ) : null}
-
-        {flowLoading ? (
+          <>
+            {flowLoading ? (
+              <SkeletonBanner label="Loading Flow insights" />
+            ) : flowPlan ? (
+              <FlowCards
+                isMorning={isMorning}
+                isNight={isNight}
+                upcomingTasks={upcomingTasks}
+                completedTasks={completedTasks}
+                totalTasks={flowPlan.tasks?.length ?? 0}
+                latestReflection={latestReflection}
+                onAddJournal={() => router.push("/journal")}
+                onReflect={() => router.push("/flow")}
+                onOpenFlow={() => router.push("/flow")}
+              />
+            ) : (
+              <SkeletonBanner label={flowError ?? "Sign in to see Flow insights"} />
+            )}
+            <div className="space-y-6">
+              <DailyWorkSummaryCard summary={dailySummary} loading={dailySummaryLoading} isNight={isNight} />
+              <DailyRecommendationCard
+                summary={dailySummary}
+                loading={dailySummaryLoading}
+                isNight={isNight}
+                onAddAnchor={handleAddAnchorToFlow}
+                anchorStatusLookup={anchorStatusLookup}
+                canAddAnchors={Boolean(user && flowPlan)}
+              />
+              <InsightCarousel
+                insights={dailySummary?.insights ?? []}
+                loading={dailySummaryLoading}
+                isNight={isNight}
+                votes={insightVotes}
+                messages={insightMessages}
+                savingInsightId={savingInsightId}
+                onVote={handleInsightVote}
+                onSave={handleInsightSave}
+                canInteract={Boolean(user)}
+              />
+            </div>
+          </>
+        ) : flowLoading ? (
           <SkeletonBanner label="Loading Flow insights" />
         ) : flowPlan ? (
           <FlowCards
             isMorning={isMorning}
+            isNight={isNight}
             upcomingTasks={upcomingTasks}
             completedTasks={completedTasks}
             totalTasks={flowPlan.tasks?.length ?? 0}
             latestReflection={latestReflection}
             onAddJournal={() => router.push("/journal")}
             onReflect={() => router.push("/flow")}
+            onOpenFlow={() => router.push("/flow")}
           />
         ) : (
           <SkeletonBanner label={flowError ?? "Sign in to see Flow insights"} />
@@ -1416,20 +1519,24 @@ function SearchResultsPane({
 
 function FlowCards({
   isMorning,
+  isNight,
   upcomingTasks,
   completedTasks,
   totalTasks,
   latestReflection,
   onAddJournal,
   onReflect,
+  onOpenFlow,
 }: {
   isMorning: boolean;
+  isNight: boolean;
   upcomingTasks: FlowTask[];
   completedTasks: number;
   totalTasks: number;
   latestReflection: FlowReflection | null;
   onAddJournal: () => void;
   onReflect: () => void;
+  onOpenFlow: () => void;
 }) {
   const openToodlMind = () => {
     if (typeof window !== "undefined") {
@@ -1442,12 +1549,14 @@ function FlowCards({
       <Card className="relative overflow-hidden rounded-[28px] border-none bg-white/90 p-6 shadow-lg">
         <span className="pointer-events-none absolute -top-10 right-4 h-28 w-28 rounded-full bg-gradient-to-br from-amber-300 via-yellow-200 to-orange-200 opacity-70 animate-dashboard-sun" />
         <span className="pointer-events-none absolute -top-8 right-0 h-36 w-36 rounded-full bg-amber-200/30 blur-3xl animate-dashboard-sun-glow" />
-        <CardHeader className="p-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-500">Morning calm</p>
-          <CardTitle className="text-2xl text-slate-900">Good morning.</CardTitle>
-          <p className="text-sm text-slate-500">
-            {upcomingTasks.length ? "Here's how Flow lined up your next anchors." : "Add a task in Flow to start the day."}
-          </p>
+        <CardHeader className="flex flex-col gap-3 p-0">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-500">Morning calm</p>
+            <CardTitle className="text-2xl text-slate-900">Good morning.</CardTitle>
+            <p className="text-sm text-slate-500">
+              {upcomingTasks.length ? "Here's how Flow lined up your next anchors." : "Add a task in Flow to start the day."}
+            </p>
+          </div>
         </CardHeader>
         <CardContent className="mt-4 grid gap-4 sm:grid-cols-2">
           <Highlight
@@ -1475,6 +1584,20 @@ function FlowCards({
             value={latestReflection?.note ?? "Drop a quick reflection to keep the loop alive."}
           />
         </CardContent>
+        <div className="mt-2 flex justify-end">
+          <Button
+            variant="outline"
+            className={cn(
+              "px-5 text-sm font-semibold",
+              isNight
+                ? "border-transparent bg-emerald-500/90 text-slate-900 hover:bg-emerald-400"
+                : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            )}
+            onClick={onOpenFlow}
+          >
+            Open Flow
+          </Button>
+        </div>
         <div className="mt-6 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-500 via-indigo-500/90 to-violet-500 p-4 text-white shadow-lg shadow-indigo-200/60">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
@@ -2440,10 +2563,16 @@ function DailyRecommendationCard({
   summary,
   loading,
   isNight,
+  onAddAnchor,
+  anchorStatusLookup,
+  canAddAnchors = false,
 }: {
   summary: DailySummaryPayload | null;
   loading: boolean;
   isNight: boolean;
+  onAddAnchor?: (task: WorkTaskHighlight) => void;
+  anchorStatusLookup?: (task: WorkTaskHighlight) => "adding" | "added" | null;
+  canAddAnchors?: boolean;
 }) {
   const tone = isNight ? "text-indigo-200" : "text-indigo-600";
   const accent = isNight ? "text-white" : "text-slate-900";
@@ -2498,7 +2627,37 @@ function DailyRecommendationCard({
                 tasks={summary.pendingWork}
                 emptyText="No carryovers queued up - add one thing you want to complete."
                 isNight={isNight}
+                actionRenderer={
+                  onAddAnchor
+                    ? (task) => {
+                        const status = anchorStatusLookup?.(task);
+                        const isAdded = status === "added";
+                        const isAdding = status === "adding";
+                        const disabled = !canAddAnchors || isAdded || isAdding;
+                        return (
+                          <Button
+                            size="sm"
+                            variant={isNight ? "secondary" : "outline"}
+                            disabled={disabled}
+                            onClick={() => onAddAnchor(task)}
+                            className={cn(
+                              "text-xs font-semibold",
+                              disabled &&
+                                (isNight
+                                  ? "bg-white/5 text-indigo-200 border-white/15"
+                                  : "bg-slate-100 text-slate-500 border-slate-200")
+                            )}
+                          >
+                            {isAdding ? "Adding..." : isAdded ? "Task added" : canAddAnchors ? "Add to Flow" : "Sign in to add"}
+                          </Button>
+                        );
+                      }
+                    : undefined
+                }
               />
+              {!canAddAnchors ? (
+                <p className={cn("mt-2 text-xs", tone)}>Sign in to push these tasks into Flow.</p>
+              ) : null}
             </div>
           </>
         ) : (
@@ -2531,6 +2690,30 @@ function InsightCarousel({
   canInteract: boolean;
 }) {
   const tone = isNight ? "text-indigo-200" : "text-slate-600";
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [insights.length]);
+
+  const totalInsights = insights.length;
+  const currentInsight =
+    totalInsights > 0 ? insights[activeIndex % totalInsights] : null;
+
+  const handlePrevious = () => {
+    if (totalInsights < 2) {
+      return;
+    }
+    setActiveIndex((prev) => (prev - 1 + totalInsights) % totalInsights);
+  };
+
+  const handleNext = () => {
+    if (totalInsights < 2) {
+      return;
+    }
+    setActiveIndex((prev) => (prev + 1) % totalInsights);
+  };
+
   return (
     <Card
       className={cn(
@@ -2557,110 +2740,135 @@ function InsightCarousel({
             <Spinner size="sm" className="text-current" />
             Researching new developments...
           </div>
-        ) : insights.length ? (
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {insights.map((insight) => {
-              const vote = votes[insight.id];
-              return (
-                <article
-                  key={insight.id}
+        ) : currentInsight ? (
+          <div className="space-y-4">
+            {totalInsights > 1 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                <p className={cn(tone, "font-medium")}>Swipe left or use the arrows to see the next card.</p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="icon"
+                    variant={isNight ? "secondary" : "outline"}
+                    className="h-8 w-8 rounded-full"
+                    onClick={handlePrevious}
+                    aria-label="Previous insight"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className={cn("text-xs font-semibold", tone)}>
+                    {activeIndex + 1} / {totalInsights}
+                  </span>
+                  <Button
+                    size="icon"
+                    variant={isNight ? "secondary" : "outline"}
+                    className="h-8 w-8 rounded-full"
+                    onClick={handleNext}
+                    aria-label="Next insight"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className={cn("text-xs font-medium", tone)}>Swipe left to revisit this spark anytime today.</p>
+            )}
+            <article
+              key={currentInsight.id}
+              className={cn(
+                "rounded-2xl border p-5",
+                isNight ? "border-white/10 bg-slate-900/80" : "border-slate-200 bg-slate-50"
+              )}
+            >
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-indigo-400">
+                <span>{currentInsight.type}</span>
+                <span className="text-indigo-200/60">•</span>
+                <span>{currentInsight.topic}</span>
+              </div>
+              <h3 className={cn("mt-2 text-lg font-semibold", isNight ? "text-white" : "text-slate-900")}>
+                {currentInsight.title}
+              </h3>
+              <p className={cn("mt-1 text-sm font-medium", tone)}>{currentInsight.summary}</p>
+              <div className="mt-3 space-y-3 text-sm leading-relaxed">
+                {currentInsight.paragraphs.map((paragraph, index) => (
+                  <p key={index} className={isNight ? "text-indigo-100" : "text-slate-700"}>
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+              {currentInsight.referenceUrl ? (
+                <button
                   className={cn(
-                    "min-w-[300px] max-w-sm flex-shrink-0 snap-center rounded-2xl border p-5",
-                    isNight ? "border-white/10 bg-slate-900/80" : "border-slate-200 bg-slate-50"
+                    "mt-3 inline-flex items-center gap-1 text-xs font-semibold",
+                    isNight ? "text-indigo-200" : "text-indigo-600"
                   )}
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      window.open(currentInsight.referenceUrl ?? "", "_blank", "noopener,noreferrer");
+                    }
+                  }}
                 >
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-indigo-400">
-                    <span>{insight.type}</span>
-                    <span className="text-indigo-200/60">•</span>
-                    <span>{insight.topic}</span>
-                  </div>
-                  <h3 className={cn("mt-2 text-lg font-semibold", isNight ? "text-white" : "text-slate-900")}>
-                    {insight.title}
-                  </h3>
-                  <p className={cn("mt-1 text-sm font-medium", tone)}>{insight.summary}</p>
-                  <div className="mt-3 space-y-3 text-sm leading-relaxed">
-                    {insight.paragraphs.map((paragraph, index) => (
-                      <p key={index} className={isNight ? "text-indigo-100" : "text-slate-700"}>
-                        {paragraph}
-                      </p>
-                    ))}
-                  </div>
-                  {insight.referenceUrl ? (
-                    <button
-                      className={cn(
-                        "mt-3 inline-flex items-center gap-1 text-xs font-semibold",
-                        isNight ? "text-indigo-200" : "text-indigo-600"
-                      )}
-                      onClick={() => {
-                        if (typeof window !== "undefined") {
-                          window.open(insight.referenceUrl ?? "", "_blank", "noopener,noreferrer");
-                        }
-                      }}
-                    >
-                      Read source
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </button>
-                  ) : null}
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={!canInteract}
-                      className={cn(
-                        "gap-1 rounded-full border px-3",
-                        isNight
-                          ? "border-white/15 text-indigo-100 hover:bg-white/10"
-                          : "border-indigo-100 text-indigo-700 hover:bg-indigo-50",
-                        vote === "more" && (isNight ? "bg-white/10" : "bg-indigo-50")
-                      )}
-                      onClick={() => onVote(insight, "more")}
-                    >
-                      <ThumbsUp className="h-3.5 w-3.5" />
-                      More like this
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={!canInteract}
-                      className={cn(
-                        "gap-1 rounded-full border px-3",
-                        isNight
-                          ? "border-white/15 text-indigo-100 hover:bg-white/10"
-                          : "border-indigo-100 text-indigo-700 hover:bg-indigo-50",
-                        vote === "less" && (isNight ? "bg-white/10" : "bg-indigo-50")
-                      )}
-                      onClick={() => onVote(insight, "less")}
-                    >
-                      <ThumbsDown className="h-3.5 w-3.5" />
-                      Less of this
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={!canInteract || savingInsightId === insight.id}
-                      className={cn(
-                        "gap-1 rounded-full border px-3",
-                        isNight ? "border-white/20 text-white hover:bg-white/10" : "border-slate-200 text-slate-800"
-                      )}
-                      onClick={() => onSave(insight)}
-                    >
-                      {savingInsightId === insight.id ? (
-                        <Spinner size="sm" className="text-current" />
-                      ) : (
-                        <BookmarkPlus className="h-3.5 w-3.5" />
-                      )}
-                      Save to Orbit
-                    </Button>
-                  </div>
-                  {messages[insight.id] ? (
-                    <p className={cn("mt-2 text-xs", tone)}>{messages[insight.id]}</p>
-                  ) : null}
-                  {!canInteract ? (
-                    <p className={cn("mt-2 text-xs italic", tone)}>Sign in to vote or save.</p>
-                  ) : null}
-                </article>
-              );
-            })}
+                  Read source
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={!canInteract}
+                  className={cn(
+                    "gap-1 rounded-full border px-3",
+                    isNight
+                      ? "border-white/15 text-indigo-100 hover:bg-white/10"
+                      : "border-indigo-100 text-indigo-700 hover:bg-indigo-50",
+                    votes[currentInsight.id] === "more" && (isNight ? "bg-white/10" : "bg-indigo-50")
+                  )}
+                  onClick={() => onVote(currentInsight, "more")}
+                >
+                  <ThumbsUp className="h-3.5 w-3.5" />
+                  More like this
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={!canInteract}
+                  className={cn(
+                    "gap-1 rounded-full border px-3",
+                    isNight
+                      ? "border-white/15 text-indigo-100 hover:bg-white/10"
+                      : "border-indigo-100 text-indigo-700 hover:bg-indigo-50",
+                    votes[currentInsight.id] === "less" && (isNight ? "bg-white/10" : "bg-indigo-50")
+                  )}
+                  onClick={() => onVote(currentInsight, "less")}
+                >
+                  <ThumbsDown className="h-3.5 w-3.5" />
+                  Less of this
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!canInteract || savingInsightId === currentInsight.id}
+                  className={cn(
+                    "gap-1 rounded-full border px-3",
+                    isNight ? "border-white/20 text-white hover:bg-white/10" : "border-slate-200 text-slate-800"
+                  )}
+                  onClick={() => onSave(currentInsight)}
+                >
+                  {savingInsightId === currentInsight.id ? (
+                    <Spinner size="sm" className="text-current" />
+                  ) : (
+                    <BookmarkPlus className="h-3.5 w-3.5" />
+                  )}
+                  Save to Orbit
+                </Button>
+              </div>
+              {messages[currentInsight.id] ? (
+                <p className={cn("mt-2 text-xs", tone)}>{messages[currentInsight.id]}</p>
+              ) : null}
+              {!canInteract ? (
+                <p className={cn("mt-2 text-xs italic", tone)}>Sign in to vote or save.</p>
+              ) : null}
+            </article>
           </div>
         ) : (
           <p className={cn("text-sm", tone)}>
@@ -2677,11 +2885,13 @@ function WorkTaskListSection({
   tasks,
   emptyText,
   isNight,
+  actionRenderer,
 }: {
   label: string;
   tasks: DailySummaryPayload["completedWork"];
   emptyText: string;
   isNight: boolean;
+  actionRenderer?: (task: DailySummaryPayload["completedWork"][number], index: number) => ReactNode;
 }) {
   const tone = isNight ? "text-indigo-200" : "text-slate-600";
   return (
@@ -2702,6 +2912,7 @@ function WorkTaskListSection({
                 <p className={cn("text-xs", tone)}>
                   {task.note?.trim() ? task.note : task.status.replace(/_/g, " ")}
                 </p>
+                {actionRenderer ? <div className="mt-2">{actionRenderer(task, index)}</div> : null}
               </div>
             </li>
           ))}

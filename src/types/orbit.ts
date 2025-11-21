@@ -11,11 +11,20 @@ export type UserInterests = {
   updatedAt: string;
 };
 
+export type DailySummaryPayload = {
+  overview: string[];
+  recommendations: string[];
+  completedWork: WorkTaskHighlight[];
+  pendingWork: WorkTaskHighlight[];
+  insights: OrbitInsightCard[];
+};
+
 export type DailySummary = {
   shareId: string;
   date: string; // YYYY-MM-DD format
   shownAt: string; // ISO timestamp when shown to user
   createdAt: string;
+  payload?: DailySummaryPayload | null;
 };
 
 export type OrbitInsightType = "news" | "concept";
@@ -42,12 +51,4 @@ export type WorkTaskHighlight = {
   title: string;
   status: string;
   note?: string | null;
-};
-
-export type DailySummaryPayload = {
-  overview: string[];
-  recommendations: string[];
-  completedWork: WorkTaskHighlight[];
-  pendingWork: WorkTaskHighlight[];
-  insights: OrbitInsightCard[];
 };
