@@ -1,6 +1,11 @@
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, increment } from "firebase/firestore";
 import { db } from "./firebase";
-import { OrbitSummary, UserInterests, DailySummary } from "@/types/orbit";
+import {
+  UserInterests,
+  DailySummary,
+  OrbitInsightPreferences,
+  InsightVoteDirection,
+} from "@/types/orbit";
 
 
 const interestsDoc = (userId: string) =>
@@ -8,6 +13,9 @@ const interestsDoc = (userId: string) =>
 
 const dailySummaryDoc = (userId: string, date: string) =>
   doc(db, "users", userId, "daily-summaries", date);
+
+const insightPreferencesDoc = (userId: string) =>
+  doc(db, "users", userId, "preferences", "orbit-insight-preferences");
 
 
 export const getUserInterests = async (userId: string): Promise<UserInterests | null> => {
@@ -95,3 +103,53 @@ export const saveDailySummary = async (
   );
 };
 
+export const getInsightPreferences = async (
+  userId: string
+): Promise<OrbitInsightPreferences | null> => {
+  if (!userId) {
+    return null;
+  }
+
+  const ref = insightPreferencesDoc(userId);
+  const snapshot = await getDoc(ref);
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  const data = snapshot.data();
+  return {
+    moreTopics: data.moreTopics ?? {},
+    lessTopics: data.lessTopics ?? {},
+    updatedAt: data.updatedAt ?? new Date().toISOString(),
+  };
+};
+
+export const recordInsightPreference = async (
+  userId: string,
+  topic: string,
+  direction: InsightVoteDirection
+): Promise<void> => {
+  if (!userId) {
+    throw new Error("User ID is required");
+  }
+  const trimmed = topic?.trim();
+  if (!trimmed) {
+    throw new Error("Topic is required");
+  }
+  const normalized = trimmed.toLowerCase();
+
+  const ref = insightPreferencesDoc(userId);
+  const field =
+    direction === "more"
+      ? `moreTopics.${normalized}`
+      : `lessTopics.${normalized}`;
+  await setDoc(
+    ref,
+    {
+      updatedAt: new Date().toISOString(),
+      serverUpdatedAt: serverTimestamp(),
+      [field]: increment(1),
+    },
+    { merge: true }
+  );
+};

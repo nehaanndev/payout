@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listSharedLinks } from "@/lib/shareService";
-import { getUserInterests, getDailySummary, saveDailySummary } from "@/lib/orbitSummaryService";
+import {
+  getUserInterests,
+  getDailySummary,
+  saveDailySummary,
+  getInsightPreferences,
+} from "@/lib/orbitSummaryService";
 import { fetchFlowPlanSnapshot } from "@/lib/flowService";
 import { getFlowDateKey } from "@/lib/flowService";
 import { listBudgetsForMember, fetchBudgetMonthSnapshot } from "@/lib/budgetService";
 import { getMonthKey as getBudgetMonthKey } from "@/lib/budgetService";
+import type { FlowPlan } from "@/types/flow";
+import type { SharedLink } from "@/types/share";
+import type {
+  DailySummaryPayload,
+  OrbitInsightPreferences,
+  WorkTaskHighlight,
+} from "@/types/orbit";
 
 function getTodayDateKey(): string {
   const today = new Date();
@@ -22,78 +34,130 @@ function isMorning(): boolean {
   return hour < 12; // Before noon
 }
 
+const sortPreferenceTopics = (topics?: Record<string, number>) => {
+  if (!topics) {
+    return [];
+  }
+  return Object.entries(topics)
+    .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
+    .map(([topic]) => topic)
+    .slice(0, 5);
+};
+
+type AiSummaryResponse = {
+  overview?: unknown;
+  recommendations?: unknown;
+  insights?: unknown;
+};
+
+type AiInsightResponse = {
+  id?: unknown;
+  topic?: unknown;
+  title?: unknown;
+  summary?: unknown;
+  paragraphs?: unknown;
+  type?: unknown;
+  referenceUrl?: unknown;
+};
+
 async function generatePersonalizedSummary(
-  yesterdayFlow: any,
-  yesterdayOrbit: any[],
-  yesterdayBudget: any,
-  interests: string[]
-): Promise<string> {
+  yesterdayFlow: FlowPlan | null,
+  yesterdayOrbit: SharedLink[],
+  yesterdayBudget: { totalSpent: number; entryCount: number } | null,
+  interests: string[],
+  preferences: OrbitInsightPreferences | null
+): Promise<DailySummaryPayload> {
+  const allTasks = Array.isArray(yesterdayFlow?.tasks) ? yesterdayFlow?.tasks : [];
+  const workTasks = allTasks.filter((task) => task.category === "work");
+
+  const completedWork: WorkTaskHighlight[] = workTasks
+    .filter((task) => task.status === "done")
+    .map((task) => ({
+      title: task.title,
+      status: task.status,
+      note: task.notes ?? null,
+    }));
+
+  const pendingWork: WorkTaskHighlight[] = workTasks
+    .filter((task) => task.status !== "done")
+    .map((task) => ({
+      title: task.title,
+      status: task.status,
+      note: task.notes ?? null,
+    }));
+
+  const fallbackOverview = completedWork.length
+    ? [
+        `You wrapped ${completedWork.length} work task${completedWork.length === 1 ? "" : "s"} yesterday: ${completedWork
+          .map((task) => task.title)
+          .slice(0, 3)
+          .join(", ")}.`,
+      ]
+    : ["No tracked work tasks finished yesterday, so today is a clean slate to set the tone."];
+
+  const fallbackRecommendations = pendingWork.length
+    ? pendingWork.slice(0, 2).map((task) => `Kick off with “${task.title}” so it doesn’t linger another day.`)
+    : ["Block one focused 45-minute sprint on your top initiative before noon."];
+
+  const preferenceHints = {
+    wantsMoreOf: sortPreferenceTopics(preferences?.moreTopics),
+    wantsLessOf: sortPreferenceTopics(preferences?.lessTopics),
+  };
+
+  const orbitHighlights = yesterdayOrbit.slice(0, 5).map((share) => ({
+    title: share.title,
+    description: share.description,
+    tags: share.tags,
+    url: share.url,
+  }));
+
+  const flowSummary = yesterdayFlow
+    ? {
+        totalTasks: yesterdayFlow.tasks?.length ?? 0,
+        completedTasks: (yesterdayFlow.tasks ?? []).filter((task) => task.status === "done").length,
+        reflections: yesterdayFlow.reflections?.length ?? 0,
+      }
+    : null;
+
+  const requestContext = {
+    interests,
+    preferenceHints,
+    flowSummary,
+    workTasks: {
+      completed: completedWork,
+      pending: pendingWork,
+    },
+    orbitHighlights,
+    budget: yesterdayBudget,
+  };
+
+  const defaultPayload: DailySummaryPayload = {
+    overview: fallbackOverview,
+    recommendations: fallbackRecommendations,
+    completedWork,
+    pendingWork,
+    insights: [
+      {
+        id: "focus-block",
+        topic: "Deep work",
+        title: "Protect a focus block",
+        summary: "Reinforce the habit of defending one tight block for uninterrupted work.",
+        paragraphs: [
+          "Even one protected block keeps your week from dissolving into reactive work. A 45-minute sprint without notifications gives the brain the context time it craves.",
+          "Try penciling that block in before lunch, when energy is still high. If you owe a teammate a deliverable, treat that window like a meeting—no slipping.",
+          "Capture any loose ends that arise afterward inside Flow or Orbit so the next block starts clean.",
+        ],
+        type: "concept",
+        referenceUrl: null,
+      },
+    ],
+  };
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY not configured");
+    console.warn("OPENAI_API_KEY not configured");
+    return defaultPayload;
   }
-
-  // Build context from yesterday's data
-  const flowContext = yesterdayFlow
-    ? {
-        tasksCompleted: yesterdayFlow.tasks?.filter((t: any) => t.status === "done").length || 0,
-        totalTasks: yesterdayFlow.tasks?.length || 0,
-        reflections: yesterdayFlow.reflections?.length || 0,
-        categories: yesterdayFlow.tasks?.reduce((acc: any, task: any) => {
-          acc[task.category] = (acc[task.category] || 0) + 1;
-          return acc;
-        }, {}) || {},
-      }
-    : null;
-
-  const orbitContext = yesterdayOrbit.length > 0
-    ? {
-        linksSaved: yesterdayOrbit.length,
-        topics: yesterdayOrbit
-          .flatMap((link) => link.tags || [])
-          .filter((tag, idx, arr) => arr.indexOf(tag) === idx)
-          .slice(0, 5),
-      }
-    : null;
-
-  const budgetContext = yesterdayBudget
-    ? {
-        spent: yesterdayBudget.totalSpent || 0,
-        entries: yesterdayBudget.entryCount || 0,
-      }
-    : null;
-
-  const prompt = `Create a warm, personalized morning summary based on yesterday's activity. Be encouraging and insightful.
-
-User interests: ${interests.join(", ")}
-
-Yesterday's Flow activity:
-${flowContext
-  ? `- Completed ${flowContext.tasksCompleted} of ${flowContext.totalTasks} tasks
-- ${flowContext.reflections} reflection${flowContext.reflections !== 1 ? "s" : ""} logged
-- Task categories: ${Object.keys(flowContext.categories).join(", ")}`
-  : "No Flow activity"}
-
-Yesterday's Orbit saves:
-${orbitContext
-  ? `- Saved ${orbitContext.linksSaved} link${orbitContext.linksSaved !== 1 ? "s" : ""}
-- Topics: ${orbitContext.topics.join(", ") || "None"}`
-  : "No links saved"}
-
-Yesterday's Budget activity:
-${budgetContext
-  ? `- ${budgetContext.entries} expense${budgetContext.entries !== 1 ? "s" : ""} logged
-- Total spent: $${budgetContext.spent.toFixed(2)}`
-  : "No budget activity"}
-
-Write a 2-3 paragraph personalized summary that:
-1. Celebrates what they accomplished yesterday
-2. Provides gentle insights or patterns you notice
-3. Encourages them for today
-4. Mentions their interests naturally if relevant
-5. A short blurb on some exciting development in some area of their interest.
-
-Make sure to shuffle the order of these things seamlessly so that no two responses look like they have a pattern to them. Be warm, concise, and personal. Write in second person.`;
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -103,29 +167,110 @@ Make sure to shuffle the order of these things seamlessly so that no two respons
     },
     body: JSON.stringify({
       model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
           content:
-            "You are a thoughtful personal assistant that creates warm, encouraging daily summaries based on user activity.",
+            "You are a thoughtful personal assistant that must return helpful JSON describing a daily summary, actionable recommendations, and 3–4 paragraph learning cards.",
         },
         {
           role: "user",
-          content: prompt,
+          content: `You are given context about a member's actual work tasks (completed + lingering), their Orbit saves, budgets, interests, and stated preferences. Using ONLY the provided work tasks, craft:\n\n{\n  "overview": [<3 paragraphs written in 2nd person summarizing yesterday's work wins and misses, referencing the provided task titles verbatim>],\n  "recommendations": [<2-3 concrete next steps for today referencing the same tasks or their projects>],\n  "insights": [\n    {\n      "id": "<slug>",\n      "topic": "<short topic>",\n      "title": "<card headline>",\n      "summary": "<one sentence hook>",\n      "paragraphs": [<exactly 3 or 4 richly written paragraphs about either a new development or a fundamental concept tied to the user's interests>],\n      "type": "<\"news\" or \"concept\">",\n      "referenceUrl": "<optional source>"\n    }\n  ]\n}\n\n- Mention chores or wellness only if explicitly present in the work task list (they will likely not be).\n- Keep the tone grounded, analytical, and encouraging.\n- Pull inspiration for the insights from the interest list, Orbit saves, or relevant industry progress. Respect preferences: emphasize wantsMoreOf topics and avoid repeating wantsLessOf subjects.\n- The overview must cite the provided work task titles (completed and pending) and differentiate wins vs carry-overs.\n- Recommendations must translate pending items into concrete next actions.\n- Insights MUST be distinct cards; return at most 2 cards. Each needs 3-4 paragraphs of 2-3 sentences each.\n\nContext JSON:\n${JSON.stringify(requestContext, null, 2)}`,
         },
       ],
-      temperature: 0.7,
-      max_tokens: 400,
+      temperature: 0.5,
+      max_tokens: 900,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`OpenAI API error: ${response.status} ${errorText}`);
+    console.error("OpenAI API error", response.status, errorText);
+    return defaultPayload;
   }
 
   const result = await response.json();
-  return result?.choices?.[0]?.message?.content ?? "Unable to generate summary.";
+  const content = result?.choices?.[0]?.message?.content;
+
+  let parsed: AiSummaryResponse | null = null;
+  if (content) {
+    try {
+      parsed = JSON.parse(content);
+    } catch (error) {
+      console.error("Failed to parse AI summary JSON", error, content);
+    }
+  }
+
+  const overviewSource = Array.isArray(parsed?.overview)
+    ? (parsed.overview as unknown[])
+    : null;
+  const overview = overviewSource
+    ? overviewSource.map((paragraph) => String(paragraph))
+    : parsed?.overview
+    ? [String(parsed.overview)]
+    : fallbackOverview;
+
+  const recommendationsSource = Array.isArray(parsed?.recommendations)
+    ? (parsed.recommendations as unknown[])
+    : null;
+  const recommendations = recommendationsSource
+    ? recommendationsSource.map((item) => String(item))
+    : fallbackRecommendations;
+
+  const rawInsights: AiInsightResponse[] = Array.isArray(parsed?.insights)
+    ? (parsed?.insights as AiInsightResponse[])
+    : [];
+
+  let insights: DailySummaryPayload["insights"] = rawInsights
+    .slice(0, 2)
+    .map((raw, index) => {
+      const summaryText =
+        typeof raw.summary === "string" && raw.summary.length ? raw.summary : "";
+      const rawParagraphs = Array.isArray(raw.paragraphs)
+        ? (raw.paragraphs as unknown[])
+        : null;
+      const paragraphs =
+        rawParagraphs && rawParagraphs.length
+          ? rawParagraphs.map((paragraph) => String(paragraph))
+          : summaryText
+          ? [summaryText]
+          : [];
+      return {
+        id:
+          typeof raw.id === "string" && raw.id.length
+            ? raw.id
+            : `insight-${index}`,
+        topic:
+          typeof raw.topic === "string" && raw.topic.length
+            ? raw.topic
+            : `Insight ${index + 1}`,
+        title:
+          typeof raw.title === "string" && raw.title.length
+            ? raw.title
+            : `New development ${index + 1}`,
+        summary: summaryText,
+        paragraphs,
+        type: raw.type === "concept" ? "concept" : "news",
+        referenceUrl:
+          typeof raw.referenceUrl === "string" && raw.referenceUrl.length
+            ? raw.referenceUrl
+            : null,
+      };
+    })
+    .filter((insight) => insight.paragraphs.length >= 3);
+
+  if (!insights.length) {
+    insights = defaultPayload.insights;
+  }
+
+  return {
+    overview,
+    recommendations,
+    completedWork,
+    pendingWork,
+    insights,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -184,13 +329,16 @@ export async function GET(request: NextRequest) {
       const month = await fetchBudgetMonthSnapshot(primary.id, monthKey);
       
       if (month?.entries) {
-        const yesterdayExpenses = month.entries.filter((entry: any) => {
+        const yesterdayExpenses = month.entries.filter((entry) => {
           const entryDate = new Date(entry.date);
           return entryDate >= yesterdayStart && entryDate <= yesterdayEnd;
         });
-        
+
         if (yesterdayExpenses.length > 0) {
-          const totalSpent = yesterdayExpenses.reduce((sum: number, entry: any) => sum + (Number(entry.amount) || 0), 0);
+          const totalSpent = yesterdayExpenses.reduce(
+            (sum, entry) => sum + (Number(entry.amount) || 0),
+            0
+          );
           yesterdayBudget = {
             totalSpent,
             entryCount: yesterdayExpenses.length,
@@ -199,54 +347,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const insightPreferences = await getInsightPreferences(userId);
+
     // Generate personalized summary
     const summary = await generatePersonalizedSummary(
       yesterdayFlow,
       yesterdayOrbit,
       yesterdayBudget,
-      interestList
+      interestList,
+      insightPreferences
     );
 
-    // Find a relevant link from last 3-4 days based on interests
-    const fourDaysAgo = new Date();
-    fourDaysAgo.setDate(fourDaysAgo.getDate() - 4);
-    const recentLinks = allShares.filter((share) => {
-      const shareDate = new Date(share.createdAt);
-      return shareDate >= fourDaysAgo && (share.contentType === "link" || share.contentType === "article");
-    });
+    // Persist that we generated something today so we can avoid duplicates later
+    const summaryId = summary.insights[0]?.id ?? "ai-summary";
+    await saveDailySummary(userId, dateKey, summaryId);
 
-    let selectedLink = null;
-    if (recentLinks.length > 0 && interestList.length > 0) {
-      const interestKeywords = interestList.map((i) => i.toLowerCase());
-      const matchingLinks = recentLinks.filter((link) => {
-        const title = (link.title || "").toLowerCase();
-        const description = (link.description || "").toLowerCase();
-        const tags = (link.tags || []).map((t) => t.toLowerCase());
-
-        return (
-          interestKeywords.some((keyword) => title.includes(keyword) || description.includes(keyword)) ||
-          tags.some((tag) => interestKeywords.some((keyword) => tag.includes(keyword) || keyword.includes(tag)))
-        );
-      });
-
-      selectedLink = matchingLinks.length > 0
-        ? matchingLinks[Math.floor(Math.random() * matchingLinks.length)]
-        : recentLinks[0];
-    } else if (recentLinks.length > 0) {
-      selectedLink = recentLinks[0];
-    }
-
-    // Save daily summary (using a placeholder shareId if no link found)
-    if (selectedLink) {
-      await saveDailySummary(userId, dateKey, selectedLink.id);
-    }
-
-    return NextResponse.json({
-      summary,
-      linkTitle: selectedLink?.title || null,
-      linkUrl: selectedLink?.url || null,
-      linkDescription: selectedLink?.description || null,
-    });
+    return NextResponse.json(summary);
   } catch (error) {
     console.error("Error getting daily summary", error);
     return NextResponse.json(

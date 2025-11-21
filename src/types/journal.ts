@@ -16,6 +16,10 @@ export type JournalAnswers = {
   familyFeeling: string;
   gratitude: string;
   other: string;
+  blogTitle?: string;
+  blogSummary?: string;
+  blogBody?: string;
+  blogTags?: string;
 };
 
 export type JournalDocument = {
@@ -38,6 +42,7 @@ export type JournalEntry = {
   answers: JournalAnswers;
   createdAt: string;
   updatedAt: string;
+  entryType?: "daily" | "blog";
 };
 
 export type JournalEntrySummary = {
@@ -47,4 +52,5 @@ export type JournalEntrySummary = {
   snippet: string | null;
   createdAt: string;
   updatedAt: string;
+  entryType?: "daily" | "blog";
 };

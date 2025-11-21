@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
-import { ExternalLink, Search, Sparkles } from "lucide-react";
+import { BookmarkPlus, ExternalLink, Search, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
+import Image from "next/image";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
@@ -12,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
 import { AppUserMenu } from "@/components/AppUserMenu";
@@ -46,7 +48,11 @@ import type { BudgetDocument, BudgetMonth, BudgetLedgerEntry } from "@/types/bud
 import { type CurrencyCode, fromMinor, FRACTION_DIGITS } from "@/lib/currency_core";
 import type { SharedLink } from "@/types/share";
 import { extractTagsFromText, mergeTagLists } from "@/lib/tagHelpers";
-import { getUserInterests } from "@/lib/orbitSummaryService";
+import type {
+  DailySummaryPayload,
+  InsightVoteDirection,
+  OrbitInsightCard,
+} from "@/types/orbit";
 
 const THEMES = {
   morning: {
@@ -83,6 +89,7 @@ type BudgetPulseSummary = {
 };
 
 const MAX_TIMELINE_ITEMS = 4;
+const EMPTY_REFLECTIONS: FlowReflection[] = [];
 const FLOW_CATEGORY_LABELS: Record<FlowCategory, string> = {
   work: "Work",
   family: "Family",
@@ -200,13 +207,14 @@ export default function DailyDashboardPage() {
   const [orbitShares, setOrbitShares] = useState<SharedLink[]>([]);
   const [orbitSharesLoading, setOrbitSharesLoading] = useState(false);
   const [orbitSharesError, setOrbitSharesError] = useState<string | null>(null);
-  const [dailySummary, setDailySummary] = useState<{
-    summary: string;
-    linkTitle?: string;
-    linkUrl?: string;
-    linkDescription?: string;
-  } | null>(null);
+  const [dailySummary, setDailySummary] = useState<DailySummaryPayload | null>(null);
   const [dailySummaryLoading, setDailySummaryLoading] = useState(false);
+  const [insightVotes, setInsightVotes] = useState<Record<string, InsightVoteDirection>>({});
+  const [insightMessages, setInsightMessages] = useState<Record<string, string>>({});
+  const [savingInsightId, setSavingInsightId] = useState<string | null>(null);
+  const [reflectionStreakDays, setReflectionStreakDays] = useState(0);
+  const [reflectionStreakLoading, setReflectionStreakLoading] = useState(false);
+  const [lastReflectionAt, setLastReflectionAt] = useState<string | null>(null);
   const [splitSources, setSplitSources] = useState<Array<{ group: Group; expenses: Expense[] }>>([]);
   const [budgetEntries, setBudgetEntries] = useState<BudgetLedgerEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -276,6 +284,8 @@ export default function DailyDashboardPage() {
     if (!user?.uid || !isMorning) {
       setDailySummary(null);
       setDailySummaryLoading(false);
+      setInsightVotes({});
+      setInsightMessages({});
       return;
     }
     let cancelled = false;
@@ -288,31 +298,34 @@ export default function DailyDashboardPage() {
           if (!cancelled) {
             setDailySummary(null);
             setDailySummaryLoading(false);
+            setInsightVotes({});
+            setInsightMessages({});
           }
           return;
         }
 
         const data = await response.json();
-        if (data.message || !data.summary) {
+        if (data.message || data.error || !data.overview) {
           if (!cancelled) {
             setDailySummary(null);
             setDailySummaryLoading(false);
+            setInsightVotes({});
+            setInsightMessages({});
           }
           return;
         }
 
         if (!cancelled) {
-          setDailySummary({
-            summary: data.summary,
-            linkTitle: data.linkTitle,
-            linkUrl: data.linkUrl,
-            linkDescription: data.linkDescription,
-          });
+          setDailySummary(data as DailySummaryPayload);
+          setInsightVotes({});
+          setInsightMessages({});
         }
       } catch (error) {
         console.error("Failed to load daily summary", error);
         if (!cancelled) {
           setDailySummary(null);
+          setInsightVotes({});
+          setInsightMessages({});
         }
       } finally {
         if (!cancelled) {
@@ -459,6 +472,82 @@ export default function DailyDashboardPage() {
 
   useEffect(() => {
     if (!user?.uid) {
+      setReflectionStreakDays(0);
+      setLastReflectionAt(null);
+      setReflectionStreakLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const loadReflectionStreak = async () => {
+      setReflectionStreakLoading(true);
+      try {
+        const lookbackDays = 10;
+        const today = new Date();
+        const dateKeys = Array.from({ length: lookbackDays }, (_, offset) => {
+          const date = new Date(today);
+          date.setDate(today.getDate() - offset);
+          return getFlowDateKey(date);
+        });
+
+        const plans = await Promise.all(
+          dateKeys.map((key, index) =>
+            index === 0 && flowPlan
+              ? Promise.resolve(flowPlan)
+              : fetchFlowPlanSnapshot(user.uid, key)
+          )
+        );
+        if (cancelled) {
+          return;
+        }
+        let streak = 0;
+        let started = false;
+        let latestReflection: string | null = null;
+
+        for (let index = 0; index < dateKeys.length; index += 1) {
+          const plan = plans[index];
+          const reflections = plan?.reflections ?? [];
+          const hasReflections = reflections.length > 0;
+          if (!latestReflection && hasReflections) {
+            latestReflection =
+              reflections[0]?.createdAt ??
+              reflections[0]?.updatedAt ??
+              plan?.updatedAt ??
+              null;
+          }
+          if (!started && index === 0 && !hasReflections) {
+            continue;
+          }
+          if (hasReflections) {
+            started = true;
+            streak += 1;
+          } else if (started) {
+            break;
+          }
+        }
+
+        if (!cancelled) {
+          setReflectionStreakDays(streak);
+          setLastReflectionAt(latestReflection);
+        }
+      } catch (error) {
+        console.error("Failed to load reflection streak", error);
+        if (!cancelled) {
+          setReflectionStreakDays(0);
+        }
+      } finally {
+        if (!cancelled) {
+          setReflectionStreakLoading(false);
+        }
+      }
+    };
+    void loadReflectionStreak();
+    return () => {
+      cancelled = true;
+    };
+  }, [flowPlan, user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) {
       setBudgetPulse(null);
       setBudgetError(null);
       setBudgetEntries([]);
@@ -540,10 +629,16 @@ export default function DailyDashboardPage() {
   }, [flowPlan?.tasks]);
 
   const timelineMoments = useMemo(() => buildTimeline(flowPlan), [flowPlan]);
-  const reflections = flowPlan?.reflections ?? [];
+  const reflections = flowPlan?.reflections ?? EMPTY_REFLECTIONS;
   const latestReflection = reflections[0] ?? null;
+  const latestPhotoReflection = useMemo(
+    () => reflections.find((reflection) => reflection.photoUrl),
+    [reflections]
+  );
 
   const primarySummary = splitTotals[0] ?? null;
+  const isNearEndOfDay = useMemo(() => new Date().getHours() >= 18, []);
+  const journalPrompt = isNearEndOfDay ? "Wrap the day with a quick journal entry." : null;
   const searchTokens = useMemo(() => normaliseQueryTokens(searchQuery), [searchQuery]);
   const searchableItems = useMemo(() => {
     const items: SearchResultItem[] = [];
@@ -788,6 +883,93 @@ export default function DailyDashboardPage() {
     }
   }, []);
 
+  const handleInsightVote = useCallback(
+    async (insight: OrbitInsightCard, direction: InsightVoteDirection) => {
+      if (!user?.uid) {
+        setInsightMessages((prev) => ({
+          ...prev,
+          [insight.id]: "Sign in to personalize these cards.",
+        }));
+        return;
+      }
+
+      setInsightVotes((prev) => ({ ...prev, [insight.id]: direction }));
+      try {
+        const response = await fetch("/api/orbit/insight-feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.uid,
+            topic: insight.topic,
+            vote: direction,
+          }),
+        });
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        setInsightMessages((prev) => ({
+          ...prev,
+          [insight.id]:
+            direction === "more"
+              ? "Got it - we'll bring more like this."
+              : "Understood - we'll dial this topic down.",
+        }));
+      } catch (error) {
+        console.error("Failed to record insight vote", error);
+        setInsightMessages((prev) => ({
+          ...prev,
+          [insight.id]: "Couldn't record that vote. Try again shortly.",
+        }));
+        setInsightVotes((prev) => {
+          const next = { ...prev };
+          delete next[insight.id];
+          return next;
+        });
+      }
+    },
+    [user?.uid]
+  );
+
+  const handleInsightSave = useCallback(
+    async (insight: OrbitInsightCard) => {
+      if (!user?.uid) {
+        setInsightMessages((prev) => ({
+          ...prev,
+          [insight.id]: "Sign in to save this to Orbit.",
+        }));
+        return;
+      }
+      setSavingInsightId(insight.id);
+      try {
+        const response = await fetch("/api/orbit/insight-save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.uid,
+            insight,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok || payload?.error) {
+          throw new Error(payload?.error ?? "Failed to save insight");
+        }
+        setInsightMessages((prev) => ({
+          ...prev,
+          [insight.id]: "Saved to Orbit.",
+        }));
+      } catch (error) {
+        console.error("Failed to save insight", error);
+        setInsightMessages((prev) => ({
+          ...prev,
+          [insight.id]: "Couldn't save to Orbit. Try again.",
+        }));
+      } finally {
+        setSavingInsightId(null);
+      }
+    },
+    [user?.uid]
+  );
+
   return (
     <div className={cn("min-h-screen w-full bg-gradient-to-b px-4 py-10", palette.gradient)}>
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
@@ -894,94 +1076,21 @@ export default function DailyDashboardPage() {
         </div>
 
         {isMorning ? (
-          <Card
-            className={cn(
-              "rounded-[28px] p-6 shadow-sm",
-              isNight
-                ? "border-white/20 bg-gradient-to-br from-indigo-900/60 via-violet-900/40 to-purple-900/60 text-white"
-                : "border-indigo-200 bg-gradient-to-br from-indigo-50 via-violet-50 to-purple-50 text-slate-900"
-            )}
-          >
-            <CardHeader className="p-0">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className={cn("h-5 w-5", isNight ? "text-indigo-300" : "text-indigo-500")} />
-                <p
-                  className={cn(
-                    "text-xs font-semibold uppercase tracking-[0.35em]",
-                    isNight ? "text-indigo-200" : "text-indigo-500"
-                  )}
-                >
-                  Daily Summary
-                </p>
-              </div>
-              <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-slate-900")}>
-                Your Morning Read
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="mt-4 space-y-4">
-              {dailySummaryLoading ? (
-                <div className={cn("text-sm", isNight ? "text-indigo-200" : "text-indigo-600")}>
-                  <Spinner size="sm" className="mr-2" />
-                  Generating your personalized summary...
-                </div>
-              ) : dailySummary ? (
-                <>
-                  <div
-                    className={cn(
-                      "rounded-2xl border p-4",
-                      isNight
-                        ? "border-white/15 bg-white/5"
-                        : "border-indigo-100 bg-white/70"
-                    )}
-                  >
-                    <p className={cn("text-sm whitespace-pre-line", isNight ? "text-indigo-50/80" : "text-indigo-600")}>
-                      {dailySummary.summary}
-                    </p>
-                  </div>
-                  {dailySummary.linkTitle && dailySummary.linkUrl ? (
-                    <div
-                      className={cn(
-                        "rounded-2xl border p-4",
-                        isNight
-                          ? "border-white/15 bg-white/5"
-                          : "border-indigo-100 bg-white/70"
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <p className={cn("text-sm font-semibold", isNight ? "text-indigo-100" : "text-indigo-700")}>
-                            {dailySummary.linkTitle}
-                          </p>
-                          {dailySummary.linkDescription ? (
-                            <p className={cn("mt-1 text-xs", isNight ? "text-indigo-50/70" : "text-indigo-600")}>
-                              {dailySummary.linkDescription}
-                            </p>
-                          ) : null}
-                        </div>
-                        <button
-                          onClick={() => {
-                            if (typeof window !== "undefined") {
-                              window.open(dailySummary.linkUrl!, "_blank", "noopener,noreferrer");
-                            }
-                          }}
-                          className={cn(
-                            "text-xs font-medium underline flex-shrink-0",
-                            isNight ? "text-indigo-300" : "text-indigo-600"
-                          )}
-                        >
-                          Open
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <p className={cn("text-sm", isNight ? "text-indigo-200" : "text-indigo-600")}>
-                  No summary available yet. Check back tomorrow morning!
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <DailyWorkSummaryCard summary={dailySummary} loading={dailySummaryLoading} isNight={isNight} />
+            <DailyRecommendationCard summary={dailySummary} loading={dailySummaryLoading} isNight={isNight} />
+            <InsightCarousel
+              insights={dailySummary?.insights ?? []}
+              loading={dailySummaryLoading}
+              isNight={isNight}
+              votes={insightVotes}
+              messages={insightMessages}
+              savingInsightId={savingInsightId}
+              onVote={handleInsightVote}
+              onSave={handleInsightSave}
+              canInteract={Boolean(user)}
+            />
+          </div>
         ) : null}
 
         {flowLoading ? (
@@ -999,25 +1108,6 @@ export default function DailyDashboardPage() {
         ) : (
           <SkeletonBanner label={flowError ?? "Sign in to see Flow insights"} />
         )}
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <GroupSummaryCard
-            loading={splitLoading}
-            error={splitError}
-            summaries={splitTotals}
-            primary={primarySummary}
-            onAddExpense={() => router.push("/split")}
-            dark={isNight}
-          />
-
-          <BudgetPulseCard
-            loading={budgetLoading}
-            error={budgetError}
-            summary={budgetPulse}
-            onOpenBudget={() => router.push("/budget")}
-            dark={isNight}
-          />
-        </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Card
@@ -1133,6 +1223,36 @@ export default function DailyDashboardPage() {
               </Button>
             </CardContent>
           </Card>
+          <ReflectionStreakCard
+            dark={isNight}
+            loading={reflectionStreakLoading}
+            streak={reflectionStreakDays}
+            lastReflectionAt={lastReflectionAt}
+            photoUrl={latestPhotoReflection?.photoUrl ?? null}
+            photoNote={latestPhotoReflection?.note ?? null}
+            showJournalCTA={isNearEndOfDay}
+            ctaText={journalPrompt}
+            onOpenJournal={() => router.push("/journal")}
+          />
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <BudgetPulseCard
+            loading={budgetLoading}
+            error={budgetError}
+            summary={budgetPulse}
+            onOpenBudget={() => router.push("/budget")}
+            dark={isNight}
+          />
+
+          <GroupSummaryCard
+            loading={splitLoading}
+            error={splitError}
+            summaries={splitTotals}
+            primary={primarySummary}
+            onAddExpense={() => router.push("/split")}
+            dark={isNight}
+          />
         </div>
 
         {isSunday ? (
@@ -2077,5 +2197,522 @@ function WeeklyDigestCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+const formatRelativeDayDistance = (timestamp?: string | null) => {
+  if (!timestamp) {
+    return null;
+  }
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+  if (diffDays === 0) {
+    return "today";
+  }
+  if (diffDays === 1) {
+    return "yesterday";
+  }
+  return `${diffDays} days ago`;
+};
+
+function ReflectionStreakCard({
+  streak,
+  lastReflectionAt,
+  loading,
+  dark,
+  onOpenJournal,
+  photoUrl,
+  photoNote,
+  showJournalCTA,
+  ctaText,
+}: {
+  streak: number;
+  lastReflectionAt: string | null;
+  loading: boolean;
+  dark: boolean;
+  onOpenJournal: () => void;
+  photoUrl: string | null;
+  photoNote: string | null;
+  showJournalCTA: boolean;
+  ctaText: string | null;
+}) {
+  const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
+  const tone = dark ? "text-indigo-200" : "text-slate-600";
+  const accent = dark ? "text-white" : "text-slate-900";
+  const badgeTone = dark
+    ? "bg-white/10 text-indigo-100"
+    : "bg-indigo-100 text-indigo-700";
+  const streakLabel =
+    streak > 1 ? `${streak}-day run` : streak === 1 ? "1 day logged" : "No streak yet";
+  const relative = formatRelativeDayDistance(lastReflectionAt);
+  const lastEntryText = relative
+    ? `Last entry ${relative}.`
+    : "Log a reflection to start your streak.";
+
+  return (
+    <Card
+      className={cn(
+        "rounded-[28px] p-6 shadow-sm",
+        dark ? "border-white/15 bg-slate-900/60 text-white" : "border border-slate-200 bg-white/95 text-slate-900"
+      )}
+    >
+      <CardHeader className="p-0">
+        <p className={cn("text-xs font-semibold uppercase tracking-[0.35em]", tone)}>
+          Reflection streak
+        </p>
+        <CardTitle className={cn("text-xl", accent)}>Keep the loop alive</CardTitle>
+      </CardHeader>
+      <CardContent className="mt-4 space-y-4">
+        {loading ? (
+          <div className={cn("flex items-center gap-3 text-sm", tone)}>
+            <Spinner size="sm" className="text-current" />
+            Checking your Flow streak...
+          </div>
+        ) : (
+          <>
+            <div>
+              <div className="flex items-baseline gap-2">
+                <p className={cn("text-4xl font-bold", accent)}>{streak}</p>
+                <span className={cn("text-xs font-semibold uppercase tracking-[0.3em]", tone)}>
+                  day streak
+                </span>
+              </div>
+              <p className={cn("mt-1 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold", badgeTone)}>
+                {streakLabel}
+              </p>
+            </div>
+            <p className={cn("text-sm", tone)}>{lastEntryText}</p>
+            {photoUrl ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setPhotoPreviewOpen(true)}
+                  className={cn(
+                    "w-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 rounded-2xl",
+                    dark ? "focus-visible:ring-white focus-visible:ring-offset-slate-900" : "focus-visible:ring-indigo-500 focus-visible:ring-offset-white"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "overflow-hidden rounded-2xl border",
+                      dark ? "border-white/10 bg-black/40" : "border-slate-200 bg-slate-50"
+                    )}
+                  >
+                    <div className="relative flex h-40 w-full items-center justify-center">
+                      <Image
+                        src={photoUrl}
+                        alt="Latest reflection photo"
+                        fill
+                        sizes="(max-width: 768px) 100vw, 320px"
+                        className="object-contain"
+                        unoptimized
+                      />
+                    </div>
+                  </div>
+                  <p className={cn("mt-2 text-xs", tone)}>
+                    Tap to see the full photo.
+                  </p>
+                </button>
+                <Dialog open={photoPreviewOpen} onOpenChange={setPhotoPreviewOpen}>
+                  <DialogContent className="max-w-3xl border-none bg-slate-900/80 p-4 text-white shadow-2xl">
+                    <DialogHeader className="sr-only">
+                      <DialogTitle>Reflection photo preview</DialogTitle>
+                    </DialogHeader>
+                    <div className="relative h-[70vh] w-full">
+                      <Image
+                        src={photoUrl}
+                        alt="Full reflection photo"
+                        fill
+                        sizes="(max-width: 1200px) 90vw, 800px"
+                        className="object-contain"
+                        unoptimized
+                      />
+                    </div>
+                    {photoNote ? (
+                      <p className="mt-4 text-sm text-white/90">{photoNote}</p>
+                    ) : null}
+                  </DialogContent>
+                </Dialog>
+              </>
+            ) : (
+              <p className={cn("text-sm italic", tone)}>
+                Add a photo to your next reflection to light up this space.
+              </p>
+            )}
+            {showJournalCTA ? (
+              <Button
+                className={cn(
+                  "w-full font-semibold text-white shadow-lg shadow-indigo-500/30",
+                  dark
+                    ? "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:brightness-110"
+                    : "bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 hover:brightness-105"
+                )}
+                onClick={onOpenJournal}
+              >
+                {ctaText ?? "Open journal"}
+              </Button>
+            ) : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DailyWorkSummaryCard({
+  summary,
+  loading,
+  isNight,
+}: {
+  summary: DailySummaryPayload | null;
+  loading: boolean;
+  isNight: boolean;
+}) {
+  const tone = isNight ? "text-indigo-200" : "text-indigo-600";
+  return (
+    <Card
+      className={cn(
+        "rounded-[28px] p-6 shadow-sm",
+        isNight
+          ? "border-white/20 bg-gradient-to-br from-indigo-900/60 via-violet-900/40 to-purple-900/60 text-white"
+          : "border-indigo-200 bg-gradient-to-br from-indigo-50 via-violet-50 to-purple-50 text-slate-900"
+      )}
+    >
+      <CardHeader className="p-0">
+        <div className="mb-2 flex items-center gap-2">
+          <Sparkles className={cn("h-5 w-5", isNight ? "text-indigo-300" : "text-indigo-500")} />
+          <p
+            className={cn(
+              "text-xs font-semibold uppercase tracking-[0.35em]",
+              isNight ? "text-indigo-200" : "text-indigo-500"
+            )}
+          >
+            Daily work story
+          </p>
+        </div>
+        <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-slate-900")}>
+          Your morning read
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="mt-4 space-y-5">
+        {loading ? (
+          <div className={cn("flex items-center gap-3 text-sm", tone)}>
+            <Spinner size="sm" className="text-current" />
+            {"Gathering yesterday's wins..."}
+          </div>
+        ) : summary ? (
+          <>
+            <div className="space-y-3">
+              {summary.overview.map((paragraph, index) => (
+                <p
+                  key={index}
+                  className={cn("text-sm leading-relaxed", isNight ? "text-indigo-100" : "text-slate-700")}
+                >
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <WorkTaskListSection
+                label="Work wins"
+                tasks={summary.completedWork}
+                emptyText="Flow didn't capture any work wins yesterday."
+                isNight={isNight}
+              />
+              <WorkTaskListSection
+                label="Carryovers"
+                tasks={summary.pendingWork}
+                emptyText="No work carryovers - plan a fresh priority."
+                isNight={isNight}
+              />
+            </div>
+          </>
+        ) : (
+          <p className={cn("text-sm", tone)}>No summary just yet. Check back tomorrow morning.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DailyRecommendationCard({
+  summary,
+  loading,
+  isNight,
+}: {
+  summary: DailySummaryPayload | null;
+  loading: boolean;
+  isNight: boolean;
+}) {
+  const tone = isNight ? "text-indigo-200" : "text-indigo-600";
+  const accent = isNight ? "text-white" : "text-slate-900";
+  return (
+    <Card
+      className={cn(
+        "rounded-[28px] p-6 shadow-sm",
+        isNight ? "border-white/15 bg-slate-900/70 text-white" : "border-slate-200 bg-white/95 text-slate-900"
+      )}
+    >
+      <CardHeader className="p-0">
+        <p
+          className={cn(
+            "text-xs font-semibold uppercase tracking-[0.35em]",
+            isNight ? "text-indigo-200" : "text-indigo-500"
+          )}
+        >
+          Daily recommendation
+        </p>
+        <CardTitle className={cn("text-xl", accent)}>
+          {"Line up today's moves"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="mt-4 space-y-4">
+        {loading ? (
+          <div className={cn("flex items-center gap-3 text-sm", tone)}>
+            <Spinner size="sm" className="text-current" />
+            {"Drafting today's plan..."}
+          </div>
+        ) : summary ? (
+          <>
+            <ul className="space-y-3 text-sm">
+              {summary.recommendations.map((recommendation, index) => (
+                <li key={index} className="flex gap-3">
+                  <span
+                    className={cn(
+                      "flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                      isNight ? "bg-white/10 text-indigo-100" : "bg-indigo-100 text-indigo-700"
+                    )}
+                  >
+                    {index + 1}
+                  </span>
+                  <p className={cn("leading-relaxed", isNight ? "text-indigo-100" : "text-slate-700")}>
+                    {recommendation}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <div className="rounded-2xl border border-dashed border-slate-300/60 p-3">
+              <WorkTaskListSection
+                label="Anchor these next"
+                tasks={summary.pendingWork}
+                emptyText="No carryovers queued up - add one thing you want to complete."
+                isNight={isNight}
+              />
+            </div>
+          </>
+        ) : (
+          <p className={cn("text-sm", tone)}>Add work tasks in Flow to get tailored recommendations.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function InsightCarousel({
+  insights,
+  loading,
+  isNight,
+  votes,
+  messages,
+  savingInsightId,
+  onVote,
+  onSave,
+  canInteract,
+}: {
+  insights: OrbitInsightCard[];
+  loading: boolean;
+  isNight: boolean;
+  votes: Record<string, InsightVoteDirection>;
+  messages: Record<string, string>;
+  savingInsightId: string | null;
+  onVote: (insight: OrbitInsightCard, direction: InsightVoteDirection) => void;
+  onSave: (insight: OrbitInsightCard) => void;
+  canInteract: boolean;
+}) {
+  const tone = isNight ? "text-indigo-200" : "text-slate-600";
+  return (
+    <Card
+      className={cn(
+        "rounded-[28px] p-6 shadow-sm",
+        isNight ? "border-white/15 bg-slate-900/70 text-white" : "border-slate-200 bg-white/95 text-slate-900"
+      )}
+    >
+      <CardHeader className="p-0">
+        <p
+          className={cn(
+            "text-xs font-semibold uppercase tracking-[0.35em]",
+            isNight ? "text-indigo-200" : "text-indigo-500"
+          )}
+        >
+          New sparks
+        </p>
+        <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-slate-900")}>
+          {"Swipe through today's ideas"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="mt-4">
+        {loading ? (
+          <div className={cn("flex items-center gap-3 text-sm", tone)}>
+            <Spinner size="sm" className="text-current" />
+            Researching new developments...
+          </div>
+        ) : insights.length ? (
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {insights.map((insight) => {
+              const vote = votes[insight.id];
+              return (
+                <article
+                  key={insight.id}
+                  className={cn(
+                    "min-w-[300px] max-w-sm flex-shrink-0 snap-center rounded-2xl border p-5",
+                    isNight ? "border-white/10 bg-slate-900/80" : "border-slate-200 bg-slate-50"
+                  )}
+                >
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-indigo-400">
+                    <span>{insight.type}</span>
+                    <span className="text-indigo-200/60">•</span>
+                    <span>{insight.topic}</span>
+                  </div>
+                  <h3 className={cn("mt-2 text-lg font-semibold", isNight ? "text-white" : "text-slate-900")}>
+                    {insight.title}
+                  </h3>
+                  <p className={cn("mt-1 text-sm font-medium", tone)}>{insight.summary}</p>
+                  <div className="mt-3 space-y-3 text-sm leading-relaxed">
+                    {insight.paragraphs.map((paragraph, index) => (
+                      <p key={index} className={isNight ? "text-indigo-100" : "text-slate-700"}>
+                        {paragraph}
+                      </p>
+                    ))}
+                  </div>
+                  {insight.referenceUrl ? (
+                    <button
+                      className={cn(
+                        "mt-3 inline-flex items-center gap-1 text-xs font-semibold",
+                        isNight ? "text-indigo-200" : "text-indigo-600"
+                      )}
+                      onClick={() => {
+                        if (typeof window !== "undefined") {
+                          window.open(insight.referenceUrl ?? "", "_blank", "noopener,noreferrer");
+                        }
+                      }}
+                    >
+                      Read source
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!canInteract}
+                      className={cn(
+                        "gap-1 rounded-full border px-3",
+                        isNight
+                          ? "border-white/15 text-indigo-100 hover:bg-white/10"
+                          : "border-indigo-100 text-indigo-700 hover:bg-indigo-50",
+                        vote === "more" && (isNight ? "bg-white/10" : "bg-indigo-50")
+                      )}
+                      onClick={() => onVote(insight, "more")}
+                    >
+                      <ThumbsUp className="h-3.5 w-3.5" />
+                      More like this
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!canInteract}
+                      className={cn(
+                        "gap-1 rounded-full border px-3",
+                        isNight
+                          ? "border-white/15 text-indigo-100 hover:bg-white/10"
+                          : "border-indigo-100 text-indigo-700 hover:bg-indigo-50",
+                        vote === "less" && (isNight ? "bg-white/10" : "bg-indigo-50")
+                      )}
+                      onClick={() => onVote(insight, "less")}
+                    >
+                      <ThumbsDown className="h-3.5 w-3.5" />
+                      Less of this
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!canInteract || savingInsightId === insight.id}
+                      className={cn(
+                        "gap-1 rounded-full border px-3",
+                        isNight ? "border-white/20 text-white hover:bg-white/10" : "border-slate-200 text-slate-800"
+                      )}
+                      onClick={() => onSave(insight)}
+                    >
+                      {savingInsightId === insight.id ? (
+                        <Spinner size="sm" className="text-current" />
+                      ) : (
+                        <BookmarkPlus className="h-3.5 w-3.5" />
+                      )}
+                      Save to Orbit
+                    </Button>
+                  </div>
+                  {messages[insight.id] ? (
+                    <p className={cn("mt-2 text-xs", tone)}>{messages[insight.id]}</p>
+                  ) : null}
+                  {!canInteract ? (
+                    <p className={cn("mt-2 text-xs italic", tone)}>Sign in to vote or save.</p>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className={cn("text-sm", tone)}>
+            {"We'll surface new stories once Orbit learns your interests."}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function WorkTaskListSection({
+  label,
+  tasks,
+  emptyText,
+  isNight,
+}: {
+  label: string;
+  tasks: DailySummaryPayload["completedWork"];
+  emptyText: string;
+  isNight: boolean;
+}) {
+  const tone = isNight ? "text-indigo-200" : "text-slate-600";
+  return (
+    <div>
+      <p className={cn("text-xs font-semibold uppercase tracking-[0.35em]", tone)}>{label}</p>
+      {tasks.length ? (
+        <ul className="mt-2 space-y-2 text-sm">
+          {tasks.slice(0, 3).map((task, index) => (
+            <li key={`${task.title}-${index}`} className="flex gap-3">
+              <span
+                className={cn(
+                  "mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full",
+                  isNight ? "bg-indigo-200" : "bg-indigo-500"
+                )}
+              />
+              <div>
+                <p className={cn("font-medium", isNight ? "text-white" : "text-slate-900")}>{task.title}</p>
+                <p className={cn("text-xs", tone)}>
+                  {task.note?.trim() ? task.note : task.status.replace(/_/g, " ")}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className={cn("mt-2 text-sm italic", tone)}>{emptyText}</p>
+      )}
+    </div>
   );
 }

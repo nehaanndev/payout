@@ -4,11 +4,13 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from "firebase/firestore";
 
 import { db } from "./firebase";
@@ -53,6 +55,27 @@ export const fetchJournalDocument = async (
     return null;
   }
   return { id: snapshot.id, ...(snapshot.data() as Omit<JournalDocument, "id">) };
+};
+
+export const findJournalForMember = async (
+  memberId: string
+): Promise<JournalDocument | null> => {
+  if (!memberId) {
+    return null;
+  }
+  const journalsRef = collection(db, "journals");
+  const q = query(
+    journalsRef,
+    where("memberIds", "array-contains", memberId),
+    orderBy("updatedAt", "desc"),
+    limit(1)
+  );
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) {
+    return null;
+  }
+  const docSnap = snapshot.docs[0];
+  return { id: docSnap.id, ...(docSnap.data() as Omit<JournalDocument, "id">) };
 };
 
 export const ensureMemberOnJournal = async (
@@ -106,6 +129,11 @@ export const listJournalEntrySummaries = async (
   const snapshot = await getDocs(q);
   return snapshot.docs.slice(0, limitCount).map((docSnap) => {
     const data = docSnap.data() as JournalEntry;
+    const blogSnippet =
+      data.answers?.blogSummary ||
+      (data.answers?.blogBody
+        ? `${data.answers.blogBody.slice(0, 120)}${data.answers.blogBody.length > 120 ? "..." : ""}`
+        : null);
     return {
       id: data.id,
       entryDate: data.entryDate ?? null,
@@ -114,9 +142,11 @@ export const listJournalEntrySummaries = async (
         data.answers?.goldenMoment ||
         data.answers?.gratitude ||
         data.answers?.dayVibe ||
+        blogSnippet ||
         null,
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
+      entryType: data.entryType ?? "daily",
     };
   });
 };
@@ -131,4 +161,21 @@ export const fetchJournalEntryById = async (
     return null;
   }
   return { id: snapshot.id, ...(snapshot.data() as Omit<JournalEntry, "id">) };
+};
+
+export const fetchJournalEntryByDate = async (
+  journalId: string,
+  entryDate: string
+): Promise<JournalEntry | null> => {
+  if (!entryDate) {
+    return null;
+  }
+  const entriesRef = collection(db, "journals", journalId, "entries");
+  const q = query(entriesRef, where("entryDate", "==", entryDate), limit(1));
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) {
+    return null;
+  }
+  const docSnap = snapshot.docs[0];
+  return { id: docSnap.id, ...(docSnap.data() as Omit<JournalEntry, "id">) };
 };

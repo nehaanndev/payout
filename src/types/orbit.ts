@@ -18,3 +18,36 @@ export type DailySummary = {
   createdAt: string;
 };
 
+export type OrbitInsightType = "news" | "concept";
+
+export type OrbitInsightCard = {
+  id: string;
+  topic: string;
+  title: string;
+  summary: string;
+  paragraphs: string[];
+  type: OrbitInsightType;
+  referenceUrl?: string | null;
+};
+
+export type OrbitInsightPreferences = {
+  moreTopics: Record<string, number>;
+  lessTopics: Record<string, number>;
+  updatedAt: string;
+};
+
+export type InsightVoteDirection = "more" | "less";
+
+export type WorkTaskHighlight = {
+  title: string;
+  status: string;
+  note?: string | null;
+};
+
+export type DailySummaryPayload = {
+  overview: string[];
+  recommendations: string[];
+  completedWork: WorkTaskHighlight[];
+  pendingWork: WorkTaskHighlight[];
+  insights: OrbitInsightCard[];
+};

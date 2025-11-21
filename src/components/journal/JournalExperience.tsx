@@ -26,6 +26,8 @@ import {
   saveJournalEntry,
   listJournalEntrySummaries,
   fetchJournalEntryById,
+  findJournalForMember,
+  fetchJournalEntryByDate,
 } from "@/lib/journalService";
 import { auth, onAuthStateChanged, signOut } from "@/lib/firebase";
 import { generateId } from "@/lib/id";
@@ -33,7 +35,6 @@ import { cn } from "@/lib/utils";
 import type { User } from "@/lib/firebase";
 import type {
   JournalAnswers,
-  JournalDocument,
   JournalEntry,
   JournalMember,
   JournalEntrySummary,
@@ -53,6 +54,9 @@ type JournalQuestion = {
   placeholder?: string;
   helper?: string;
   type?: "textarea" | "input";
+  inputType?: string;
+  required?: boolean;
+  rows?: number;
 };
 
 type JournalStep = {
@@ -62,8 +66,9 @@ type JournalStep = {
   accent: string;
   questions: JournalQuestion[];
 };
+type EntryMode = "daily" | "blog";
 
-const JOURNAL_STEPS: JournalStep[] = [
+const DAILY_STEPS: JournalStep[] = [
   {
     id: "scene",
     title: "Set the Scene",
@@ -77,6 +82,8 @@ const JOURNAL_STEPS: JournalStep[] = [
         label: "What day are we capturing?",
         placeholder: "Select today or the day you're reflecting on",
         type: "input",
+        inputType: "date",
+        required: true,
       },
       {
         id: "dayVibe",
@@ -95,100 +102,132 @@ const JOURNAL_STEPS: JournalStep[] = [
     ],
   },
   {
-    id: "work",
-    title: "Work & Wins",
+    id: "anchors",
+    title: "Anchors & Wins",
     subtitle:
-      "Unpack the stories from work — the shifts, the surprises, the lessons your future self will smile about.",
+      "Reach for the moments that defined work and home without flipping four pages.",
     accent:
       "from-amber-200 via-orange-200 to-rose-200 text-amber-900 border-amber-300",
     questions: [
       {
         id: "workStory",
-        label: "What did you tackle at work today?",
-        placeholder: "Meetings, projects, breakthroughs, tough conversations...",
+        label: "What stood out at work?",
+        placeholder: "A thread you pulled, a meeting, a shift in energy...",
         type: "textarea",
       },
-      {
-        id: "workFeeling",
-        label: "What feeling lingered as you walked away from work?",
-        placeholder: "Proud, stretched, energized, ready for rest...",
-        type: "textarea",
-      },
-    ],
-  },
-  {
-    id: "learning",
-    title: "Growth & Sparks",
-    subtitle:
-      "Capture what stretched you. New insights, lessons, reminders — anything that nudged you forward.",
-    accent:
-      "from-emerald-200 via-teal-200 to-cyan-200 text-emerald-900 border-emerald-300",
-    questions: [
-      {
-        id: "learningNote",
-        label: "What did you learn or notice today?",
-        placeholder: "A new idea, a skill sharpened, a pattern spotted...",
-        type: "textarea",
-      },
-      {
-        id: "forwardIntent",
-        label: "How will you carry that into tomorrow?",
-        placeholder: "A promise to yourself, a habit tweak, a mindset shift...",
-        type: "textarea",
-      },
-    ],
-  },
-  {
-    id: "family",
-    title: "Family & Heartbeats",
-    subtitle:
-      "Hold space for the people you love. The laughs, the quiet moments, the story you want to revisit.",
-    accent:
-      "from-indigo-200 via-sky-200 to-purple-200 text-indigo-900 border-indigo-300",
-    questions: [
       {
         id: "familyStory",
-        label: "What did you do with your wife/kids today?",
-        placeholder:
-          "Bedtime stories, spontaneous adventures, real conversations...",
+        label: "How did the rest of the day unfold?",
+        placeholder: "Moments with family, a walk, a conversation worth saving...",
         type: "textarea",
       },
       {
-        id: "familyFeeling",
-        label: "What made you feel most connected at home?",
-        placeholder:
-          "A shared laugh, a shared silence, a hug that landed just right...",
+        id: "learningNote",
+        label: "Name one lesson or spark to carry forward.",
+        placeholder: "That aha, reminder, or pattern you spotted.",
         type: "textarea",
       },
     ],
   },
   {
-    id: "gratitude",
-    title: "Gratitude & Freestyle",
+    id: "feel",
+    title: "Feelings & Gratitude",
     subtitle:
-      "Seal the day with gratitude and whatever else your heart wants to spill — this page is yours.",
+      "Close the loop with how it felt and who/what deserves a thank-you.",
     accent:
       "from-lime-200 via-yellow-200 to-rose-200 text-lime-900 border-lime-300",
     questions: [
       {
+        id: "workFeeling",
+        label: "How do you feel wrapping today?",
+        placeholder: "Proud, stretched, calm, ready for rest...",
+        type: "textarea",
+        rows: 4,
+      },
+      {
         id: "gratitude",
         label: "Who or what are you grateful for?",
-        placeholder:
-          "Name the person, moment, or simple joy that made the day brighter.",
+        placeholder: "Name the person, moment, or simple joy that stuck.",
         type: "textarea",
       },
       {
         id: "other",
-        label: "Other — write whatever you feel like.",
-        helper:
-          "A wild idea, a vent session, a secret goal — this space is your catch-all page.",
-        placeholder:
-          "Let it flow. No rules, no editing. Just you catching the day before it fades.",
+        label: "Anything else you want to remember?",
+        helper: "A wild idea, a vent session, a secret goal — your call.",
+        placeholder: "Let it flow. No rules, no editing.",
         type: "textarea",
+        rows: 4,
       },
     ],
   },
 ];
+
+const BLOG_STEPS: JournalStep[] = [
+  {
+    id: "basics",
+    title: "Blog basics",
+    subtitle: "Pick a title and a short summary so sharing it is effortless.",
+    accent:
+      "from-sky-200 via-indigo-200 to-purple-200 text-indigo-900 border-indigo-300",
+    questions: [
+      {
+        id: "blogTitle",
+        label: "Post title",
+        placeholder: "Give the piece a punchy headline",
+        type: "input",
+        required: true,
+      },
+      {
+        id: "blogSummary",
+        label: "Optional summary",
+        placeholder: "One or two sentences on what readers will learn.",
+        type: "textarea",
+        rows: 3,
+      },
+    ],
+  },
+  {
+    id: "draft",
+    title: "Draft the post",
+    subtitle: "Capture the body and optional tags before you share.",
+    accent:
+      "from-emerald-200 via-teal-200 to-cyan-200 text-emerald-900 border-emerald-300",
+    questions: [
+      {
+        id: "blogBody",
+        label: "Body",
+        placeholder: "Write the story, unfiltered.",
+        type: "textarea",
+        rows: 10,
+        required: true,
+      },
+      {
+        id: "blogTags",
+        label: "Tags (comma separated)",
+        placeholder: "work, ai, product",
+        type: "input",
+      },
+    ],
+  },
+];
+
+const ENTRY_MODE_OPTIONS: Record<
+  EntryMode,
+  { title: string; description: string; badge: string }
+> = {
+  daily: {
+    title: "Daily journal",
+    description: "Guided prompts to capture the day in a handful of beats.",
+    badge: "Daily",
+  },
+  blog: {
+    title: "Blog post",
+    description: "Long-form draft with title, summary, and tags for sharing.",
+    badge: "Blog",
+  },
+};
+
+const JOURNAL_STORAGE_KEY = "toodl:journalId";
 
 const moodPalette = [
   { label: "Electric", value: "electric" },
@@ -211,6 +250,10 @@ const initialAnswers: JournalAnswers = {
   familyFeeling: "",
   gratitude: "",
   other: "",
+  blogTitle: "",
+  blogSummary: "",
+  blogBody: "",
+  blogTags: "",
 };
 
 const isClient = () => typeof window !== "undefined";
@@ -271,9 +314,8 @@ const JournalExperience = () => {
   const [authChecked, setAuthChecked] = useState(false);
   const [member, setMember] = useState<JournalMember | null>(null);
   const [journalId, setJournalId] = useState<string | null>(null);
-  const [journalDoc, setJournalDoc] = useState<JournalDocument | null>(null);
   const [invalidJournal, setInvalidJournal] = useState(false);
-  const [loadingJournal, setLoadingJournal] = useState(true);
+  const [loadingJournal, setLoadingJournal] = useState(false);
   const [savingEntry, setSavingEntry] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(true);
@@ -282,8 +324,12 @@ const JournalExperience = () => {
     "idle"
   );
 
+  const [entryMode, setEntryMode] = useState<EntryMode>("daily");
   const [currentStep, setCurrentStep] = useState<number>(0);
-  const [answers, setAnswers] = useState<JournalAnswers>(initialAnswers);
+  const [answers, setAnswers] = useState<JournalAnswers>(() => ({
+    ...initialAnswers,
+    entryDate: new Date().toISOString().slice(0, 10),
+  }));
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [libraryLoading, setLibraryLoading] = useState(false);
@@ -328,9 +374,10 @@ const JournalExperience = () => {
     }));
   }, [libraryEntries]);
 
-  const totalSteps = JOURNAL_STEPS.length;
+  const currentSteps = entryMode === "daily" ? DAILY_STEPS : BLOG_STEPS;
+  const totalSteps = currentSteps.length;
   const isSummaryStep = currentStep === totalSteps;
-  const activeStep = isSummaryStep ? null : JOURNAL_STEPS[currentStep];
+  const activeStep = isSummaryStep ? null : currentSteps[currentStep];
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -347,7 +394,6 @@ const JournalExperience = () => {
     if (!user) {
       setMember(null);
       setJournalId(null);
-      setJournalDoc(null);
       setLoadingJournal(false);
       return;
     }
@@ -366,6 +412,26 @@ const JournalExperience = () => {
     }
   }, [journalId, searchParams]);
 
+  useEffect(() => {
+    if (journalId || !isClient()) {
+      return;
+    }
+    const storedId = window.localStorage.getItem(JOURNAL_STORAGE_KEY);
+    if (storedId) {
+      setJournalId(storedId);
+      lastUrlIdRef.current = storedId;
+    }
+  }, [journalId]);
+
+  useEffect(() => {
+    if (!isClient()) {
+      return;
+    }
+    if (journalId) {
+      window.localStorage.setItem(JOURNAL_STORAGE_KEY, journalId);
+    }
+  }, [journalId]);
+
   const persistJournalToUrl = useCallback(
     (id: string) => {
       if (!id) {
@@ -383,39 +449,37 @@ const JournalExperience = () => {
   );
 
   useEffect(() => {
-    if (!member) {
-      return;
-    }
-    if (journalId) {
+    if (!member?.id || journalId) {
+      if (!journalId) {
+        setLoadingJournal(false);
+      }
       return;
     }
     let active = true;
-
-    const bootstrap = async () => {
-      setLoadingJournal(true);
+    setLoadingJournal(true);
+    const locate = async () => {
       try {
-        const newJournalId = await createJournalDocument(member);
+        const doc = await findJournalForMember(member.id);
         if (!active) {
           return;
         }
-        setJournalId(newJournalId);
-        persistJournalToUrl(newJournalId);
-        setInvalidJournal(false);
+        if (doc) {
+          setJournalId(doc.id);
+          persistJournalToUrl(doc.id);
+        }
       } catch (error) {
-        console.error("Failed to create journal:", error);
+        console.error("Failed to locate journal:", error);
+      } finally {
         if (active) {
-          setInvalidJournal(true);
           setLoadingJournal(false);
         }
       }
     };
-
-    bootstrap();
-
+    void locate();
     return () => {
       active = false;
     };
-  }, [journalId, member, persistJournalToUrl]);
+  }, [journalId, member?.id, persistJournalToUrl]);
 
   useEffect(() => {
     if (!member || !journalId) {
@@ -433,15 +497,12 @@ const JournalExperience = () => {
         }
         if (!doc) {
           setInvalidJournal(true);
-          setJournalDoc(null);
           return;
         }
         await ensureMemberOnJournal(journalId, member);
         if (!active) {
           return;
         }
-        setJournalDoc(doc);
-        setInvalidJournal(false);
         persistJournalToUrl(journalId);
       } catch (error) {
         console.error("Failed to load journal:", error);
@@ -455,7 +516,7 @@ const JournalExperience = () => {
       }
     };
 
-    hydrate();
+    void hydrate();
 
     return () => {
       active = false;
@@ -494,6 +555,10 @@ const JournalExperience = () => {
     setCopyStatus("idle");
   }, [shareUrl]);
 
+  useEffect(() => {
+    setCurrentStep(0);
+  }, [entryMode]);
+
   const progressValue = useMemo(() => {
     if (isSummaryStep) {
       return 100;
@@ -505,28 +570,50 @@ const JournalExperience = () => {
     if (isSummaryStep || !activeStep) {
       return false;
     }
-    return activeStep.questions.some((question) => {
-      if (currentStep === 0 && question.id === "entryDate") {
-        return false;
+    return activeStep.questions.every((question) => {
+      if (!question.required) {
+        return true;
       }
       const value = answers[question.id];
-      return value && value.trim().length > 0;
+      return Boolean(value && value.trim().length > 0);
     });
-  }, [activeStep, answers, currentStep, isSummaryStep]);
+  }, [activeStep, answers, isSummaryStep]);
 
   const journalPreview = useMemo(() => {
     const sections: { heading: string; body: string[] }[] = [];
 
+    if (entryMode === "blog") {
+      const title = answers.blogTitle?.trim();
+      const summary = answers.blogSummary?.trim();
+      const body = answers.blogBody?.trim();
+      const tags = answers.blogTags?.trim();
+
+      const blogBody: string[] = [];
+      if (summary) {
+        blogBody.push(summary);
+      }
+      if (body) {
+        blogBody.push(body);
+      }
+      sections.push({
+        heading: title && title.length ? title : "Untitled blog entry",
+        body: blogBody.length ? blogBody : ["Start drafting your post."],
+      });
+      if (tags) {
+        sections.push({
+          heading: "Tags",
+          body: [tags],
+        });
+      }
+      return sections;
+    }
+
     const sceneBody: string[] = [];
     if (answers.dayVibe) {
-      sceneBody.push(
-        `The day floated in feeling ${answers.dayVibe.trim()}.`
-      );
+      sceneBody.push(`The day floated in feeling ${answers.dayVibe.trim()}.`);
     }
     if (selectedMood) {
-      sceneBody.push(
-        `Mood on the journal palette: ${selectedMood.toUpperCase()}.`
-      );
+      sceneBody.push(`Mood palette: ${selectedMood.toUpperCase()}.`);
     }
     if (answers.goldenMoment) {
       sceneBody.push(`Golden moment: ${answers.goldenMoment.trim()}.`);
@@ -535,54 +622,36 @@ const JournalExperience = () => {
       sections.push({ heading: "Scene Setting", body: sceneBody });
     }
 
-    const workBody: string[] = [];
+    const anchorsBody: string[] = [];
     if (answers.workStory) {
-      workBody.push(answers.workStory.trim());
+      anchorsBody.push(answers.workStory.trim());
     }
-    if (answers.workFeeling) {
-      workBody.push(`It left me feeling ${answers.workFeeling.trim()}.`);
-    }
-    if (workBody.length) {
-      sections.push({ heading: "Work & Wins", body: workBody });
-    }
-
-    const growthBody: string[] = [];
-    if (answers.learningNote) {
-      growthBody.push(answers.learningNote.trim());
-    }
-    if (answers.forwardIntent) {
-      growthBody.push(
-        `Tomorrow, I'll carry it forward by ${answers.forwardIntent.trim()}.`
-      );
-    }
-    if (growthBody.length) {
-      sections.push({ heading: "Growth Sparks", body: growthBody });
-    }
-
-    const familyBody: string[] = [];
     if (answers.familyStory) {
-      familyBody.push(answers.familyStory.trim());
+      anchorsBody.push(answers.familyStory.trim());
     }
-    if (answers.familyFeeling) {
-      familyBody.push(`It felt ${answers.familyFeeling.trim()}.`);
+    if (answers.learningNote) {
+      anchorsBody.push(`Lesson to keep: ${answers.learningNote.trim()}.`);
     }
-    if (familyBody.length) {
-      sections.push({ heading: "Family & Heartbeats", body: familyBody });
+    if (anchorsBody.length) {
+      sections.push({ heading: "Anchors & Wins", body: anchorsBody });
     }
 
-    const gratitudeBody: string[] = [];
+    const feelingsBody: string[] = [];
+    if (answers.workFeeling) {
+      feelingsBody.push(`Feeling: ${answers.workFeeling.trim()}.`);
+    }
     if (answers.gratitude) {
-      gratitudeBody.push(`Grateful for ${answers.gratitude.trim()}.`);
+      feelingsBody.push(`Grateful for ${answers.gratitude.trim()}.`);
     }
     if (answers.other) {
-      gratitudeBody.push(answers.other.trim());
+      feelingsBody.push(answers.other.trim());
     }
-    if (gratitudeBody.length) {
-      sections.push({ heading: "Freestyle Reflections", body: gratitudeBody });
+    if (feelingsBody.length) {
+      sections.push({ heading: "Feelings & Gratitude", body: feelingsBody });
     }
 
     return sections;
-  }, [answers, selectedMood]);
+  }, [answers, entryMode, selectedMood]);
 
   const markDirty = useCallback(() => {
     setHasUnsavedChanges(true);
@@ -627,7 +696,10 @@ const JournalExperience = () => {
   };
 
   const handleReset = useCallback(() => {
-    setAnswers(initialAnswers);
+    setAnswers({
+      ...initialAnswers,
+      entryDate: new Date().toISOString().slice(0, 10),
+    });
     setSelectedMood(null);
     setCurrentStep(0);
     setHasUnsavedChanges(true);
@@ -643,42 +715,6 @@ const JournalExperience = () => {
       }
       return next;
     });
-  };
-
-  const handleSaveEntry = async () => {
-    if (!journalId || !member) {
-      return;
-    }
-    setSavingEntry(true);
-    setSaveError(null);
-    try {
-      const nowIso = new Date().toISOString();
-      const normalizedAnswers = Object.entries(answers).reduce(
-        (acc, [key, value]) => {
-          acc[key as keyof JournalAnswers] = value.trim();
-          return acc;
-        },
-        {} as JournalAnswers
-      );
-      const entry: JournalEntry = {
-        id: generateId(),
-        journalId,
-        memberId: member.id,
-        entryDate: normalizedAnswers.entryDate || null,
-        mood: selectedMood,
-        answers: normalizedAnswers,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      };
-      await saveJournalEntry(journalId, entry);
-      setLastSavedAt(nowIso);
-      setHasUnsavedChanges(false);
-    } catch (error) {
-      console.error("Failed to save journal entry:", error);
-      setSaveError("We couldn't save your entry. Please try again in a moment.");
-    } finally {
-      setSavingEntry(false);
-    }
   };
 
   const handleCopyLink = useCallback(async () => {
@@ -701,9 +737,11 @@ const JournalExperience = () => {
   const handleStartFresh = useCallback(() => {
     lastUrlIdRef.current = null;
     setJournalId(null);
-    setJournalDoc(null);
     setInvalidJournal(false);
     router.replace("/journal");
+    if (isClient()) {
+      window.localStorage.removeItem(JOURNAL_STORAGE_KEY);
+    }
     handleReset();
   }, [handleReset, router]);
 
@@ -731,6 +769,7 @@ const JournalExperience = () => {
           {
             label: "Browse entries",
             onClick: () => setLibraryOpen(true),
+            disabled: !journalId,
           },
           {
             label: "Start new entry",
@@ -739,25 +778,29 @@ const JournalExperience = () => {
         ],
       },
     ],
-    [handleCopyLink, handleStartFresh, shareUrl]
+    [handleCopyLink, handleStartFresh, journalId, shareUrl]
   );
 
-  const loadLibraryEntries = useCallback(async () => {
-    if (!journalId) {
-      return;
-    }
-    setLibraryLoading(true);
-    try {
-      const summaries = await listJournalEntrySummaries(journalId);
-      setLibraryEntries(summaries);
-      setLibraryError(null);
-    } catch (error) {
-      console.error("Failed to load journal entries:", error);
-      setLibraryError("We couldn't load previous entries right now.");
-    } finally {
-      setLibraryLoading(false);
-    }
-  }, [journalId]);
+  const loadLibraryEntries = useCallback(
+    async (targetId?: string) => {
+      const sourceId = targetId ?? journalId;
+      if (!sourceId) {
+        return;
+      }
+      setLibraryLoading(true);
+      try {
+        const summaries = await listJournalEntrySummaries(sourceId);
+        setLibraryEntries(summaries);
+        setLibraryError(null);
+      } catch (error) {
+        console.error("Failed to load journal entries:", error);
+        setLibraryError("We couldn't load previous entries right now.");
+      } finally {
+        setLibraryLoading(false);
+      }
+    },
+    [journalId]
+  );
 
   useEffect(() => {
     if (libraryOpen) {
@@ -777,6 +820,7 @@ const JournalExperience = () => {
           throw new Error("Entry not found");
         }
         setAnswers({ ...entry.answers });
+        setEntryMode(entry.entryType ?? "daily");
         setSelectedMood(entry.mood ?? null);
         setLastSavedAt(entry.updatedAt);
         setHasUnsavedChanges(false);
@@ -791,6 +835,59 @@ const JournalExperience = () => {
     },
     [journalId]
   );
+
+  const handleSaveEntry = async () => {
+    if (!member) {
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    const normalizedAnswers = Object.entries(answers).reduce(
+      (acc, [key, value]) => {
+        acc[key as keyof JournalAnswers] = value.trim();
+        return acc;
+      },
+      {} as JournalAnswers
+    );
+    let targetJournalId = journalId;
+    setSavingEntry(true);
+    setSaveError(null);
+    try {
+      if (!targetJournalId) {
+        const newJournalId = await createJournalDocument(member);
+        targetJournalId = newJournalId;
+        setJournalId(newJournalId);
+        persistJournalToUrl(newJournalId);
+      }
+      let existingEntry: JournalEntry | null = null;
+      if (targetJournalId && normalizedAnswers.entryDate) {
+        existingEntry = await fetchJournalEntryByDate(
+          targetJournalId,
+          normalizedAnswers.entryDate
+        );
+      }
+      const ensuredJournalId = targetJournalId as string;
+      const entry: JournalEntry = {
+        id: existingEntry?.id ?? generateId(),
+        journalId: ensuredJournalId,
+        memberId: member.id,
+        entryDate: normalizedAnswers.entryDate || null,
+        mood: entryMode === "daily" ? selectedMood : null,
+        answers: normalizedAnswers,
+        createdAt: existingEntry?.createdAt ?? nowIso,
+        updatedAt: nowIso,
+        entryType: entryMode,
+      };
+      await saveJournalEntry(ensuredJournalId, entry);
+      setLastSavedAt(nowIso);
+      setHasUnsavedChanges(false);
+      void loadLibraryEntries(ensuredJournalId);
+    } catch (error) {
+      console.error("Failed to save journal entry:", error);
+      setSaveError("We couldn't save your entry. Please try again in a moment.");
+    } finally {
+      setSavingEntry(false);
+    }
+  };
 
   if (!authChecked) {
     return (
@@ -875,12 +972,7 @@ const JournalExperience = () => {
     );
   }
 
-  if (
-    loadingJournal ||
-    !journalId ||
-    !journalDoc ||
-    !member
-  ) {
+  if (loadingJournal || !member) {
     return (
       <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
@@ -909,7 +1001,11 @@ const JournalExperience = () => {
                 >
                   Copy journal link
                 </Button>
-                <Button variant="secondary" onClick={() => setLibraryOpen(true)}>
+                <Button
+                  variant="secondary"
+                  onClick={() => setLibraryOpen(true)}
+                  disabled={!journalId}
+                >
                   Browse past entries
                 </Button>
               </div>
@@ -937,8 +1033,40 @@ const JournalExperience = () => {
             colorful notebook. We&apos;ll help you stitch together the work, the
             heart, and the sparks that made today yours.
           </p>
+          <div className="mx-auto max-w-3xl space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+              Choose how you want to write
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(Object.keys(ENTRY_MODE_OPTIONS) as EntryMode[]).map((mode) => {
+                const option = ENTRY_MODE_OPTIONS[mode];
+                const isActive = entryMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setEntryMode(mode)}
+                    className={cn(
+                      "rounded-2xl border px-4 py-3 text-left transition",
+                      isActive
+                        ? "border-rose-400 bg-white shadow-lg shadow-rose-200/60"
+                        : "border-transparent bg-white/60 hover:bg-white/80"
+                    )}
+                  >
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-rose-400">
+                      {option.badge}
+                    </span>
+                    <p className="mt-1 text-lg font-semibold text-slate-900">
+                      {option.title}
+                    </p>
+                    <p className="text-sm text-slate-600">{option.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <p className="text-sm font-medium uppercase tracking-[0.35em] text-slate-400">
-            Journal ID · {journalId}
+            Journal ID · {journalId ?? "Not saved yet"}
           </p>
         </header>
 
@@ -980,53 +1108,56 @@ const JournalExperience = () => {
                     </p>
                   </div>
 
-                  {currentStep === 0 ? (
-                    <div className="grid gap-6">
-                      <div>
-                        <Label className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-                          Pick your day
-                        </Label>
-                        <Input
-                          type="date"
-                          className="mt-2 border-white/60 bg-white/80 shadow-inner shadow-slate-400/10 focus:border-rose-400 focus:ring-rose-300/40"
-                          value={answers.entryDate}
-                          onChange={(event) =>
-                            updateAnswer("entryDate", event.target.value)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-                          Select your mood ink
-                        </Label>
-                        <div className="mt-2 flex flex-wrap gap-3">
-                          {moodPalette.map((mood) => {
-                            const isActive = selectedMood === mood.value;
-                            return (
-                              <button
-                                key={mood.value}
-                                type="button"
-                                onClick={() => handleSelectMood(mood.value)}
-                                className={cn(
-                                  "rounded-full px-4 py-2 text-sm font-semibold transition",
-                                  isActive
-                                    ? "bg-slate-900 text-white shadow-lg shadow-slate-500/30"
-                                    : "bg-white/70 text-slate-700 shadow-sm hover:bg-white"
-                                )}
-                              >
-                                {mood.label}
-                              </button>
-                            );
-                          })}
-                        </div>
+                  {entryMode === "daily" && currentStep === 0 ? (
+                    <div>
+                      <Label className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        Select your mood ink
+                      </Label>
+                      <div className="mt-2 flex flex-wrap gap-3">
+                        {moodPalette.map((mood) => {
+                          const isActive = selectedMood === mood.value;
+                          return (
+                            <button
+                              key={mood.value}
+                              type="button"
+                              onClick={() => handleSelectMood(mood.value)}
+                              className={cn(
+                                "rounded-full px-4 py-2 text-sm font-semibold transition",
+                                isActive
+                                  ? "bg-slate-900 text-white shadow-lg shadow-slate-500/30"
+                                  : "bg-white/70 text-slate-700 shadow-sm hover:bg-white"
+                              )}
+                            >
+                              {mood.label}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   ) : null}
 
                   <div className="grid gap-6">
                     {activeStep.questions.map((question) => {
-                      if (currentStep === 0 && question.id === "entryDate") {
-                        return null;
+                      if (
+                        entryMode === "daily" &&
+                        currentStep === 0 &&
+                        question.id === "entryDate"
+                      ) {
+                        return (
+                          <div key={question.id}>
+                            <Label className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                              {question.label}
+                            </Label>
+                            <Input
+                              type="date"
+                              className="mt-2 border-white/60 bg-white/80 shadow-inner shadow-slate-400/10 focus:border-rose-400 focus:ring-rose-300/40"
+                              value={answers.entryDate}
+                              onChange={(event) =>
+                                updateAnswer("entryDate", event.target.value)
+                              }
+                            />
+                          </div>
+                        );
                       }
                       return (
                         <div key={question.id} className="space-y-2">
@@ -1040,10 +1171,12 @@ const JournalExperience = () => {
                                 updateAnswer(question.id, event.target.value)
                               }
                               placeholder={question.placeholder}
+                              rows={question.rows}
                               className="border-white/50 bg-white/80 shadow-inner shadow-slate-500/10 focus:border-slate-400 focus:ring-slate-300/40"
                             />
                           ) : (
                             <Input
+                              type={question.inputType ?? "text"}
                               value={answers[question.id]}
                               onChange={(event) =>
                                 updateAnswer(question.id, event.target.value)
@@ -1076,14 +1209,16 @@ const JournalExperience = () => {
                 <div className="relative space-y-6">
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-semibold uppercase tracking-[0.3em] text-rose-400">
-                      {answers.entryDate
+                      {entryMode === "blog"
+                        ? answers.blogTitle || "Blog preview"
+                        : answers.entryDate
                         ? formatDisplayDate(answers.entryDate)
-                        : "Journal Preview"}
+                        : "Journal preview"}
                     </span>
                     <h2 className="font-serif text-4xl font-semibold text-slate-900">
-                      Your Story From Today
+                      {entryMode === "blog" ? "Blog draft" : "Your story from today"}
                     </h2>
-                    {selectedMood ? (
+                    {entryMode === "daily" && selectedMood ? (
                       <p className="text-sm font-medium uppercase tracking-[0.35em] text-slate-500">
                         Mood: {selectedMood}
                       </p>
