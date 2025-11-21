@@ -126,40 +126,6 @@ const formatFileSize = (bytes: number) => {
   return `${bytes} B`;
 };
 
-const summariseLinkContent = (link: SharedLink): string => {
-  const sourcePieces: string[] = [];
-  if (link.description) {
-    sourcePieces.push(link.description);
-  }
-  if (link.title) {
-    sourcePieces.push(link.title);
-  }
-  if (link.tags?.length) {
-    sourcePieces.push(`Tags: ${link.tags.join(", ")}`);
-  }
-  if (!sourcePieces.length && link.url) {
-    sourcePieces.push(`Link: ${link.url}`);
-  }
-  const source = sourcePieces.join(". ");
-  if (!source) {
-    return "No additional context available yet.";
-  }
-  const sentences = source
-    .replace(/\s+/g, " ")
-    .split(/(?<=[.!?])\s+/)
-    .filter(Boolean);
-
-  if (sentences.length <= 2) {
-    return source.length > 280 ? `${source.slice(0, 277)}…` : source;
-  }
-
-  const first = sentences[0];
-  const second = sentences[1];
-  const rest = sentences.slice(2).join(" ");
-  const restSnippet = rest.length > 140 ? `${rest.slice(0, 137)}…` : rest;
-  return `${first} ${second}${restSnippet ? ` ${restSnippet}` : ""}`;
-};
-
 const computeSmartScore = (
   link: SharedLink,
   now = Date.now(),
@@ -206,8 +172,6 @@ export function ScratchPadExperience() {
   const [uploadTags, setUploadTags] = useState("");
   const [fileInputKey, setFileInputKey] = useState(0);
   const [tagQuery, setTagQuery] = useState("");
-  const [summaries, setSummaries] = useState<Record<string, string>>({});
-  const [summarizingIds, setSummarizingIds] = useState<Record<string, boolean>>({});
   const [digestExpanded, setDigestExpanded] = useState<boolean>(false);
   const [tagPaneOpen, setTagPaneOpen] = useState(false);
   const [createSuccessSource, setCreateSuccessSource] = useState<"link" | "note" | "file" | null>(
@@ -580,25 +544,6 @@ export function ScratchPadExperience() {
     uploadTitle,
     user,
   ]);
-
-  const handleGenerateSummary = useCallback(
-    async (link: SharedLink) => {
-      const sourceId = link.id;
-      if (summaries[sourceId]) {
-        return;
-      }
-      setSummarizingIds((prev) => ({ ...prev, [sourceId]: true }));
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      const summary = summariseLinkContent(link);
-      setSummaries((prev) => ({ ...prev, [sourceId]: summary }));
-      setSummarizingIds((prev) => {
-        const next = { ...prev };
-        delete next[sourceId];
-        return next;
-      });
-    },
-    [summaries]
-  );
 
   const handleLinkCardClick = useCallback(
     (event: MouseEvent<HTMLElement>, link: SharedLink) => {
@@ -1396,10 +1341,7 @@ export function ScratchPadExperience() {
                 <div className="space-y-3">
                   {visibleLinks.map((link) => {
                     const busy = busyIds[link.id];
-                    const summary = summaries[link.id];
-                    const summarizing = summarizingIds[link.id];
                     const hasUrl = Boolean(link.url);
-                    const isReadLater = link.status === "new";
                     return (
                       <article
                         key={link.id}

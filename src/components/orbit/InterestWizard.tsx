@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { saveUserInterests, getUserInterests } from "@/lib/orbitSummaryService";
+import { saveUserInterests } from "@/lib/orbitSummaryService";
 
 type InterestWizardProps = {
   userId: string;
@@ -95,7 +95,7 @@ export function InterestWizard({ userId, onComplete, dark = false }: InterestWiz
               </CardTitle>
             </div>
             <p className={cn("text-sm mt-2", dark ? "text-indigo-200" : "text-indigo-600")}>
-              Tell us what you're interested in, and we'll curate daily article summaries just for you.
+              Tell us what you&rsquo;re interested in, and we&rsquo;ll curate daily article summaries just for you.
             </p>
           </div>
         </div>
@@ -205,4 +205,3 @@ export function InterestWizard({ userId, onComplete, dark = false }: InterestWiz
     </Card>
   );
 }
-
