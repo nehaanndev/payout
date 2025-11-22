@@ -2934,7 +2934,9 @@ function LearningLessonCard({
       setSaveMessage("Saved to Orbit lessons.");
     } catch (error) {
       console.error("Failed to save lesson to Orbit", error);
-      setSaveMessage("Couldn't save this lesson. Try again.");
+      setSaveMessage(
+        error instanceof Error ? error.message : "Couldn't save this lesson. Try again."
+      );
     } finally {
       setSaving(false);
     }

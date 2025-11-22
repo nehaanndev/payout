@@ -25,6 +25,7 @@ export type SharedLink = {
   summarizable?: boolean; // Mark as article/video/PDF for AI summarization
   createdAt: string;
   updatedAt: string;
+  lessonPayload?: unknown;
 };
 
 export type SharedLinkWritePayload = {

@@ -21,6 +21,7 @@ import {
   Clock,
   Image as ImageIcon,
   FileText,
+  BookOpen,
 } from "lucide-react";
 
 import { AppTopBar } from "@/components/AppTopBar";
@@ -67,6 +68,7 @@ import {
   ORBIT_UPLOAD_MAX_BYTES,
 } from "@/lib/orbitStorage";
 import type { SharedLink, SharedLinkStatus } from "@/types/share";
+import type { OrbitLesson } from "@/types/orbit";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
 
@@ -185,6 +187,7 @@ export function ScratchPadExperience() {
   );
   const [linksOnly, setLinksOnly] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [selectedLesson, setSelectedLesson] = useState<OrbitLesson | null>(null);
   const [noteEditorBody, setNoteEditorBody] = useState("");
   const [noteEditorTags, setNoteEditorTags] = useState("");
   const [noteEditorBusy, setNoteEditorBusy] = useState(false);
@@ -216,6 +219,7 @@ export function ScratchPadExperience() {
       setError(null);
       setShowInterestWizard(false);
       setInterestsChecked(false);
+      setSelectedLesson(null);
       return;
     }
     setLoading(true);
@@ -555,6 +559,11 @@ export function ScratchPadExperience() {
 
   const handleLinkCardClick = useCallback(
     (event: MouseEvent<HTMLElement>, link: SharedLink) => {
+      const lesson = link.sourceApp === "orbit-lesson" ? (link.lessonPayload as OrbitLesson | null) : null;
+      if (lesson) {
+        setSelectedLesson(lesson);
+        return;
+      }
       if (link.contentType !== "note") {
         return;
       }
@@ -1466,14 +1475,17 @@ export function ScratchPadExperience() {
                       const busy = busyIds[link.id];
                       const hasUrl = Boolean(link.url);
                       const isImageOrPdf = link.contentType === "image" || link.contentType === "pdf";
+                      const lessonPayload = link.sourceApp === "orbit-lesson" ? (link.lessonPayload as OrbitLesson | null) : null;
+                      const isLesson = Boolean(lessonPayload);
                       const descriptionExpanded = expandedDescriptions.has(link.id);
                       const tagsExpanded = expandedTags.has(link.id);
                       const displayTags = link.tags || [];
                       const maxVisibleTags = 2;
                       const visibleTags = tagsExpanded ? displayTags : displayTags.slice(0, maxVisibleTags);
                       const remainingTags = displayTags.length - maxVisibleTags;
-                      const descriptionPreview = link.description ? link.description.slice(0, 100) : null;
-                      const showDescriptionExpand = link.description && link.description.length > 100;
+                      const descriptionText = isLesson && lessonPayload?.overview ? lessonPayload.overview : link.description;
+                      const descriptionPreview = descriptionText ? descriptionText.slice(0, 120) : null;
+                      const showDescriptionExpand = descriptionText ? descriptionText.length > 120 : false;
                       const timestamp = new Date(link.createdAt).toLocaleString();
                       const tooltipText = `${timestamp}${link.sourceApp ? ` · via ${link.sourceApp}` : ""}`;
                       
@@ -1586,14 +1598,27 @@ export function ScratchPadExperience() {
                               >
                                 {STATUS_LABEL[link.status]} · {CONTENT_TYPE_LABEL[link.contentType] ?? "Link"}
                               </Badge>
+                              {isLesson ? (
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "border text-[10px] uppercase tracking-wide px-1.5 py-0.5",
+                                    isNight
+                                      ? "border-emerald-300/40 bg-emerald-500/15 text-emerald-200"
+                                      : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                  )}
+                                >
+                                  Lesson
+                                </Badge>
+                              ) : null}
                             </div>
-                            {link.description && (
+                            {descriptionText && (
                               <div>
                                 <p className={cn(
                                   "text-xs whitespace-pre-line",
                                   isNight ? "text-slate-300" : "text-slate-600"
                                 )}>
-                                  {descriptionExpanded ? link.description : descriptionPreview}
+                                  {descriptionExpanded ? descriptionText : descriptionPreview}
                                   {!descriptionExpanded && showDescriptionExpand && "…"}
                                 </p>
                                 {showDescriptionExpand && (
@@ -1662,7 +1687,31 @@ export function ScratchPadExperience() {
                             )}
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
-                            {link.contentType === "note" ? (
+                            {isLesson ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className={cn(
+                                      "h-7 w-7",
+                                      isNight
+                                        ? "bg-emerald-500/20 text-emerald-200 hover:bg-emerald-400/30"
+                                        : "text-emerald-700 hover:bg-emerald-50"
+                                    )}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      if (lessonPayload) {
+                                        setSelectedLesson(lessonPayload);
+                                      }
+                                    }}
+                                  >
+                                    <BookOpen className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Open lesson</TooltipContent>
+                              </Tooltip>
+                            ) : link.contentType === "note" ? (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button
@@ -1918,6 +1967,79 @@ export function ScratchPadExperience() {
                   </Button>
                 </div>
               </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={Boolean(selectedLesson)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedLesson(null);
+          }
+        }}
+      >
+        <DialogContent className={cn(
+          "max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border",
+          isNight ? "border-white/10 bg-slate-900/90 text-white" : "border-emerald-100 bg-white/95 text-slate-900"
+        )}>
+          {selectedLesson ? (
+            <>
+              <DialogHeader className="space-y-1 text-left">
+                <DialogTitle className={cn("text-xl font-semibold", isNight ? "text-white" : "text-slate-900")}>
+                  {selectedLesson.title}
+                </DialogTitle>
+                <DialogDescription className={cn("text-xs", isNight ? "text-indigo-200/80" : "text-emerald-700")}>
+                  Day {selectedLesson.day} of {selectedLesson.totalDays} · Saved lesson
+                </DialogDescription>
+              </DialogHeader>
+              <p className={cn("text-sm", isNight ? "text-indigo-200" : "text-slate-700")}>
+                {selectedLesson.overview}
+              </p>
+              <div className="mt-3 space-y-3 text-sm leading-relaxed">
+                {selectedLesson.paragraphs?.map((paragraph, index) => (
+                  <p key={index} className={isNight ? "text-indigo-100" : "text-slate-700"}>
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+              {selectedLesson.quiz?.length ? (
+                <div className="mt-6 space-y-3 rounded-2xl border border-dashed border-emerald-200/60 p-4">
+                  <p className={cn("text-xs font-semibold uppercase tracking-[0.35em]", isNight ? "text-indigo-200" : "text-emerald-700")}>
+                    Quick quiz
+                  </p>
+                  {selectedLesson.quiz.map((item, idx) => (
+                    <div key={idx} className={cn(
+                      "space-y-2 rounded-xl border px-3 py-2",
+                      isNight ? "border-white/10 bg-white/5" : "border-slate-200 bg-slate-50"
+                    )}>
+                      <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>
+                        {item.question}
+                      </p>
+                      <ul className="space-y-1 text-sm">
+                        {item.answers.map((answer, answerIdx) => (
+                          <li
+                            key={answerIdx}
+                            className={cn(
+                              "rounded-lg border px-3 py-2",
+                              isNight ? "border-white/10 text-indigo-100" : "border-slate-200 text-slate-700",
+                              answer === item.correctAnswer &&
+                                (isNight ? "border-emerald-300/70 bg-emerald-500/10" : "border-emerald-200 bg-emerald-50")
+                            )}
+                          >
+                            {answer}
+                            {answer === item.correctAnswer ? (
+                              <span className={cn("ml-2 text-xs font-semibold", isNight ? "text-emerald-200" : "text-emerald-700")}>
+                                ✓
+                              </span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </>
           ) : null}
         </DialogContent>

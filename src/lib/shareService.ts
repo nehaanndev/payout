@@ -93,6 +93,7 @@ const mapShareDoc = (snapshot: QueryDocumentSnapshot<DocumentData>) => {
     storagePath: data.storagePath ?? null,
     status: normalizeStatus(data.status),
     summarizable: data.summarizable ?? false,
+    lessonPayload: data.lessonPayload ?? null,
     createdAt:
       data.createdAt ??
       (data.serverCreatedAt?.toDate

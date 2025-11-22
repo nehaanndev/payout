@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ lesson: saved });
   } catch (error) {
     console.error("Failed to save Orbit lesson", error);
-    return NextResponse.json({ error: "Failed to save Orbit lesson" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to save Orbit lesson";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

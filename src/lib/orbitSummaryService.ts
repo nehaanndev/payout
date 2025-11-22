@@ -24,9 +24,6 @@ const insightPreferencesDoc = (userId: string) =>
 const learningPlanDoc = (userId: string) =>
   doc(db, "users", userId, "preferences", "orbit-learning-plan");
 
-const orbitLessonsCollection = (userId: string) =>
-  collection(db, "users", userId, "orbit-lessons");
-
 
 export const getUserInterests = async (userId: string): Promise<UserInterests | null> => {
   if (!userId) {
@@ -201,13 +198,53 @@ export const saveOrbitLesson = async (
   if (!userId) {
     throw new Error("User ID is required");
   }
+  if (!topic?.trim()) {
+    throw new Error("Lesson topic is required");
+  }
+  const sanitizedQuiz =
+    Array.isArray(lesson.quiz) && lesson.quiz.length
+      ? lesson.quiz.map((item) => ({
+          question: String(item.question ?? "").trim(),
+          answers: Array.isArray(item.answers)
+            ? item.answers.map((answer) => String(answer ?? "").trim()).filter(Boolean)
+            : [],
+          correctAnswer: String(item.correctAnswer ?? "").trim(),
+        }))
+      : [];
+  const sanitizedLesson: OrbitLearningLesson = {
+    title: String(lesson.title ?? topic).trim(),
+    day: Number(lesson.day) || 1,
+    totalDays: Number(lesson.totalDays) || Number(lesson.day) || 1,
+    overview: String(lesson.overview ?? "").trim(),
+    paragraphs: Array.isArray(lesson.paragraphs)
+      ? lesson.paragraphs.map((p) => String(p ?? "")).filter(Boolean)
+      : [],
+    quiz: sanitizedQuiz.filter((item) => item.question && item.answers.length),
+  };
   const now = new Date().toISOString();
   const payload: Omit<OrbitLesson, "id"> = {
-    topic,
+    topic: topic.trim(),
     createdAt: now,
-    ...lesson,
+    ...sanitizedLesson,
   };
-  const ref = await addDoc(orbitLessonsCollection(userId), payload);
+  const ref = await addDoc(collection(db, "users", userId, "shares"), {
+    url: null,
+    title: payload.title,
+    description: payload.overview,
+    sourceApp: "orbit-lesson",
+    platform: "web",
+    contentType: "note",
+    tags: [payload.topic, "lesson"].filter(Boolean),
+    previewImageUrl: null,
+    storagePath: null,
+    status: "new",
+    summarizable: false,
+    createdAt: now,
+    updatedAt: now,
+    lessonPayload: payload,
+    serverCreatedAt: serverTimestamp(),
+    serverUpdatedAt: serverTimestamp(),
+  });
   return { id: ref.id, ...payload };
 };
 export const getInsightPreferences = async (
