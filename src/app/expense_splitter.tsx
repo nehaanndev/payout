@@ -27,6 +27,7 @@ interface ExpenseSplitterProps {
   currency?: CurrencyCode;
   paymentPreferences?: ExpensePaymentPreferences | null;
   onShowPaymentSettings?: () => void;
+  isNight?: boolean;
 }
 
 export default function ExpenseSplitter({
@@ -36,6 +37,7 @@ export default function ExpenseSplitter({
   currency: initialCurrency,
   paymentPreferences,
   onShowPaymentSettings,
+  isNight = false,
 }: ExpenseSplitterProps) {
 const [loading, setLoading] = useState(true);
 const [activeTab, setActiveTab] = useState<'summary' | 'create'>('summary');
@@ -553,6 +555,7 @@ const handleMarkSettled = (group: Group) => {
               setShowCreateTab(true);
               setActiveTab('create');
             } } onCreateGroup={startNewGroup}
+            isNight={isNight}
           />
             {showSettlementModal && settlementGroup && (
             <SettlementModal

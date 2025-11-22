@@ -15,6 +15,12 @@ import {
   Tag,
   Trash2,
   X,
+  Check,
+  Bookmark,
+  Archive,
+  Clock,
+  Image as ImageIcon,
+  FileText,
 } from "lucide-react";
 
 import { AppTopBar } from "@/components/AppTopBar";
@@ -36,6 +42,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   auth,
   provider,
@@ -186,6 +193,8 @@ export function ScratchPadExperience() {
   const [noteEditorError, setNoteEditorError] = useState<string | null>(null);
   const [showInterestWizard, setShowInterestWizard] = useState(false);
   const [interestsChecked, setInterestsChecked] = useState(false);
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
+  const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set());
   const router = useRouter();
   const initialTheme = useMemo(
     () => (new Date().getHours() < 17 ? "morning" : "night"),
@@ -802,19 +811,6 @@ export function ScratchPadExperience() {
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <OrbitFlowNav />
-              {user ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "border-indigo-200 text-indigo-700 hover:bg-indigo-50",
-                    isNight && "border-white/20 text-white hover:bg-white/10"
-                  )}
-                  onClick={() => setShowInterestWizard(true)}
-                >
-                  Interests wizard
-                </Button>
-              ) : null}
               <ThemeToggle theme={theme} onSelect={setTheme} />
             </div>
           }
@@ -867,16 +863,19 @@ export function ScratchPadExperience() {
           </Card>
         ) : (
           <>
-            <div className="flex flex-col gap-2 rounded-3xl border border-slate-200 bg-white/80 px-4 py-3 shadow-sm">
+            <div className={cn(
+              "flex flex-col gap-2 rounded-3xl border px-4 py-3 shadow-sm",
+              isNight ? "border-white/15 bg-slate-900/60" : "border-slate-200 bg-white/80"
+            )}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Links focus</p>
-                  <p className="text-xs text-slate-500">
-                    Collapse Orbit’s capture tools to keep only “Your links” in view.
+                  <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>Links focus</p>
+                  <p className={cn("text-xs", isNight ? "text-slate-300" : "text-slate-500")}>
+                    Collapse Orbit's capture tools to keep only "Your links" in view.
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-slate-600">
+                  <span className={cn("text-sm font-medium", isNight ? "text-slate-200" : "text-slate-600")}>
                     {linksOnly ? "Links only" : "Capture + links"}
                   </span>
                   <Switch
@@ -885,6 +884,115 @@ export function ScratchPadExperience() {
                     aria-label="Toggle links-only view"
                   />
                 </div>
+              </div>
+            </div>
+
+            <div className={cn(
+              "flex flex-col gap-3 rounded-3xl border px-4 py-3 shadow-sm",
+              isNight ? "border-white/15 bg-slate-900/60" : "border-slate-200 bg-white/80"
+            )}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-1 flex-col gap-2">
+                  <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>Tags & interests</p>
+                  <div className="relative w-full">
+                    <Search className={cn(
+                      "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2",
+                      isNight ? "text-slate-400" : "text-slate-400"
+                    )} />
+                    <Input
+                      value={tagQuery}
+                      onChange={(event) => setTagQuery(event.target.value)}
+                      placeholder="Filter by #tag"
+                      className={cn(
+                        "pl-9 pr-10",
+                        isNight
+                          ? "border-white/15 bg-white/10 text-white placeholder:text-white/40"
+                          : ""
+                      )}
+                    />
+                    {tagQuery ? (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className={cn(
+                          "absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2",
+                          isNight ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-700"
+                        )}
+                        onClick={handleClearTagFilters}
+                        aria-label="Clear tag search"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    ) : null}
+                  </div>
+                  {hasTagFilters ? (
+                    <div className={cn("flex flex-wrap items-center gap-2 text-xs", isNight ? "text-slate-300" : "text-slate-500")}>
+                      <span className={cn("font-medium", isNight ? "text-slate-200" : "text-slate-600")}>Active tags:</span>
+                      {queryTags.map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          className={cn(
+                            "flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium transition",
+                            isNight
+                              ? "border-white/20 text-slate-200 hover:border-rose-300/50 hover:text-rose-300"
+                              : "border-slate-200 text-slate-600 hover:border-rose-200 hover:text-rose-600"
+                          )}
+                          onClick={() => handleRemoveTagFromQuery(tag)}
+                        >
+                          #{tag}
+                          <X className="h-3 w-3" />
+                        </button>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        className={cn("text-xs", isNight ? "text-slate-300 hover:text-white" : "")}
+                        onClick={handleClearTagFilters}
+                      >
+                        Clear tags
+                      </Button>
+                    </div>
+                  ) : recentSearchTags.length ? (
+                    <div className={cn("flex flex-wrap items-center gap-2 text-xs", isNight ? "text-slate-300" : "text-slate-500")}>
+                      <Tag className={cn("h-3.5 w-3.5", isNight ? "text-slate-400" : "text-slate-400")} />
+                      <span>Recent:</span>
+                      {recentSearchTags.map((tag) => (
+                        <button
+                          key={tag.tag}
+                          type="button"
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-[11px] font-medium transition",
+                            isNight
+                              ? "border-white/20 text-slate-200 hover:border-indigo-300/50 hover:text-indigo-300"
+                              : "border-slate-200 text-slate-600 hover:border-indigo-200 hover:text-indigo-600"
+                          )}
+                          onClick={() => handleAddTagToQuery(tag.tag)}
+                        >
+                          #{tag.tag}
+                          <span className={cn("ml-1 text-[10px]", isNight ? "text-slate-400" : "text-slate-400")}>({tag.count})</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                {user ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "text-sm font-semibold",
+                      isNight
+                        ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
+                        : "border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                    )}
+                    onClick={() => setShowInterestWizard(true)}
+                  >
+                    Interests wizard
+                  </Button>
+                ) : null}
               </div>
             </div>
 
@@ -1052,7 +1160,11 @@ export function ScratchPadExperience() {
                       <Button
                         onClick={handleUploadFile}
                         disabled={!uploadFile || createBusy}
-                        className="bg-slate-900 text-white hover:bg-slate-800"
+                        className={cn(
+                          isNight
+                            ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
+                            : "bg-slate-900 text-white hover:bg-slate-800"
+                        )}
                       >
                         {createBusy ? (
                           <>
@@ -1104,6 +1216,11 @@ export function ScratchPadExperience() {
                           onClick={handleCreateNote}
                           disabled={!noteBody.trim() || createBusy}
                           variant="outline"
+                          className={cn(
+                            isNight
+                              ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
+                              : ""
+                          )}
                         >
                           {createBusy ? (
                             <>
@@ -1127,130 +1244,93 @@ export function ScratchPadExperience() {
               </div>
             ) : null}
               <div className="space-y-6">
-            <Card className="border border-slate-200 bg-white/95 shadow-xl shadow-slate-200/50">
-              <CardHeader className="border-b border-slate-100 px-5 py-4">
+            <Card className={cn(
+              "border shadow-xl",
+              isNight
+                ? "border-white/15 bg-slate-900/60 shadow-slate-900/50"
+                : "border-slate-200 bg-white/95 shadow-slate-200/50"
+            )}>
+              <CardHeader className={cn(
+                "border-b px-5 py-4",
+                isNight ? "border-white/10" : "border-slate-100"
+              )}>
                 <div className="space-y-4">
                   <div>
-                    <CardTitle className="text-lg font-semibold text-slate-900">Your links</CardTitle>
-                    <p className="text-sm text-slate-500">
+                    <CardTitle className={cn("text-lg font-semibold", isNight ? "text-white" : "text-slate-900")}>Your links</CardTitle>
+                    <p className={cn("text-sm", isNight ? "text-slate-300" : "text-slate-500")}>
                       Filter by status to move items from your intake queue to your saved list.
                     </p>
                   </div>
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="flex flex-1 flex-col gap-2">
-                      <div className="relative w-full">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                        <Input
-                          value={tagQuery}
-                          onChange={(event) => setTagQuery(event.target.value)}
-                          placeholder="Filter by #tag"
-                          className="pl-9 pr-10"
-                        />
-                        {tagQuery ? (
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-slate-500 hover:text-slate-700"
-                            onClick={handleClearTagFilters}
-                            aria-label="Clear tag search"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        ) : null}
-                      </div>
-                      {hasTagFilters ? (
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                          <span className="font-medium text-slate-600">Active tags:</span>
-                          {queryTags.map((tag) => (
-                            <button
-                              key={tag}
-                              type="button"
-                              className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600 hover:border-rose-200 hover:text-rose-600"
-                              onClick={() => handleRemoveTagFromQuery(tag)}
-                            >
-                              #{tag}
-                              <X className="h-3 w-3" />
-                            </button>
-                          ))}
-                          <Button
-                            type="button"
-                            variant="link"
-                            size="sm"
-                            className="text-xs"
-                            onClick={handleClearTagFilters}
-                          >
-                            Clear tags
-                          </Button>
-                        </div>
-                      ) : recentSearchTags.length ? (
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                          <Tag className="h-3.5 w-3.5 text-slate-400" />
-                          <span>Recent:</span>
-                          {recentSearchTags.map((tag) => (
-                            <button
-                              key={tag.tag}
-                              type="button"
-                              className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600"
-                              onClick={() => handleAddTagToQuery(tag.tag)}
-                            >
-                              #{tag.tag}
-                              <span className="ml-1 text-[10px] text-slate-400">({tag.count})</span>
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                      {FILTERS.map((option) => (
-                        <Button
-                          key={option.id}
-                          variant={option.id === filter ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setFilter(option.id)}
-                          className={cn(
-                            option.id === filter
-                              ? "bg-indigo-500 text-white hover:bg-indigo-400"
-                              : "border-slate-200 text-slate-600 hover:bg-slate-100"
-                          )}
-                        >
-                          {option.label}
-                        </Button>
-                      ))}
-                    </div>
+                  <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                    {FILTERS.map((option) => (
+                      <Button
+                        key={option.id}
+                        variant={option.id === filter ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setFilter(option.id)}
+                        className={cn(
+                          option.id === filter
+                            ? "bg-indigo-500 text-white hover:bg-indigo-400"
+                            : isNight
+                            ? "border-white/20 text-white hover:bg-white/10"
+                            : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                        )}
+                      >
+                        {option.label}
+                      </Button>
+                    ))}
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4 p-5">
                 {tagStats.length ? (
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50/70">
+                  <div className={cn(
+                    "rounded-3xl border",
+                    isNight
+                      ? "border-indigo-400/30 bg-indigo-500/10"
+                      : "border-slate-200 bg-slate-50/70"
+                  )}>
                     <button
                       type="button"
                       onClick={() => setTagPaneOpen((prev) => !prev)}
                       className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
                     >
-                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                        <Tag className="h-4 w-4 text-slate-500" />
+                      <div className={cn(
+                        "flex items-center gap-2 text-sm font-semibold",
+                        isNight ? "text-indigo-200" : "text-slate-700"
+                      )}>
+                        <Tag className={cn("h-4 w-4", isNight ? "text-indigo-300" : "text-slate-500")} />
                         Tags quick filter
-                        <span className="text-xs font-normal text-slate-500">
+                        <span className={cn("text-xs font-normal", isNight ? "text-indigo-300/80" : "text-slate-500")}>
                           {tagStats.length} tracked
                         </span>
                       </div>
-                      <span className="text-xs font-medium text-indigo-600">
+                      <span className={cn(
+                        "text-xs font-medium",
+                        isNight ? "text-indigo-300" : "text-indigo-600"
+                      )}>
                         {tagPaneOpen ? "Hide" : "Show"}
                       </span>
                     </button>
                     {tagPaneOpen ? (
-                      <div className="flex flex-wrap gap-2 border-t border-slate-200 px-4 py-4">
+                      <div className={cn(
+                        "flex flex-wrap gap-2 border-t px-4 py-4",
+                        isNight ? "border-indigo-400/20" : "border-slate-200"
+                      )}>
                         {tagStats.slice(0, 60).map((tag) => (
                           <button
                             key={tag.tag}
                             type="button"
-                            className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600"
+                            className={cn(
+                              "rounded-full border px-3 py-1 text-[11px] font-medium transition",
+                              isNight
+                                ? "border-indigo-400/30 bg-indigo-500/20 text-indigo-200 hover:border-indigo-300 hover:bg-indigo-500/30 hover:text-indigo-100"
+                                : "border-slate-200 text-slate-600 hover:border-indigo-200 hover:text-indigo-600"
+                            )}
                             onClick={() => handleAddTagToQuery(tag.tag)}
                           >
                             #{tag.tag}{" "}
-                            <span className="text-[10px] text-slate-400">({tag.count})</span>
+                            <span className={cn("text-[10px]", isNight ? "text-indigo-300/70" : "text-slate-400")}>({tag.count})</span>
                           </button>
                         ))}
                         {hasTagFilters ? (
@@ -1259,6 +1339,9 @@ export function ScratchPadExperience() {
                             size="sm"
                             variant="ghost"
                             onClick={handleClearTagFilters}
+                            className={cn(
+                              isNight ? "text-indigo-200 hover:text-indigo-100 hover:bg-indigo-500/20" : ""
+                            )}
                           >
                             Clear tag filters
                           </Button>
@@ -1268,10 +1351,18 @@ export function ScratchPadExperience() {
                   </div>
                 ) : null}
                 {weeklyDigest ? (
-                  <div className="rounded-3xl border border-indigo-200 bg-indigo-50/60 p-4">
+                  <div className={cn(
+                    "rounded-3xl border p-4",
+                    isNight
+                      ? "border-indigo-400/30 bg-indigo-500/10"
+                      : "border-indigo-200 bg-indigo-50/60"
+                  )}>
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-indigo-700">
-                      <CalendarDays className="h-5 w-5" />
+                    <div className={cn(
+                      "flex items-center gap-2",
+                      isNight ? "text-indigo-200" : "text-indigo-700"
+                    )}>
+                      <CalendarDays className={cn("h-5 w-5", isNight ? "text-indigo-300" : "")} />
                       <div className="text-sm font-semibold uppercase tracking-wide">
                         Weekly digest
                       </div>
@@ -1279,29 +1370,47 @@ export function ScratchPadExperience() {
                     <Button
                       variant="link"
                       size="sm"
-                      className="px-0 text-indigo-600"
+                      className={cn(
+                        "px-0",
+                        isNight ? "text-indigo-300 hover:text-indigo-200" : "text-indigo-600"
+                      )}
                       onClick={() => setDigestExpanded((prev) => !prev)}
                     >
                       {digestExpanded ? "Hide details" : "View highlights"}
                     </Button>
                   </div>
-                  <div className="mt-2 text-sm text-indigo-700">
+                  <div className={cn(
+                    "mt-2 text-sm",
+                    isNight ? "text-indigo-200" : "text-indigo-700"
+                  )}>
                     {weeklyDigest.total} saved link{weeklyDigest.total === 1 ? "" : "s"} in the last 7 days.
                   </div>
                   {weeklyDigest.topTags.length ? (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       {weeklyDigest.topTags.map((tag) => (
-                        <Badge key={tag.tag} variant="outline" className="border-indigo-200 bg-white/80 text-[11px] uppercase tracking-wide text-indigo-600">
+                        <Badge
+                          key={tag.tag}
+                          variant="outline"
+                          className={cn(
+                            "text-[11px] uppercase tracking-wide",
+                            isNight
+                              ? "border-indigo-400/30 bg-indigo-500/20 text-indigo-200"
+                              : "border-indigo-200 bg-white/80 text-indigo-600"
+                          )}
+                        >
                           <Tag className="mr-1 h-3 w-3" />#{tag.tag} · {tag.count}
                         </Badge>
                       ))}
                     </div>
                   ) : null}
                   {digestExpanded && weeklyDigest.highlights.length ? (
-                    <ul className="mt-3 space-y-2 text-sm text-indigo-700">
+                    <ul className={cn(
+                      "mt-3 space-y-2 text-sm",
+                      isNight ? "text-indigo-200" : "text-indigo-700"
+                    )}>
                       {weeklyDigest.highlights.map((item) => (
                         <li key={item.id} className="flex items-start gap-2">
-                          <ListChecks className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                          <ListChecks className={cn("mt-0.5 h-4 w-4 flex-shrink-0", isNight ? "text-indigo-300" : "")} />
                           <div>
                             <div className="font-medium">
                               {item.url ? (
@@ -1312,7 +1421,10 @@ export function ScratchPadExperience() {
                                 item.title
                               )}
                             </div>
-                            <div className="text-xs text-indigo-500">
+                            <div className={cn(
+                              "text-xs",
+                              isNight ? "text-indigo-300/80" : "text-indigo-500"
+                            )}>
                               Saved {new Date(item.createdAt).toLocaleDateString()}
                             </div>
                           </div>
@@ -1351,136 +1463,361 @@ export function ScratchPadExperience() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {visibleLinks.map((link) => {
-                    const busy = busyIds[link.id];
-                    const hasUrl = Boolean(link.url);
-                    return (
-                      <article
-                        key={link.id}
-                        onClick={(event) => handleLinkCardClick(event, link)}
-                        className={cn(
-                          "flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm shadow-slate-200 transition md:flex-row md:items-center md:justify-between",
-                          link.contentType === "note"
-                            ? "cursor-pointer hover:border-indigo-200 hover:shadow-md"
-                            : "hover:border-indigo-100",
-                          selectedNoteId === link.id && link.contentType === "note"
-                            ? "border-indigo-300 bg-indigo-50/60 shadow-md"
-                            : ""
-                        )}
-                      >
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-base font-semibold text-slate-900">
-                              {link.title || link.url}
-                            </h3>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "border text-xs uppercase tracking-wide",
-                                STATUS_ACCENT[link.status]
+                <TooltipProvider>
+                  <div className="space-y-2">
+                    {visibleLinks.map((link) => {
+                      const busy = busyIds[link.id];
+                      const hasUrl = Boolean(link.url);
+                      const isImageOrPdf = link.contentType === "image" || link.contentType === "pdf";
+                      const descriptionExpanded = expandedDescriptions.has(link.id);
+                      const tagsExpanded = expandedTags.has(link.id);
+                      const displayTags = link.tags || [];
+                      const maxVisibleTags = 2;
+                      const visibleTags = tagsExpanded ? displayTags : displayTags.slice(0, maxVisibleTags);
+                      const remainingTags = displayTags.length - maxVisibleTags;
+                      const descriptionPreview = link.description ? link.description.slice(0, 100) : null;
+                      const showDescriptionExpand = link.description && link.description.length > 100;
+                      const timestamp = new Date(link.createdAt).toLocaleString();
+                      const tooltipText = `${timestamp}${link.sourceApp ? ` · via ${link.sourceApp}` : ""}`;
+                      
+                      return (
+                        <article
+                          key={link.id}
+                          onClick={(event) => {
+                            if (isImageOrPdf && hasUrl && link.url) {
+                              event.preventDefault();
+                              window.open(link.url, "_blank", "noopener,noreferrer");
+                            } else {
+                              handleLinkCardClick(event, link);
+                            }
+                          }}
+                          className={cn(
+                            "flex items-start gap-3 rounded-2xl border px-3 py-2 shadow-sm transition",
+                            isNight
+                              ? "border-white/15 bg-slate-900/60 shadow-slate-900/50"
+                              : "border-slate-200 bg-white shadow-slate-200",
+                            link.contentType === "note"
+                              ? isNight
+                                ? "cursor-pointer hover:border-indigo-400/50 hover:shadow-md"
+                                : "cursor-pointer hover:border-indigo-200 hover:shadow-md"
+                              : isNight
+                              ? "hover:border-indigo-400/30"
+                              : "hover:border-indigo-100",
+                            selectedNoteId === link.id && link.contentType === "note"
+                              ? isNight
+                                ? "border-indigo-400/50 bg-indigo-500/20 shadow-md"
+                                : "border-indigo-300 bg-indigo-50/60 shadow-md"
+                              : ""
+                          )}
+                        >
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {hasUrl && !isImageOrPdf ? (
+                                <>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Link
+                                        href={link.url ?? "#"}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className={cn(
+                                          "text-sm font-semibold truncate",
+                                          isNight 
+                                            ? "text-indigo-300 hover:text-indigo-200 hover:underline" 
+                                            : "text-indigo-600 hover:underline"
+                                        )}
+                                      >
+                                        {link.title || link.url}
+                                      </Link>
+                                    </TooltipTrigger>
+                                    <TooltipContent className={cn(
+                                      isNight ? "bg-slate-800 text-white" : ""
+                                    )}>
+                                      <p className="max-w-xs break-all">{link.url}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Clock className={cn(
+                                        "h-3 w-3 flex-shrink-0",
+                                        isNight ? "text-slate-400" : "text-slate-400"
+                                      )} />
+                                    </TooltipTrigger>
+                                    <TooltipContent className={cn(
+                                      isNight ? "bg-slate-800 text-white" : ""
+                                    )}>
+                                      <p>{tooltipText}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </>
+                              ) : (
+                                <>
+                                  <h3 className={cn(
+                                    "text-sm font-semibold truncate",
+                                    isNight ? "text-white" : "text-slate-900"
+                                  )}>
+                                    {link.title || link.url}
+                                  </h3>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Clock className={cn(
+                                        "h-3 w-3 flex-shrink-0",
+                                        isNight ? "text-slate-400" : "text-slate-400"
+                                      )} />
+                                    </TooltipTrigger>
+                                    <TooltipContent className={cn(
+                                      isNight ? "bg-slate-800 text-white" : ""
+                                    )}>
+                                      <p>{tooltipText}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </>
                               )}
-                            >
-                              {STATUS_LABEL[link.status]}
-                            </Badge>
-                            <Badge variant="secondary" className="text-xs uppercase">
-                              {CONTENT_TYPE_LABEL[link.contentType] ?? "Link"}
-                            </Badge>
-                          </div>
-                          {hasUrl ? (
-                            <p className="text-sm text-slate-500 break-all">{link.url}</p>
-                          ) : null}
-                          {link.description ? (
-                            <p className="text-sm text-slate-600 whitespace-pre-line">
-                              {link.description.length > 220
-                                ? `${link.description.slice(0, 217)}…`
-                                : link.description}
-                            </p>
-                          ) : null}
-                          <div className="flex flex-wrap items-center gap-2">
-                            {link.tags?.map((tag) => (
-                              <Badge key={tag} variant="outline" className="border-slate-200 text-xs">
-                                #{tag}
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "border text-[10px] uppercase tracking-wide px-1.5 py-0.5",
+                                  isNight
+                                    ? link.status === "new"
+                                      ? "bg-amber-500/20 text-amber-300 border-amber-400/30"
+                                      : link.status === "saved"
+                                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/30"
+                                      : "bg-slate-700/50 text-slate-300 border-slate-600/50"
+                                    : STATUS_ACCENT[link.status]
+                                )}
+                              >
+                                {STATUS_LABEL[link.status]} · {CONTENT_TYPE_LABEL[link.contentType] ?? "Link"}
                               </Badge>
-                            ))}
+                            </div>
+                            {link.description && (
+                              <div>
+                                <p className={cn(
+                                  "text-xs whitespace-pre-line",
+                                  isNight ? "text-slate-300" : "text-slate-600"
+                                )}>
+                                  {descriptionExpanded ? link.description : descriptionPreview}
+                                  {!descriptionExpanded && showDescriptionExpand && "…"}
+                                </p>
+                                {showDescriptionExpand && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedDescriptions(prev => {
+                                        const next = new Set(prev);
+                                        if (next.has(link.id)) {
+                                          next.delete(link.id);
+                                        } else {
+                                          next.add(link.id);
+                                        }
+                                        return next;
+                                      });
+                                    }}
+                                    className={cn(
+                                      "text-[10px] mt-0.5 hover:underline",
+                                      isNight ? "text-indigo-300" : "text-indigo-600"
+                                    )}
+                                  >
+                                    {descriptionExpanded ? "Show less" : "Show more"}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                            {displayTags.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1">
+                                {visibleTags.map((tag) => (
+                                  <Badge
+                                    key={tag}
+                                    variant="outline"
+                                    className={cn(
+                                      "text-xs px-2 py-0.5",
+                                      isNight
+                                        ? "border-indigo-400/30 bg-indigo-500/10 text-indigo-200"
+                                        : "border-slate-200"
+                                    )}
+                                  >
+                                    #{tag}
+                                  </Badge>
+                                ))}
+                                {remainingTags > 0 && !tagsExpanded && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedTags(prev => {
+                                        const next = new Set(prev);
+                                        next.add(link.id);
+                                        return next;
+                                      });
+                                    }}
+                                    className={cn(
+                                      "text-xs px-2 py-0.5 rounded border",
+                                      isNight
+                                        ? "border-indigo-400/30 bg-indigo-500/10 text-indigo-200"
+                                        : "border-slate-200 text-slate-600"
+                                    )}
+                                  >
+                                    +{remainingTags}
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          <p className="text-xs text-slate-400">
-                            Shared {new Date(link.createdAt).toLocaleString()}
-                            {link.sourceApp ? ` · via ${link.sourceApp}` : ""}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {link.contentType === "note" ? (
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setSelectedNoteId(link.id);
-                              }}
-                            >
-                              Open note
-                            </Button>
-                          ) : null}
-                          {hasUrl ? (
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={link.url ?? "#"} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="mr-1 h-4 w-4" /> Open
-                              </Link>
-                            </Button>
-                          ) : null}
-                          {link.status !== "saved" ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleStatusChange(link, "saved")}
-                              disabled={busy}
-                            >
-                              Mark saved
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleStatusChange(link, "new")}
-                              disabled={busy}
-                            >
-                              Move to queue
-                            </Button>
-                          )}
-                          {link.status !== "archived" ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleStatusChange(link, "archived")}
-                              disabled={busy}
-                            >
-                              Archive
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleStatusChange(link, "saved")}
-                              disabled={busy}
-                            >
-                              Restore
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDelete(link)}
-                            disabled={busy}
-                          >
-                            <Trash2 className="mr-1 h-4 w-4" /> Delete
-                          </Button>
-                          {busy ? <Spinner size="sm" /> : null}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {link.contentType === "note" ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className={cn(
+                                      "h-7 w-7",
+                                      isNight
+                                        ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400"
+                                        : ""
+                                    )}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setSelectedNoteId(link.id);
+                                    }}
+                                  >
+                                    <FileText className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Open note</TooltipContent>
+                              </Tooltip>
+                            ) : hasUrl ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                    asChild={!isImageOrPdf}
+                                    onClick={isImageOrPdf && link.url ? (e) => {
+                                      e.stopPropagation();
+                                      if (link.url) {
+                                        window.open(link.url, "_blank", "noopener,noreferrer");
+                                      }
+                                    } : undefined}
+                                  >
+                                    {isImageOrPdf ? (
+                                      <span>
+                                        {link.contentType === "image" ? (
+                                          <ImageIcon className="h-3.5 w-3.5" />
+                                        ) : (
+                                          <FileText className="h-3.5 w-3.5" />
+                                        )}
+                                      </span>
+                                    ) : (
+                                      <Link href={link.url ?? "#"} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                      </Link>
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Open {link.contentType === "image" ? "image" : link.contentType === "pdf" ? "PDF" : "link"}</TooltipContent>
+                              </Tooltip>
+                            ) : null}
+                            {link.status !== "saved" ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleStatusChange(link, "saved");
+                                    }}
+                                    disabled={busy}
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Mark saved</TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleStatusChange(link, "new");
+                                    }}
+                                    disabled={busy}
+                                  >
+                                    <Bookmark className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Move to queue</TooltipContent>
+                              </Tooltip>
+                            )}
+                            {link.status !== "archived" ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleStatusChange(link, "archived");
+                                    }}
+                                    disabled={busy}
+                                  >
+                                    <Archive className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Archive</TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleStatusChange(link, "saved");
+                                    }}
+                                    disabled={busy}
+                                  >
+                                    <RefreshCcw className="h-3.5 w-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Restore</TooltipContent>
+                              </Tooltip>
+                            )}
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(link);
+                                  }}
+                                  disabled={busy}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Delete</TooltipContent>
+                            </Tooltip>
+                            {busy ? <Spinner size="sm" className="h-4 w-4" /> : null}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </TooltipProvider>
               )}
             </CardContent>
             </Card>

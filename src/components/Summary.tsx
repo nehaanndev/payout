@@ -4,6 +4,7 @@ import { ArrowUpRight, ChevronDown, Edit2, Share2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import {
   calculateOpenBalancesMinor,
   getSettlementPlanMinor,
@@ -24,6 +25,7 @@ interface SummaryProps {
   onShareGroup: (group: Group) => void;
   onEditGroup: (group: Group) => void;
   onCreateGroup: () => void;
+  isNight?: boolean;
 }
 
 const memberLabel = (count: number) =>
@@ -78,6 +80,7 @@ export default function Summary({
   onShareGroup,
   onEditGroup,
   onCreateGroup,
+  isNight = false,
 }: SummaryProps) {
   const groupSummaries = useMemo<GroupSummary[]>(() => {
     return groups.map((group) => {
@@ -193,7 +196,16 @@ export default function Summary({
         </CardHeader>
         <CardContent className="space-y-4 text-sm text-slate-600">
           <p>Spin up your first tab to start splitting expenses with friends.</p>
-          <Button onClick={onCreateGroup} className="bg-slate-900 text-white hover:bg-slate-800">
+          <Button
+            onClick={onCreateGroup}
+            variant="outline"
+            className={cn(
+              "text-sm font-semibold",
+              isNight
+                ? "bg-violet-500/90 text-slate-900 hover:bg-violet-400 border-transparent"
+                : "border-violet-200 text-violet-700 hover:bg-violet-50"
+            )}
+          >
             Create a group
           </Button>
       </CardContent>
@@ -215,7 +227,12 @@ export default function Summary({
         <Button
           onClick={onCreateGroup}
           variant="outline"
-          className="border-slate-200 text-slate-700 hover:bg-slate-50"
+          className={cn(
+            "text-sm font-semibold",
+            isNight
+              ? "bg-violet-500/90 text-slate-900 hover:bg-violet-400 border-transparent"
+              : "border-violet-200 text-violet-700 hover:bg-violet-50"
+          )}
         >
           New group
         </Button>
@@ -281,7 +298,13 @@ export default function Summary({
                       </Button>
                       <Button
                         size="sm"
-                        className="bg-slate-900 text-white hover:bg-slate-800"
+                        variant="outline"
+                        className={cn(
+                          "text-sm font-semibold",
+                          isNight
+                            ? "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400 border-transparent"
+                            : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                        )}
                         onClick={() => onSelectGroup(group)}
                       >
                         Open group

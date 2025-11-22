@@ -4,6 +4,7 @@ import Image from "next/image";
 import { cloneElement, isValidElement, useMemo } from "react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { theme, themeClasses } from "@/lib/theme";
 
 const PRODUCT_META = {
   expense: {
@@ -78,28 +79,27 @@ export function AppTopBar({
     return userSlot;
   }, [userSlot]);
 
-  const headingTextClass = dark ? "text-white" : "text-slate-900";
-  const subheadingTextClass = dark ? "text-slate-300" : "text-slate-500";
+  const headingTextClass = theme.text.primary(dark);
+  const subheadingTextClass = theme.text.tertiary(dark);
   const containerColors = dark
-    ? "border-slate-800/70 bg-slate-950/70 text-white"
-    : "border-slate-200 bg-white/80 text-slate-900";
-  const shadowClass = dark
-    ? "shadow-[0_25px_60px_-35px_rgba(15,23,42,0.85)]"
-    : "shadow-[0_15px_45px_-25px_rgba(15,23,42,0.45)]";
+    ? cn(
+        "rounded-[32px] border backdrop-blur px-4 py-5 md:px-6",
+        "border-white/40 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-white shadow-lg"
+      )
+    : themeClasses.topBar(dark);
   const overlayClass = dark
-    ? "bg-gradient-to-r from-slate-900/80 via-slate-800/40 to-slate-900/0"
+    ? "" // No overlay needed in night mode - gradient is the background
     : "bg-gradient-to-r from-white/70 via-white/40 to-white/10";
 
   return (
     <header
       className={cn(
-        "relative z-[30] mb-6 overflow-visible rounded-3xl px-4 py-5 backdrop-blur md:px-6",
+        "relative z-[30] mb-6 overflow-visible",
         containerColors,
-        shadowClass,
         className
       )}
     >
-      <div className={cn("pointer-events-none absolute inset-0 rounded-3xl", overlayClass)} />
+      {!dark && <div className={cn("pointer-events-none absolute inset-0 rounded-[32px]", overlayClass)} />}
       <div className="relative flex flex-col gap-4 md:gap-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-2">

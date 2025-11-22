@@ -44,6 +44,7 @@ import {
 import PaymentSettingsDialog from "@/components/PaymentSettingsDialog";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
+import { theme as themeUtils } from "@/lib/theme";
 import {
   fetchExpensePaymentPreferences,
   updateExpensePaymentPreferences,
@@ -694,7 +695,7 @@ export default function Home() {
                 <ThemeToggle theme={theme} onSelect={setTheme} />
                 <Button
                   variant="outline"
-                  className="border-slate-200 text-slate-700 hover:bg-slate-100"
+                  className={themeUtils.button.secondary(isNight)}
                   onClick={() => setPaymentDialogMode("settings")}
                   disabled={!session}
                 >
@@ -721,6 +722,7 @@ export default function Home() {
               currency={currency}
               paymentPreferences={paymentPreferences}
               onShowPaymentSettings={() => setPaymentDialogMode("settings")}
+              isNight={isNight}
             />
           </div>
         </div>
@@ -753,6 +755,7 @@ export default function Home() {
           onMicrosoft={handleMicrosoftSignIn}
           onFacebook={handleFacebookSignIn}
           onContinueWithoutSignIn={handleContinueWithoutSignIn}
+          isNight={isNight}
         />
         <IdentityModal
           open={showIdentityChoice}
@@ -768,6 +771,7 @@ export default function Home() {
           }}
           onSelectExisting={handleSelectExistingIdentity}
           onSubmitNew={handleSubmitIdentityName}
+          isNight={isNight}
         />
       </>
     )}
@@ -790,6 +794,7 @@ type LandingPageProps = {
   onMicrosoft: () => void;
   onFacebook: () => void;
   onContinueWithoutSignIn: () => void;
+  isNight: boolean;
 };
 
 function LandingPage({
@@ -797,6 +802,7 @@ function LandingPage({
   onMicrosoft,
   onFacebook,
   onContinueWithoutSignIn,
+  isNight,
 }: LandingPageProps) {
   return (
     <div className="flex flex-col bg-white text-slate-900">
@@ -820,7 +826,12 @@ function LandingPage({
                 <Button
                   variant="primaryDark"
                   onClick={onGoogle}
-                  className="flex items-center gap-2 bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+                  className={cn(
+                    "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold",
+                    isNight
+                      ? "bg-white text-slate-900 hover:bg-slate-100"
+                      : "bg-slate-900 text-white hover:bg-slate-800"
+                  )}
                 >
                   <Image src="/logos/google.svg" alt="Google" width={18} height={18} className="h-4 w-4" />
                   Start with Google
@@ -828,7 +839,10 @@ function LandingPage({
                 <Button
                   variant="outline"
                   onClick={onMicrosoft}
-                  className="flex items-center gap-2 border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-400 hover:text-slate-900"
+                  className={cn(
+                    "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold",
+                    themeUtils.button.secondary(isNight)
+                  )}
                 >
                   <Image src="/logos/microsoft.svg" alt="Microsoft" width={18} height={18} className="h-4 w-4" />
                   Use Microsoft
@@ -836,7 +850,10 @@ function LandingPage({
                 <Button
                   variant="outline"
                   onClick={onFacebook}
-                  className="flex items-center gap-2 border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-400 hover:text-slate-900"
+                  className={cn(
+                    "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold",
+                    themeUtils.button.secondary(isNight)
+                  )}
                 >
                   <Image src="/logos/facebook.svg" alt="Facebook" width={18} height={18} className="h-4 w-4" />
                   Facebook login
@@ -846,7 +863,11 @@ function LandingPage({
                 <button
                   type="button"
                   onClick={onContinueWithoutSignIn}
-                  className="inline-flex items-center text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
+                  className={cn(
+                    "inline-flex items-center underline-offset-2 hover:underline",
+                    themeUtils.text.muted(isNight),
+                    isNight ? "hover:text-slate-300" : "hover:text-slate-700"
+                  )}
                 >
                   Continue without signing in
                 </button>
@@ -1052,7 +1073,12 @@ function LandingPage({
             <Button
               variant="primaryDark"
               onClick={onGoogle}
-              className="flex items-center gap-2 bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-100"
+              className={cn(
+                "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold",
+                isNight
+                  ? "bg-white text-slate-900 hover:bg-slate-100"
+                  : "bg-slate-900 text-white hover:bg-slate-800"
+              )}
             >
               <Image src="/logos/google.svg" alt="Google" width={18} height={18} className="h-4 w-4" />
               Start with Google
@@ -1060,7 +1086,12 @@ function LandingPage({
             <Button
               variant="outline"
               onClick={onMicrosoft}
-              className="flex items-center gap-2 border-white/40 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+              className={cn(
+                "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold",
+                isNight
+                  ? "border-white/40 bg-white/5 text-white hover:bg-white/10"
+                  : themeUtils.button.secondary(isNight)
+              )}
             >
               <Image src="/logos/microsoft.svg" alt="Microsoft" width={18} height={18} className="h-4 w-4" />
               Use Microsoft
@@ -1068,7 +1099,12 @@ function LandingPage({
             <Button
               variant="outline"
               onClick={onFacebook}
-              className="flex items-center gap-2 border-white/40 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+              className={cn(
+                "flex items-center gap-2 px-5 py-2.5 text-sm font-semibold",
+                isNight
+                  ? "border-white/40 bg-white/5 text-white hover:bg-white/10"
+                  : themeUtils.button.secondary(isNight)
+              )}
             >
               <Image src="/logos/facebook.svg" alt="Facebook" width={18} height={18} className="h-4 w-4" />
               Facebook login
@@ -1077,7 +1113,10 @@ function LandingPage({
           <button
             type="button"
             onClick={onContinueWithoutSignIn}
-            className="mt-6 inline-flex items-center text-sm text-slate-300 underline-offset-2 hover:text-white hover:underline"
+            className={cn(
+              "mt-6 inline-flex items-center text-sm underline-offset-2 hover:underline",
+              isNight ? "text-slate-300 hover:text-white" : "text-slate-500 hover:text-slate-700"
+            )}
           >
             Prefer to explore without signing in
           </button>
@@ -1306,6 +1345,7 @@ type IdentityModalProps = {
   onSelectExisting: () => void;
   onSubmitNew: () => void;
   onClose: () => void;
+  isNight: boolean;
 };
 
 function IdentityModal({
@@ -1318,6 +1358,7 @@ function IdentityModal({
   onSelectExisting,
   onSubmitNew,
   onClose,
+  isNight,
 }: IdentityModalProps) {
   if (!open) {
     return null;
@@ -1335,11 +1376,11 @@ function IdentityModal({
               </p>
             </div>
             <div className="space-y-3">
-              <Button className="w-full" onClick={onSelectExisting}>
+              <Button className={cn("w-full", themeUtils.button.primary(isNight))} onClick={onSelectExisting}>
                 I&apos;m {existingName}
               </Button>
               <Button
-                className="w-full"
+                className={cn("w-full", themeUtils.button.secondary(isNight))}
                 variant="outline"
                 onClick={() => {
                   onSetIsNewUser(true);
@@ -1347,7 +1388,7 @@ function IdentityModal({
               >
                 Somebody else
               </Button>
-              <Button variant="ghost" className="w-full text-slate-500 hover:text-slate-700" onClick={onClose}>
+              <Button variant="ghost" className={cn("w-full", themeUtils.button.ghost(isNight))} onClick={onClose}>
                 Cancel
               </Button>
             </div>
@@ -1368,12 +1409,12 @@ function IdentityModal({
                 value={tempName}
                 onChange={(event) => onSetTempName(event.target.value)}
                 placeholder="Enter your name"
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                className={themeUtils.input(isNight, "w-full")}
               />
-              <Button className="w-full" onClick={onSubmitNew}>
+              <Button className={cn("w-full", themeUtils.button.primary(isNight))} onClick={onSubmitNew}>
                 Continue
               </Button>
-              <Button variant="ghost" className="w-full text-slate-500 hover:text-slate-700" onClick={onClose}>
+              <Button variant="ghost" className={cn("w-full", themeUtils.button.ghost(isNight))} onClick={onClose}>
                 Cancel
               </Button>
             </div>

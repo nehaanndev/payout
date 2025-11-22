@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { theme } from "@/lib/theme";
 
 type ProductKey = "dashboard" | "expense" | "budget" | "journal" | "orbit" | "flow";
 
@@ -78,9 +79,13 @@ const PRODUCT_DESTINATIONS: Array<{
 ];
 
 const getDropdownClasses = (dark: boolean) =>
-  dark
-    ? "absolute right-0 top-0 mt-2 w-80 max-w-[calc(100vw-1.5rem)] transform overflow-visible rounded-3xl border border-white/20 bg-slate-900/95 text-white shadow-2xl shadow-slate-900/50 backdrop-blur z-[9999]"
-    : "absolute right-0 top-0 mt-2 w-80 max-w-[calc(100vw-1.5rem)] transform overflow-visible rounded-3xl border border-slate-100 bg-white/95 shadow-2xl shadow-slate-900/15 backdrop-blur z-[9999]";
+  cn(
+    "absolute right-0 top-0 mt-2 w-80 max-w-[calc(100vw-1.5rem)] transform overflow-visible rounded-3xl backdrop-blur z-[9999]",
+    theme.border.default(dark),
+    theme.bg.overlay(dark),
+    theme.text.primary(dark),
+    theme.shadow(dark)
+  );
 
 export function AppUserMenu({
   product,
@@ -180,7 +185,7 @@ export function AppUserMenu({
       {section.title ? (
         <p className={cn(
           "text-xs font-semibold uppercase tracking-[0.35em]",
-          dark ? "text-slate-300" : "text-slate-400"
+          theme.text.tertiary(dark)
         )}>
           {section.title}
         </p>
@@ -191,13 +196,16 @@ export function AppUserMenu({
             <div
               className={cn(
                 "flex items-center gap-3 rounded-2xl border px-3 py-2 text-sm transition",
-                dark
-                  ? item.disabled
-                    ? "cursor-not-allowed opacity-50 border-white/10 bg-white/5"
-                    : "border-white/15 bg-white/5 hover:border-white/25 hover:bg-white/10"
-                  : item.disabled
-                    ? "cursor-not-allowed opacity-50 border-slate-100 bg-white"
-                    : "border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50"
+                item.disabled
+                  ? cn(
+                      "cursor-not-allowed opacity-50",
+                      theme.border.subtle(dark),
+                      dark ? "bg-white/5" : "bg-white"
+                    )
+                  : cn(
+                      theme.border.default(dark),
+                      dark ? "bg-white/5 hover:border-white/25 hover:bg-white/10" : "bg-white hover:border-slate-200 hover:bg-slate-50"
+                    )
               )}
             >
               {item.icon ? (
@@ -210,25 +218,20 @@ export function AppUserMenu({
               ) : null}
               <div className={cn(
                 "flex flex-1 flex-col text-left",
-                dark ? "text-slate-100" : "text-slate-700"
+                theme.text.secondary(dark)
               )}>
                 <span className="font-medium">{item.label}</span>
                 {item.description ? (
                   <span className={cn(
                     "text-xs",
-                    dark ? "text-slate-400" : "text-slate-500"
+                    theme.text.muted(dark)
                   )}>
                     {item.description}
                   </span>
                 ) : null}
               </div>
               {item.badge ? (
-                <span className={cn(
-                  "rounded-full px-2 py-0.5 text-xs font-medium",
-                  dark
-                    ? "bg-white/10 text-slate-300"
-                    : "bg-slate-100 text-slate-500"
-                )}>
+                <span className={theme.badge(dark)}>
                   {item.badge}
                 </span>
               ) : null}
@@ -292,7 +295,7 @@ export function AppUserMenu({
         <CardHeader className="flex flex-col gap-3 p-0">
           <CardTitle className={cn(
             "flex items-center gap-3 text-base font-semibold",
-            dark ? "text-white" : "text-slate-900"
+            theme.text.primary(dark)
           )}>
             {avatarSrc ? (
               <Image
@@ -302,15 +305,16 @@ export function AppUserMenu({
                 height={48}
                 className={cn(
                   "h-12 w-12 rounded-full border object-cover shadow-sm",
-                  dark ? "border-white/20" : "border-slate-100"
+                  theme.border.default(dark)
                 )}
               />
             ) : (
               <div className={cn(
                 "flex h-12 w-12 items-center justify-center rounded-full border text-sm font-semibold",
+                theme.border.default(dark),
                 dark
-                  ? "border-white/20 bg-white/10 text-slate-200"
-                  : "border-slate-200 bg-slate-100 text-slate-600"
+                  ? "bg-white/10 text-slate-200"
+                  : "bg-slate-100 text-slate-600"
               )}>
                 {displayName.charAt(0).toUpperCase()}
               </div>
@@ -318,13 +322,13 @@ export function AppUserMenu({
             <div className="flex flex-col">
               <span className={cn(
                 "text-xs font-medium uppercase tracking-[0.3em]",
-                dark ? "text-slate-300" : "text-slate-400"
+                theme.text.tertiary(dark)
               )}>
                 {identityLabel}
               </span>
               <span className={cn(
                 "text-sm font-semibold truncate",
-                dark ? "text-white" : "text-slate-900"
+                theme.text.primary(dark)
               )}>
                 {displayName}
               </span>
@@ -338,15 +342,13 @@ export function AppUserMenu({
       {onSignOut ? (
         <div className={cn(
           "flex flex-col gap-3 border-t pt-4",
-          dark ? "border-white/10" : "border-slate-100"
+          theme.border.subtle(dark)
         )}>
           <Button
             variant="outline"
             className={cn(
               "justify-start gap-2 text-sm font-semibold",
-              dark
-                ? "border-white/20 bg-white/5 text-slate-200 hover:border-white/30 hover:bg-white/10"
-                : "border-slate-200 text-slate-700 hover:border-slate-300 hover:text-slate-900"
+              theme.button.secondary(dark)
             )}
             onClick={() => {
               closeAll();
@@ -369,7 +371,7 @@ export function AppUserMenu({
         size="icon"
         className={cn(
           "md:hidden -ml-1",
-          dark ? "text-white hover:bg-white/10" : ""
+          theme.button.ghost(dark)
         )}
         onClick={() => setDrawerOpen(true)}
         aria-label="Open menu"
@@ -380,9 +382,7 @@ export function AppUserMenu({
         type="button"
         className={cn(
           "hidden items-center gap-2 rounded-full border px-2.5 py-1.5 text-sm shadow-sm transition md:flex",
-          dark
-            ? "border-white/20 bg-white/10 text-white hover:border-white/30 hover:bg-white/15"
-            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:text-slate-900"
+          theme.button.primary(dark)
         )}
         onClick={() => setMenuOpen((prev) => !prev)}
         aria-haspopup="dialog"
@@ -396,15 +396,16 @@ export function AppUserMenu({
             height={28}
             className={cn(
               "h-7 w-7 rounded-full border object-cover shadow",
-              dark ? "border-white/20" : "border-slate-100"
+              theme.border.default(dark)
             )}
           />
         ) : (
           <div className={cn(
             "flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold",
+            theme.border.default(dark),
             dark
-              ? "border-white/20 bg-white/10 text-slate-200"
-              : "border-slate-200 bg-slate-100 text-slate-600"
+              ? "bg-white/10 text-slate-200"
+              : "bg-slate-100 text-slate-600"
           )}>
             {displayName.charAt(0).toUpperCase()}
           </div>
@@ -421,20 +422,19 @@ export function AppUserMenu({
           side="left"
           className={cn(
             "w-[85vw] max-w-none border-r px-6 backdrop-blur transition-all duration-300 data-[state=open]:translate-x-0 data-[state=closed]:-translate-x-full",
-            dark
-              ? "border-white/10 bg-slate-900/95"
-              : "border-slate-100 bg-white/95"
+            theme.border.subtle(dark),
+            theme.bg.overlay(dark)
           )}
         >
           <SheetHeader className="flex flex-row items-center justify-between gap-4">
             <SheetTitle className={cn(
               "text-left text-base font-semibold",
-              dark ? "text-white" : "text-slate-900"
+              theme.text.primary(dark)
             )}>
               Menu
             </SheetTitle>
             <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(false)}>
-              <X className={cn("h-5 w-5", dark ? "text-white" : "")} />
+              <X className={cn("h-5 w-5", theme.text.primary(dark))} />
             </Button>
           </SheetHeader>
           <div className="mt-6 space-y-6">{menuContent}</div>

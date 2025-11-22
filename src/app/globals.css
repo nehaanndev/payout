@@ -148,6 +148,10 @@
   animation: dashboard-sun-glow 8s ease-in-out infinite alternate;
 }
 
+/* ============================================
+   Dashboard Night Theme - Centralized Styles
+   ============================================ */
+
 .dashboard-night {
   color: #e2e8f0;
 }
@@ -157,6 +161,7 @@
   color: #e2e8f0;
 }
 
+/* Background overrides */
 .dashboard-night .bg-slate-50,
 .dashboard-night .bg-slate-50\/80,
 .dashboard-night .bg-slate-100,
@@ -177,12 +182,32 @@
   color: #f8fafc;
 }
 
+.dashboard-night .bg-slate-900,
+.dashboard-night .bg-slate-900\/70,
+.dashboard-night .bg-slate-900\/80,
+.dashboard-night .bg-slate-900\/90,
+.dashboard-night .bg-slate-900\/95 {
+  background-color: rgba(15, 23, 42, 0.92);
+}
+
+.dashboard-night .bg-slate-950 {
+  background-color: #020617;
+}
+
+/* Border overrides */
 .dashboard-night .border-slate-100,
 .dashboard-night .border-slate-200,
 .dashboard-night .border-slate-300 {
   border-color: rgba(148, 163, 184, 0.35);
 }
 
+.dashboard-night .border-white\/10,
+.dashboard-night .border-white\/15,
+.dashboard-night .border-white\/20 {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Text color overrides */
 .dashboard-night .text-slate-900,
 .dashboard-night .text-slate-800 {
   color: #f8fafc;
@@ -205,6 +230,11 @@
   color: #94a3b8;
 }
 
+.dashboard-night .text-white {
+  color: #f8fafc;
+}
+
+/* Gradient overrides */
 .dashboard-night .from-white {
   --tw-gradient-from: rgba(15, 23, 42, 0.95);
   --tw-gradient-to: rgba(15, 23, 42, 0);
@@ -219,8 +249,60 @@
   --tw-gradient-to: rgba(5, 150, 105, 0.25);
 }
 
+/* Nested text color fixes */
 .dashboard-night .bg-white\/80 .text-slate-900,
 .dashboard-night .bg-white\/80 .text-slate-800,
-.dashboard-night .bg-white\/80 .text-slate-700 {
+.dashboard-night .bg-white\/80 .text-slate-700,
+.dashboard-night .bg-white\/95 .text-slate-900,
+.dashboard-night .bg-white\/95 .text-slate-800,
+.dashboard-night .bg-white\/95 .text-slate-700 {
   color: inherit;
+}
+
+/* Additional common patterns for consistency */
+.dashboard-night .bg-slate-50\/80 {
+  background-color: #050b18;
+}
+
+.dashboard-night .bg-slate-100\/80 {
+  background-color: #050b18;
+}
+
+/* Ensure backdrop blur elements have proper backgrounds */
+.dashboard-night .backdrop-blur {
+  background-color: rgba(15, 23, 42, 0.95);
+}
+
+/* Input and form elements */
+.dashboard-night input,
+.dashboard-night textarea,
+.dashboard-night select {
+  background-color: rgba(15, 23, 42, 0.5);
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #f8fafc;
+}
+
+.dashboard-night input::placeholder,
+.dashboard-night textarea::placeholder {
+  color: #94a3b8;
+}
+
+/* Button hover states */
+.dashboard-night button:hover:not(:disabled) {
+  transition: all 0.2s ease;
+}
+
+/* Card hover states */
+.dashboard-night .hover\:bg-slate-50:hover,
+.dashboard-night .hover\:bg-white:hover {
+  background-color: rgba(15, 23, 42, 0.95);
+}
+
+/* Link colors */
+.dashboard-night a {
+  color: #cbd5f5;
+}
+
+.dashboard-night a:hover {
+  color: #e2e8f0;
 }
