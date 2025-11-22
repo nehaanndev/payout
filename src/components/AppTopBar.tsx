@@ -46,10 +46,12 @@ const THEMES = {
   morning: {
     id: "morning" as const,
     label: "Morning",
+    emoji: "☀️",
   },
   night: {
     id: "night" as const,
     label: "Night",
+    emoji: "🌙",
   },
 } as const;
 
@@ -99,7 +101,7 @@ export function AppTopBar({
   const subheadingTextClass = theme.text.tertiary(dark);
   const containerColors = dark
     ? cn(
-        "rounded-[32px] border backdrop-blur px-4 py-5 md:px-6",
+        "rounded-[32px] border backdrop-blur px-4 py-6 md:px-6",
         "border-white/40 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-white shadow-lg"
       )
     : themeClasses.topBar(dark);
@@ -120,39 +122,6 @@ export function AppTopBar({
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3 md:gap-4">
-              {mobileUserSlot ? (
-                <div className="flex-shrink-0 md:hidden flex flex-col items-end gap-2">
-                  {mobileUserSlot}
-                  {currentTheme && onThemeChange ? (
-                    <div className={cn(
-                      "flex gap-2 rounded-full border p-1 text-xs font-semibold",
-                      dark
-                        ? "border-white/40 bg-white/20 text-white"
-                        : "border-slate-200 bg-slate-50 text-slate-700"
-                    )}>
-                      {Object.values(THEMES).map((option) => (
-                        <button
-                          key={option.id}
-                          onClick={() => onThemeChange(option.id)}
-                          className={cn(
-                            "rounded-full px-3 py-1 transition",
-                            currentTheme === option.id
-                              ? dark
-                                ? "bg-white/80 text-slate-900"
-                                : "bg-white text-slate-900"
-                              : dark
-                                ? "text-white/80 hover:text-white"
-                                : "text-slate-500 hover:text-slate-700"
-                          )}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-              <div className="flex items-center gap-3 md:gap-4">
                 <Image
                   src={meta.icon}
                   alt={`${product} icon`}
@@ -218,39 +187,6 @@ export function AppTopBar({
                 </div>
               </div>
             </div>
-          </div>
-          {desktopUserSlot ? (
-            <div className="hidden md:flex md:flex-col md:items-end md:gap-2">
-              {desktopUserSlot}
-              {currentTheme && onThemeChange ? (
-                <div className={cn(
-                  "flex gap-2 rounded-full border p-1 text-xs font-semibold",
-                  dark
-                    ? "border-white/40 bg-white/20 text-white"
-                    : "border-slate-200 bg-slate-50 text-slate-700"
-                )}>
-                  {Object.values(THEMES).map((option) => (
-                    <button
-                      key={option.id}
-                      onClick={() => onThemeChange(option.id)}
-                      className={cn(
-                        "rounded-full px-3 py-1 transition",
-                        currentTheme === option.id
-                          ? dark
-                            ? "bg-white/80 text-slate-900"
-                            : "bg-white text-slate-900"
-                          : dark
-                            ? "text-white/80 hover:text-white"
-                            : "text-slate-500 hover:text-slate-700"
-                      )}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
         </div>
         {actions ? (
           <div className="flex flex-wrap items-center gap-2 md:justify-end">
@@ -258,6 +194,44 @@ export function AppTopBar({
           </div>
         ) : null}
       </div>
+      {desktopUserSlot ? (
+        <div className="absolute top-2 right-4 hidden md:flex">
+          {desktopUserSlot}
+        </div>
+      ) : null}
+      {mobileUserSlot ? (
+        <div className="absolute top-2 right-4 md:hidden">
+          {mobileUserSlot}
+        </div>
+      ) : null}
+      {currentTheme && onThemeChange ? (
+        <div className={cn(
+          "absolute bottom-2 right-4 flex gap-1 rounded-full border p-0.5",
+          dark
+            ? "border-white/30 bg-white/10"
+            : "border-slate-200 bg-slate-50/80"
+        )}>
+          {Object.values(THEMES).map((option) => (
+            <button
+              key={option.id}
+              onClick={() => onThemeChange(option.id)}
+              className={cn(
+                "flex items-center justify-center rounded-full px-2 py-1 text-[10px] transition-all",
+                currentTheme === option.id
+                  ? dark
+                    ? "bg-white/20 text-white shadow-sm"
+                    : "bg-white text-slate-900 shadow-sm"
+                  : dark
+                    ? "text-white/60 hover:text-white/80"
+                    : "text-slate-400 hover:text-slate-600"
+              )}
+              title={option.label}
+            >
+              <span className="text-sm leading-none">{option.emoji}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </header>
   );
 }

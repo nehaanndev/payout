@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
-import { theme } from "@/lib/theme";
+import { theme as themeUtils } from "@/lib/theme";
 import { AppTopBar } from "@/components/AppTopBar";
 import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
 import { Input } from "@/components/ui/input";
@@ -2726,7 +2726,7 @@ const BudgetExperience = () => {
             : "bg-gradient-to-b from-slate-50 to-white"
         )}
       >
-        <div className="mx-auto max-w-3xl space-y-6">
+        <div className="mx-auto max-w-6xl space-y-6">
           <AppTopBar
             product="budget"
             heading="Pulse"
@@ -2835,11 +2835,11 @@ const BudgetExperience = () => {
   return (
     <div
       className={cn(
-        "min-h-screen w-full p-4 md:p-8",
+        "min-h-screen w-full px-4 py-10 md:px-8",
         isNight ? "bg-slate-950 text-slate-100" : "bg-gradient-to-b from-slate-50 to-white"
       )}
     >
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-6xl">
         <AppTopBar
           product="budget"
           heading={headingNode}
@@ -2847,37 +2847,6 @@ const BudgetExperience = () => {
           dark={isNight}
           theme={theme}
           onThemeChange={setTheme}
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-10 w-10 border-slate-300"
-                onClick={handleSwitchBudgetView}
-                aria-label="View my budgets"
-              >
-                <Home className="h-4 w-4" />
-              </Button>
-              {shareLink ? (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 border-slate-300"
-                  onClick={handleCopyShareLink}
-                  aria-label="Copy budget share link"
-                >
-                  <Share2 className="h-4 w-4" />
-                </Button>
-              ) : null}
-              <Button
-                variant="secondary"
-                onClick={toggleMode}
-                className="whitespace-nowrap"
-              >
-                {mode === "wizard" ? "Go to Ledger" : "Run Wizard"}
-              </Button>
-            </div>
-          }
           userSlot={
             <AppUserMenu
               product="budget"
@@ -2888,6 +2857,69 @@ const BudgetExperience = () => {
             />
           }
         />
+        <div
+          className={cn(
+            "mb-6 flex flex-wrap items-center justify-between gap-3 rounded-3xl border px-4 py-3 shadow-sm",
+            isNight
+              ? "border-white/15 bg-slate-900/60 shadow-slate-900/50"
+              : "border-slate-200 bg-white/80"
+          )}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            {mode === "ledger" && availableMonths.length > 0 && (
+              <div className="flex items-center gap-2 text-sm">
+                <Label className={cn(isNight ? "text-slate-300" : "text-slate-600")}>Month</Label>
+                <Select
+                  value={activeMonthKey}
+                  onValueChange={(value) => {
+                    void handleSelectMonth(value);
+                  }}
+                >
+                  <SelectTrigger className={cn("w-48", themeUtils.input(isNight))}>
+                    <SelectValue placeholder="Select a month" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableMonths.map((monthKey) => (
+                      <SelectItem key={monthKey} value={monthKey}>
+                        {formatMonthLabel(monthKey)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {shareLink ? (
+              <Button
+                variant="outline"
+                size="icon"
+                className={cn(
+                  "h-10 w-10",
+                  isNight
+                    ? "border-white/20 bg-white/10 text-slate-200 hover:bg-white/20"
+                    : "border-slate-300"
+                )}
+                onClick={handleCopyShareLink}
+                aria-label="Copy budget share link"
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
+            ) : null}
+            <Button
+              variant="secondary"
+              onClick={toggleMode}
+              className={cn(
+                "whitespace-nowrap",
+                isNight
+                  ? "border-white/20 bg-white/10 text-slate-200 hover:bg-white/20"
+                  : ""
+              )}
+            >
+              {mode === "wizard" ? "Go to Ledger" : "Run Wizard"}
+            </Button>
+          </div>
+        </div>
         {budgetListError ? (
           <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm text-rose-600">
             {budgetListError}
@@ -2921,30 +2953,6 @@ const BudgetExperience = () => {
             </div>
           </div>
         ) : null}
-        {mode === "ledger" && availableMonths.length > 0 && (
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm">
-              <Label className="text-slate-600">Month</Label>
-              <Select
-                value={activeMonthKey}
-                onValueChange={(value) => {
-                  void handleSelectMonth(value);
-                }}
-              >
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Select a month" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableMonths.map((monthKey) => (
-                    <SelectItem key={monthKey} value={monthKey}>
-                      {formatMonthLabel(monthKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )}
         {mode === "wizard" ? (
           <Wizard
             step={step}

@@ -60,12 +60,14 @@ const THEMES = {
   morning: {
     id: "morning",
     label: "Morning",
+    emoji: "☀️",
     gradient: "from-amber-50 via-white to-emerald-50",
     hero: "bg-gradient-to-br from-amber-100/40 via-white to-emerald-100/30",
   },
   night: {
     id: "night",
     label: "Night",
+    emoji: "🌙",
     gradient: "from-slate-900 via-slate-800 to-slate-900",
     hero: "bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900",
   },
@@ -1054,38 +1056,13 @@ export default function DailyDashboardPage() {
             theme === "night" ? "text-white" : "text-slate-900"
           )}
         >
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-xs font-semibold uppercase tracking-[0.4em] text-current/70">
-                Ritual dashboard
-              </span>
-              <div className={cn(
-                "flex gap-2 rounded-full border p-1 text-xs font-semibold",
-                theme === "night"
-                  ? "border-white/40 bg-white/20 text-white"
-                  : "border-slate-200 bg-slate-50 text-slate-700"
-              )}>
-                {Object.values(THEMES).map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => setTheme(option.id)}
-                    className={cn(
-                      "rounded-full px-3 py-1 transition",
-                      theme === option.id
-                        ? theme === "night"
-                          ? "bg-white/80 text-slate-900"
-                          : "bg-white text-slate-900"
-                        : theme === "night"
-                          ? "text-white/80 hover:text-white"
-                          : "text-slate-500 hover:text-slate-700"
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {user ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-semibold uppercase tracking-[0.4em] text-current/70">
+              Ritual dashboard
+            </span>
+          </div>
+          {user ? (
+            <div className="absolute top-2 right-4">
               <AppUserMenu
                 product="dashboard"
                 displayName={userDisplayName}
@@ -1093,7 +1070,33 @@ export default function DailyDashboardPage() {
                 onSignOut={handleSignOut}
                 dark={isNight}
               />
-            ) : null}
+            </div>
+          ) : null}
+          <div className={cn(
+            "absolute bottom-2 right-4 flex gap-1 rounded-full border p-0.5",
+            theme === "night"
+              ? "border-white/30 bg-white/10"
+              : "border-slate-200 bg-slate-50/80"
+          )}>
+            {Object.values(THEMES).map((option) => (
+              <button
+                key={option.id}
+                onClick={() => setTheme(option.id)}
+                className={cn(
+                  "flex items-center justify-center rounded-full px-2 py-1 text-[10px] transition-all",
+                  theme === option.id
+                    ? theme === "night"
+                      ? "bg-white/20 text-white shadow-sm"
+                      : "bg-white text-slate-900 shadow-sm"
+                    : theme === "night"
+                      ? "text-white/60 hover:text-white/80"
+                      : "text-slate-400 hover:text-slate-600"
+                )}
+                title={option.label}
+              >
+                <span className="text-sm leading-none">{option.emoji}</span>
+              </button>
+            ))}
           </div>
           <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
             <div>

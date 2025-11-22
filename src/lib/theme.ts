@@ -221,7 +221,7 @@ export const themeClasses = {
    */
   topBar: (isNight: boolean) =>
     cn(
-      "rounded-3xl border backdrop-blur px-4 py-5 md:px-6",
+      "rounded-3xl border backdrop-blur px-4 py-6 md:px-6",
       isNight
         ? "border-slate-800/70 bg-slate-950/70 text-white shadow-[0_25px_60px_-35px_rgba(15,23,42,0.85)]"
         : "border-slate-200 bg-white/80 text-slate-900 shadow-[0_15px_45px_-25px_rgba(15,23,42,0.45)]"

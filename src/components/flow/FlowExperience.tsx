@@ -1085,7 +1085,7 @@ export function FlowExperience() {
         isNight && "from-slate-950 via-slate-900 to-emerald-950 text-slate-100"
       )}
     >
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-16 pt-6 md:px-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-16 pt-10 md:px-6">
         <AppTopBar
           product="flow"
           heading="Flow"
@@ -1093,11 +1093,7 @@ export function FlowExperience() {
           dark={isNight}
           theme={theme}
           onThemeChange={setTheme}
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <OrbitFlowNav />
-            </div>
-          }
+          actions={undefined}
           userSlot={
             user ? (
               <AppUserMenu
@@ -1169,16 +1165,20 @@ export function FlowExperience() {
         ) : (
           <>
             {plan ? (
-              <div className="flex flex-col gap-2 rounded-3xl border border-slate-200 bg-white/80 px-4 py-3 shadow-sm">
+              <div className={cn(
+                "flex flex-col gap-2 rounded-3xl border px-4 py-3 shadow-sm",
+                isNight ? "border-white/15 bg-slate-900/60" : "border-slate-200 bg-white/80"
+              )}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Timeline focus</p>
-                    <p className="text-xs text-slate-500">
-                      Collapse planning tools to keep only Today’s timeline visible.
+                    <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>Timeline focus</p>
+                    <p className={cn("text-xs", isNight ? "text-slate-300" : "text-slate-500")}>
+                      Collapse planning tools to keep only Today's timeline visible.
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-slate-600">
+                    <OrbitFlowNav isNight={isNight} />
+                    <span className={cn("text-sm font-medium", isNight ? "text-slate-200" : "text-slate-600")}>
                       {timelineOnly ? "Timeline only" : "Full workspace"}
                     </span>
                     <Switch

@@ -700,7 +700,7 @@ export default function Home() {
     {session || anonUser ? (
       <div
         className={cn(
-          "min-h-screen px-4 py-6",
+          "min-h-screen px-4 py-10",
           isNight ? "bg-slate-950 text-slate-100" : "bg-slate-50/80"
         )}
       >

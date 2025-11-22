@@ -797,11 +797,11 @@ export function ScratchPadExperience() {
   return (
     <div
       className={cn(
-        "min-h-screen p-4 pb-12 sm:p-6",
+        "min-h-screen px-4 py-10 sm:px-6",
         isNight ? "bg-slate-950 text-slate-100" : "bg-slate-50/80"
       )}
     >
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <AppTopBar
           product="orbit"
           heading="Orbit"
@@ -809,11 +809,7 @@ export function ScratchPadExperience() {
           dark={isNight}
           theme={theme}
           onThemeChange={setTheme}
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <OrbitFlowNav />
-            </div>
-          }
+          actions={undefined}
           userSlot={
             user ? (
               <AppUserMenu
@@ -875,6 +871,7 @@ export function ScratchPadExperience() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
+                  <OrbitFlowNav isNight={isNight} />
                   <span className={cn("text-sm font-medium", isNight ? "text-slate-200" : "text-slate-600")}>
                     {linksOnly ? "Links only" : "Capture + links"}
                   </span>

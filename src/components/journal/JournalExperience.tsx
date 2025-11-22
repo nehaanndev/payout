@@ -900,7 +900,7 @@ const JournalExperience = () => {
 
   if (authChecked && !user) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-16">
+      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-10">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
         <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-8">
           <AppTopBar
@@ -949,7 +949,7 @@ const JournalExperience = () => {
 
   if (invalidJournal) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-16">
+      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-10">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
         <div className="mx-auto flex min-h-[70vh] w-full max-w-3xl items-center justify-center">
           <Card className="w-full border-none bg-white/85 p-10 text-center shadow-2xl shadow-rose-200/50 backdrop-blur-xl">
@@ -984,9 +984,9 @@ const JournalExperience = () => {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-16">
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-10">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
-      <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-10">
+      <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-10">
         <AppTopBar
           product="journal"
           heading="Story"
