@@ -105,6 +105,7 @@ type FlowWizardProps = {
   settings: FlowSettings;
   onClose: () => void;
   onSave: (settings: FlowSettings) => void;
+  isNight?: boolean;
 };
 
 type RoutineDialogDraft = {
@@ -127,7 +128,7 @@ const createRoutineDraft = (days?: FlowDayOfWeek[]): RoutineDialogDraft => ({
   days: days ?? FLOW_DAY_ORDER.slice(),
 });
 
-export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps) {
+export function FlowWizard({ open, settings, onClose, onSave, isNight = false }: FlowWizardProps) {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<FlowSettings>(() => cloneSettings(settings));
   const [showSleepOverrides, setShowSleepOverrides] = useState(false);
@@ -379,22 +380,39 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
 
   return (
     <Dialog open={open} onOpenChange={(value) => (!value ? onClose() : undefined)}>
-      <DialogContent className="max-h-[90vh] w-full overflow-y-auto rounded-3xl border border-slate-200 bg-white/95 px-0 pb-0 pt-0 shadow-2xl shadow-emerald-200/40 sm:max-w-3xl">
-        <div className="sticky top-0 z-10 border-b border-slate-100 bg-white/90 px-6 py-5 backdrop-blur">
+      <DialogContent className={cn(
+        "max-h-[90vh] w-full overflow-y-auto rounded-3xl border px-0 pb-0 pt-0 shadow-2xl sm:max-w-3xl",
+        isNight
+          ? "border-white/15 bg-slate-900/95 shadow-slate-900/50"
+          : "border-slate-200 bg-white/95 shadow-emerald-200/40"
+      )}>
+        <div className={cn(
+          "sticky top-0 z-10 border-b px-6 py-5 backdrop-blur",
+          isNight ? "border-white/10 bg-slate-900/90" : "border-slate-100 bg-white/90"
+        )}>
           <DialogHeader className="space-y-2">
-            <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+            <DialogTitle className={cn(
+              "flex items-center gap-2 text-lg font-semibold",
+              isNight ? "text-white" : "text-slate-900"
+            )}>
               <Workflow className="h-5 w-5 text-emerald-500" />
               Flow day wizard
             </DialogTitle>
-            <DialogDescription className="text-sm text-slate-500">
+            <DialogDescription className={cn(
+              "text-sm",
+              isNight ? "text-slate-300" : "text-slate-500"
+            )}>
               Shape your default rhythm. Flow will apply these anchors whenever you start a new day.
             </DialogDescription>
           </DialogHeader>
-          <div className="mt-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-600">
+          <div className={cn(
+            "mt-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide",
+            isNight ? "text-emerald-300" : "text-emerald-600"
+          )}>
             <span>
               Step {step + 1} of {stepTitles.length}
             </span>
-            <span className="text-slate-400">·</span>
+            <span className={cn(isNight ? "text-slate-500" : "text-slate-400")}>·</span>
             <span>{stepTitles[step]}</span>
           </div>
         </div>
@@ -402,11 +420,11 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
         <div className="px-6 py-6">
           {step === 0 ? (
             <div className="space-y-6">
-              <p className="text-sm text-slate-500">
+              <p className={cn("text-sm", isNight ? "text-slate-300" : "text-slate-500")}>
                 Keep it simple—set the defaults you reach for most days. You can reopen this anytime.
               </p>
               <section className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-600">
+                <div className={cn("flex items-center gap-2 text-sm font-semibold uppercase tracking-wide", isNight ? "text-slate-200" : "text-slate-600")}>
                   <Clock className="h-4 w-4 text-emerald-500" />
                   Workday cadence
                 </div>
@@ -437,7 +455,7 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
               </section>
               <Separator />
               <section className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-600">
+                <div className={cn("flex items-center gap-2 text-sm font-semibold uppercase tracking-wide", isNight ? "text-slate-200" : "text-slate-600")}>
                   <Moon className="h-4 w-4 text-indigo-500" />
                   Rest & sleep
                 </div>
@@ -470,7 +488,7 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="text-xs font-semibold text-emerald-600"
+                    className={cn("text-xs font-semibold", isNight ? "text-emerald-300" : "text-emerald-600")}
                     onClick={() => setShowSleepOverrides((prev) => !prev)}
                   >
                     {showSleepOverrides
@@ -481,13 +499,16 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                   </Button>
                 </div>
                 {!showSleepOverrides && hasSleepOverrides ? (
-                  <p className="text-xs text-slate-500">
+                  <p className={cn("text-xs", isNight ? "text-slate-300" : "text-slate-500")}>
                     Custom days: {overrideDayOrder.map((day) => DAY_LABELS[day].label).join(", ")}
                   </p>
                 ) : null}
                 {showSleepOverrides && (
-                  <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <div className={cn(
+                    "space-y-3 rounded-2xl border p-4",
+                    isNight ? "border-white/15 bg-slate-800/60" : "border-slate-100 bg-slate-50/60"
+                  )}>
+                    <p className={cn("text-xs font-semibold uppercase tracking-wide", isNight ? "text-slate-300" : "text-slate-500")}>
                       Pick days to override
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -502,7 +523,11 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                             className={cn(
                               "rounded-full px-3 text-xs",
                               selected
-                                ? "border-emerald-500 bg-emerald-500 text-white"
+                                ? isNight
+                                  ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-200"
+                                  : "border-emerald-500 bg-emerald-500 text-white"
+                                : isNight
+                                ? "border-white/20 bg-white/10 text-slate-300 hover:bg-white/20"
                                 : "border-slate-200 bg-white text-slate-500 hover:bg-slate-100"
                             )}
                             onClick={() => toggleSleepOverrideDay(day)}
@@ -515,7 +540,10 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                     {Object.entries(sleepOverrides).map(([day, times]) => (
                       <div
                         key={day}
-                        className="grid gap-3 rounded-2xl border border-slate-100 bg-white/80 p-3 md:grid-cols-2"
+                        className={cn(
+                          "grid gap-3 rounded-2xl border p-3 md:grid-cols-2",
+                          isNight ? "border-white/15 bg-slate-800/60" : "border-slate-100 bg-white/80"
+                        )}
                       >
                         <div className="space-y-1">
                           <Label>Lights out · {DAY_LABELS[day as FlowDayOfWeek].label}</Label>
@@ -556,7 +584,7 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
           {step === 1 ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-600">
+                <div className={cn("flex items-center gap-2 text-sm font-semibold uppercase tracking-wide", isNight ? "text-slate-200" : "text-slate-600")}>
                   <UtensilsCrossed className="h-4 w-4 text-amber-500" />
                   Meals & breaks
                 </div>
@@ -568,7 +596,10 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                 {draft.meals.map((meal, index) => (
                   <div
                     key={meal.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 md:flex-row md:items-center md:justify-between"
+                    className={cn(
+                      "flex flex-col gap-3 rounded-2xl border p-4 md:flex-row md:items-center md:justify-between",
+                      isNight ? "border-white/15 bg-slate-800/60" : "border-slate-200 bg-slate-50/60"
+                    )}
                   >
                     <div className="flex-1 space-y-2">
                       <Label>Label</Label>
@@ -602,7 +633,9 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                       variant="ghost"
                       size="sm"
                       onClick={() => handleRemoveMeal(index)}
-                      className="text-slate-500 hover:text-rose-500"
+                      className={cn(
+                        isNight ? "text-slate-300 hover:text-rose-400" : "text-slate-500 hover:text-rose-500"
+                      )}
                     >
                       Remove
                     </Button>
@@ -615,11 +648,11 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
           {step === 2 ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-600">
+                <div className={cn("flex items-center gap-2 text-sm font-semibold uppercase tracking-wide", isNight ? "text-slate-200" : "text-slate-600")}>
                   <Sun className="h-4 w-4 text-emerald-500" />
                   Fixed rituals
                 </div>
-                <p className="text-sm text-slate-500">
+                <p className={cn("text-sm", isNight ? "text-slate-300" : "text-slate-500")}>
                   Capture the anchors you do every day or only on certain days. We’ll keep them pinned to your schedule.
                 </p>
               </div>
@@ -637,12 +670,15 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
               return (
                 <div
                   key={event.id}
-                  className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/60 p-4"
+                  className={cn(
+                    "space-y-3 rounded-2xl border p-4",
+                    isNight ? "border-white/15 bg-slate-800/60" : "border-slate-200 bg-slate-50/60"
+                  )}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{event.label}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>{event.label}</p>
+                      <p className={cn("text-xs", isNight ? "text-slate-300" : "text-slate-500")}>
                         {category ? `${category.emoji} ${category.label}` : "Routine"} · {event.startTime} · {event.durationMinutes} min
                       </p>
                     </div>
@@ -673,7 +709,11 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                           className={cn(
                             "rounded-full border px-2 py-0.5",
                             active
-                              ? "border-emerald-500 bg-emerald-500/10 text-emerald-600"
+                              ? isNight
+                                ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                                : "border-emerald-500 bg-emerald-500/10 text-emerald-600"
+                              : isNight
+                              ? "border-white/15 text-slate-500"
                               : "border-slate-200 text-slate-400"
                           )}
                         >
@@ -687,7 +727,12 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                       {event.tags.map((tag) => (
                         <span
                           key={`${event.id}-${tag}`}
-                          className="rounded-full bg-white/80 px-2 py-0.5 text-slate-600"
+                          className={cn(
+                            "rounded-full px-2 py-0.5",
+                            isNight
+                              ? "bg-white/10 text-slate-300"
+                              : "bg-white/80 text-slate-600"
+                          )}
                         >
                           #{tag}
                         </span>
@@ -709,11 +754,14 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
           {step === 3 ? (
             <div className="space-y-5">
               <section className="space-y-2">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-600">
+                <h3 className={cn("flex items-center gap-2 text-sm font-semibold uppercase tracking-wide", isNight ? "text-slate-200" : "text-slate-600")}>
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Summary
                 </h3>
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-600">
+                  <div className={cn(
+                    "rounded-2xl border p-4 text-sm",
+                    isNight ? "border-white/15 bg-slate-800/60 text-slate-200" : "border-slate-200 bg-slate-50/60 text-slate-600"
+                  )}>
                     <p>
                       <strong>Work hours:</strong> {draft.workStart} - {draft.workEnd}
                     </p>
@@ -722,8 +770,8 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                     </p>
                     {hasSleepOverrides ? (
                       <div className="mt-2 text-xs">
-                        <p className="font-semibold text-slate-700">Overrides</p>
-                        <ul className="mt-1 space-y-1 text-slate-500">
+                        <p className={cn("font-semibold", isNight ? "text-slate-200" : "text-slate-700")}>Overrides</p>
+                        <ul className={cn("mt-1 space-y-1", isNight ? "text-slate-300" : "text-slate-500")}>
                           {Object.entries(sleepOverrides).map(([day, times]) => (
                             <li key={`summary-${day}`}>
                               {DAY_LABELS[day as FlowDayOfWeek].label}: {times.sleepStart} - {times.sleepEnd}
@@ -733,8 +781,11 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                       </div>
                     ) : null}
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-600">
-                    <p className="font-semibold text-slate-700">Meals & breaks</p>
+                  <div className={cn(
+                    "rounded-2xl border p-4 text-sm",
+                    isNight ? "border-white/15 bg-slate-800/60 text-slate-200" : "border-slate-200 bg-slate-50/60 text-slate-600"
+                  )}>
+                    <p className={cn("font-semibold", isNight ? "text-slate-200" : "text-slate-700")}>Meals & breaks</p>
                     <ul className="mt-1 space-y-1">
                       {draft.meals.map((meal) => (
                         <li key={meal.id}>
@@ -746,22 +797,22 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                 </div>
               </section>
               <section className="space-y-2">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
+                <h3 className={cn("text-sm font-semibold uppercase tracking-wide", isNight ? "text-slate-200" : "text-slate-600")}>
                   Fixed events
                 </h3>
                 {draft.fixedEvents.length ? (
-                  <ul className="space-y-1 text-sm text-slate-600">
+                  <ul className={cn("space-y-1 text-sm", isNight ? "text-slate-200" : "text-slate-600")}>
                     {draft.fixedEvents.map((event) => {
                       const category = categoryOptions.find((item) => item.id === event.category);
                       return (
                         <li key={event.id} className="space-y-1">
                           <div className="flex flex-wrap items-center gap-2 text-sm">
                             <span>{category?.emoji}</span>
-                            <span className="font-medium text-slate-700">{event.label}</span>
+                            <span className={cn("font-medium", isNight ? "text-white" : "text-slate-700")}>{event.label}</span>
                             <span>- {event.startTime}</span>
                             <span>· {event.durationMinutes} min</span>
                           </div>
-                          <div className="flex flex-wrap gap-1 text-[11px] uppercase tracking-wide text-slate-500">
+                          <div className={cn("flex flex-wrap gap-1 text-[11px] uppercase tracking-wide", isNight ? "text-slate-400" : "text-slate-500")}>
                             {FLOW_DAY_ORDER.map((day) => {
                               const active = ensureRoutineDays(event.days).includes(day);
                               return (
@@ -769,7 +820,13 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                                   key={`summary-${event.id}-${day}`}
                                   className={cn(
                                     "rounded-full border px-1",
-                                    active ? "border-emerald-400 text-emerald-600" : "border-slate-200"
+                                    active
+                                      ? isNight
+                                        ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                                        : "border-emerald-400 text-emerald-600"
+                                      : isNight
+                                      ? "border-white/15 text-slate-500"
+                                      : "border-slate-200"
                                   )}
                                 >
                                   {DAY_LABELS[day].letter}
@@ -778,7 +835,7 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                             })}
                           </div>
                           {event.tags?.length ? (
-                            <div className="flex flex-wrap gap-1 text-[11px] text-slate-500">
+                            <div className={cn("flex flex-wrap gap-1 text-[11px]", isNight ? "text-slate-400" : "text-slate-500")}>
                               {event.tags.map((tag) => (
                                 <span key={`summary-tag-${event.id}-${tag}`}>#{tag}</span>
                               ))}
@@ -789,7 +846,12 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                     })}
                   </ul>
                 ) : (
-                  <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-500">
+                  <p className={cn(
+                    "rounded-2xl border border-dashed p-4 text-sm",
+                    isNight
+                      ? "border-white/15 bg-slate-800/40 text-slate-300"
+                      : "border-slate-200 bg-slate-50/60 text-slate-500"
+                  )}>
                     No fixed chores or rituals added.
                   </p>
                 )}
@@ -798,7 +860,10 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
           ) : null}
         </div>
 
-        <DialogFooter className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-slate-100 bg-white/90 px-6 py-4">
+        <DialogFooter className={cn(
+          "sticky bottom-0 flex items-center justify-between gap-3 border-t px-6 py-4",
+          isNight ? "border-white/10 bg-slate-900/90" : "border-slate-100 bg-white/90"
+        )}>
           <Button variant="ghost" onClick={goBack}>
             {step === 0 ? "Cancel" : "Back"}
           </Button>
@@ -821,10 +886,15 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
           }
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className={cn(
+          "sm:max-w-md",
+          isNight && "border-white/15 bg-slate-900/95"
+        )}>
           <DialogHeader className="space-y-1">
-            <DialogTitle>{routineDialogDraft.id ? "Edit routine" : "Add routine"}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className={cn(isNight && "text-white")}>
+              {routineDialogDraft.id ? "Edit routine" : "Add routine"}
+            </DialogTitle>
+            <DialogDescription className={cn(isNight && "text-slate-300")}>
               Give it a name, pick when it happens, and choose the days. Keep it quick and simple.
             </DialogDescription>
           </DialogHeader>
@@ -898,7 +968,11 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                       className={cn(
                         "rounded-full px-3 text-xs",
                         selected
-                          ? "border-emerald-500 bg-emerald-500 text-white"
+                          ? isNight
+                            ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-200"
+                            : "border-emerald-500 bg-emerald-500 text-white"
+                          : isNight
+                          ? "border-white/20 bg-white/10 text-slate-300 hover:bg-white/20"
                           : "border-slate-200 text-slate-500"
                       )}
                       onClick={() => handleRoutineDialogDayToggle(day)}
@@ -909,7 +983,9 @@ export function FlowWizard({ open, settings, onClose, onSave }: FlowWizardProps)
                 })}
               </div>
               {routineDialogMode === "daily" ? (
-                <p className="text-xs text-slate-500">Daily routines auto-select every day.</p>
+                <p className={cn("text-xs", isNight ? "text-slate-300" : "text-slate-500")}>
+                  Daily routines auto-select every day.
+                </p>
               ) : null}
             </div>
             <div className="space-y-2">

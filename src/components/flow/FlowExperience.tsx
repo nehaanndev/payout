@@ -2309,6 +2309,7 @@ export function FlowExperience() {
         settings={wizardSettings}
         onClose={() => setWizardOpen(false)}
         onSave={handleWizardSave}
+        isNight={isNight}
       />
       <Dialog
         open={Boolean(editingTask)}

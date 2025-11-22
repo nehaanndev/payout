@@ -3016,6 +3016,7 @@ const BudgetExperience = () => {
             onUpdateTags={updateEntryTags}
             onOpenWizard={() => setMode("wizard")}
             paceStats={paceStats}
+            isNight={isNight}
           />
         )}
       </div>
@@ -3691,6 +3692,7 @@ function Ledger({
   onUpdateTags,
   onOpenWizard,
   paceStats,
+  isNight = false,
 }: {
   entries: BudgetLedgerEntry[];
   categories: CategoryOption[];
@@ -3725,7 +3727,9 @@ function Ledger({
   onUpdateTags: (entryId: string, tags: string[]) => void;
   onOpenWizard: () => void;
   paceStats: PaceStats;
+  isNight?: boolean;
 }) {
+  const isNightMode = isNight ?? false;
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [entryEditorEntry, setEntryEditorEntry] =
@@ -3781,12 +3785,42 @@ function Ledger({
   );
 
   const [tagFilterDraft, setTagFilterDraft] = useState<string[]>(tagFilters);
+  const ledgerRef = useRef<HTMLDivElement>(null);
+  const [ledgerHighlighted, setLedgerHighlighted] = useState(false);
 
   useEffect(() => {
     if (tagFilterDialogOpen) {
       setTagFilterDraft(tagFilters);
     }
   }, [tagFilterDialogOpen, tagFilters]);
+
+  // Scroll to ledger when category filter changes
+  useEffect(() => {
+    if (categoryFilter && ledgerRef.current) {
+      // Small delay to ensure DOM has updated
+      setTimeout(() => {
+        const element = ledgerRef.current;
+        if (element) {
+          // Calculate offset to account for sticky headers on mobile
+          const offset = window.innerWidth < 768 ? 80 : 20;
+          const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+          const offsetPosition = elementPosition - offset;
+
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: "smooth",
+          });
+          
+          // Highlight the ledger section briefly
+          setLedgerHighlighted(true);
+          setTimeout(() => setLedgerHighlighted(false), 2000);
+        }
+      }, 150);
+    } else {
+      // Clear highlight when filter is cleared
+      setLedgerHighlighted(false);
+    }
+  }, [categoryFilter]);
 
   const toggleDraftTag = (tag: string) => {
     setTagFilterDraft((prev) => {
@@ -3810,20 +3844,35 @@ function Ledger({
   const hasDetailMetrics =
     recurringSpend > 0 || oneTimeSpend > 0 || savingsTarget > 0;
 
-  const topColor =
-    progressPct < 60 ? "bg-emerald-100" : progressPct < 90 ? "bg-amber-100" : "bg-rose-100";
+  const topColor = isNightMode
+    ? progressPct < 60
+      ? "bg-emerald-500/10 border-emerald-400/30"
+      : progressPct < 90
+      ? "bg-amber-500/10 border-amber-400/30"
+      : "bg-rose-500/10 border-rose-400/30"
+    : progressPct < 60
+    ? "bg-emerald-100"
+    : progressPct < 90
+    ? "bg-amber-100"
+    : "bg-rose-100";
 
   return (
     <div className="space-y-4">
-      <Card className="border-slate-200">
-        <CardContent className={`rounded-xl p-4 md:p-6 ${topColor}`}>
+      <Card className={cn(
+        "border-slate-200",
+        isNightMode && "border-white/15"
+      )}>
+        <CardContent className={cn(
+          "rounded-xl border p-4 md:p-6",
+          isNightMode ? topColor : topColor
+        )}>
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:gap-6">
               <div>
-                <div className="text-sm text-slate-600">Budget remaining</div>
-                <div className="text-3xl font-semibold">
+                <div className={cn("text-sm", isNightMode ? "text-slate-300" : "text-slate-600")}>Budget remaining</div>
+                <div className={cn("text-3xl font-semibold", isNightMode ? "text-white" : "text-slate-900")}>
                   {currency(remaining)}{" "}
-                  <span className="text-base font-normal text-slate-500">
+                  <span className={cn("text-base font-normal", isNightMode ? "text-slate-300" : "text-slate-500")}>
                     / {currency(flexBudget)}
                   </span>
                 </div>
@@ -3836,12 +3885,12 @@ function Ledger({
               />
             </div>
             <div className="min-w-[220px]">
-              <Progress value={progressPct} />
-              <div className="mt-1 text-xs text-slate-500">
+              <Progress value={progressPct} isNight={isNightMode} />
+              <div className={cn("mt-1 text-xs", isNightMode ? "text-slate-300" : "text-slate-500")}>
                 Spent {currency(monthSpend)} ({progressPct}%)
               </div>
               {evaluationEndDay > 0 && evaluationEndDay < daysInMonth && (
-                <div className="text-xs text-slate-500">
+                <div className={cn("text-xs", isNightMode ? "text-slate-300" : "text-slate-500")}>
                   Projected spend: {currency(projectedMonthlySpend)}
                 </div>
               )}
@@ -3850,7 +3899,12 @@ function Ledger({
                   <button
                     type="button"
                     onClick={() => setShowSpendDetails((prev) => !prev)}
-                    className="flex items-center gap-1 text-xs font-medium text-slate-500 transition hover:text-slate-700"
+                    className={cn(
+                      "flex items-center gap-1 text-xs font-medium transition",
+                      isNightMode
+                        ? "text-slate-300 hover:text-white"
+                        : "text-slate-500 hover:text-slate-700"
+                    )}
                     aria-expanded={showSpendDetails}
                   >
                     {showSpendDetails ? "Hide spend details" : "Show spend details"}
@@ -3861,7 +3915,7 @@ function Ledger({
                     )}
                   </button>
                   {showSpendDetails && (
-                    <div className="mt-1 space-y-1 text-xs text-slate-500">
+                    <div className={cn("mt-1 space-y-1 text-xs", isNightMode ? "text-slate-300" : "text-slate-500")}>
                       <div>Recurring spend: {currency(recurringSpend)}</div>
                       {oneTimeSpend > 0 && (
                         <div>One-time this month: {currency(oneTimeSpend)}</div>
@@ -3875,26 +3929,36 @@ function Ledger({
           </div>
           {evaluationEndDay > 0 && (
             <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2 shadow-sm">
+              <div className={cn(
+                "flex items-center gap-2 rounded-xl border px-3 py-2 shadow-sm",
+                isNightMode
+                  ? "border-white/15 bg-white/5"
+                  : "border-slate-200 bg-white/70"
+              )}>
                 <span className="text-lg">📅</span>
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-slate-500">
+                  <div className={cn("text-xs uppercase tracking-wide", isNightMode ? "text-slate-400" : "text-slate-500")}>
                     Days on pace
                   </div>
-                  <div className="text-sm font-semibold text-slate-900">
+                  <div className={cn("text-sm font-semibold", isNightMode ? "text-white" : "text-slate-900")}>
                     {daysOnPace} / {evaluationEndDay}
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/70 px-3 py-2 shadow-sm">
+              <div className={cn(
+                "flex items-center gap-2 rounded-xl border px-3 py-2 shadow-sm",
+                isNightMode
+                  ? "border-white/15 bg-white/5"
+                  : "border-slate-200 bg-white/70"
+              )}>
                 <span className="text-lg">🔥</span>
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-slate-500">
+                  <div className={cn("text-xs uppercase tracking-wide", isNightMode ? "text-slate-400" : "text-slate-500")}>
                     Current streak
                   </div>
-                  <div className="text-sm font-semibold text-slate-900">
+                  <div className={cn("text-sm font-semibold", isNightMode ? "text-white" : "text-slate-900")}>
                     {currentStreak} day{currentStreak === 1 ? "" : "s"}
-                    <span className="ml-2 text-xs text-slate-500">
+                    <span className={cn("ml-2 text-xs", isNightMode ? "text-slate-400" : "text-slate-500")}>
                       Best {bestStreak}
                     </span>
                   </div>
@@ -3902,10 +3966,14 @@ function Ledger({
               </div>
               <div
                 className={cn(
-                  "flex items-center gap-2 rounded-xl px-3 py-2 shadow-sm",
+                  "flex items-center gap-2 rounded-xl border px-3 py-2 shadow-sm",
                   onPaceToday
-                    ? "border border-emerald-300 bg-emerald-50 text-emerald-700"
-                    : "border border-rose-300 bg-rose-50 text-rose-700"
+                    ? isNightMode
+                      ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                      : "border-emerald-300 bg-emerald-50 text-emerald-700"
+                    : isNightMode
+                    ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
+                    : "border-rose-300 bg-rose-50 text-rose-700"
                 )}
               >
                 <span className="text-lg">
@@ -3957,10 +4025,14 @@ function Ledger({
                     type="button"
                     onClick={handlePillClick}
                     className={cn(
-                      "flex items-center justify-between rounded-full border border-slate-200 px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2",
+                      "flex items-center justify-between rounded-full border px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2",
                       isActive
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "bg-white/60 text-slate-700 hover:bg-slate-100"
+                        ? isNightMode
+                          ? "border-indigo-400/50 bg-indigo-500/20 text-indigo-200"
+                          : "border-slate-900 bg-slate-900 text-white"
+                        : isNightMode
+                        ? "border-white/15 bg-white/10 text-slate-200 hover:bg-white/20"
+                        : "border-slate-200 bg-white/60 text-slate-700 hover:bg-slate-100"
                     )}
                   >
                     <div className="flex items-center gap-2">
@@ -3989,13 +4061,13 @@ function Ledger({
                         )}
                       </span>
                       {hasOneTime ? (
-                        <span className="text-xs text-slate-500">
+                        <span className={cn("text-xs", isNightMode ? "text-slate-400" : "text-slate-500")}>
                           +{currency(summary.oneTimeTotal)} one-time
                         </span>
                       ) : hasRecurring ? (
-                        <span className="text-xs text-slate-400">Recurring</span>
+                        <span className={cn("text-xs", isNightMode ? "text-slate-400" : "text-slate-400")}>Recurring</span>
                       ) : (
-                        <span className="text-xs text-slate-400">
+                        <span className={cn("text-xs", isNightMode ? "text-slate-400" : "text-slate-400")}>
                           All one-time
                         </span>
                       )}
@@ -4021,12 +4093,32 @@ function Ledger({
         goalContributionTotal={goalContributionTotal}
         goalAllocationDelta={goalAllocationDelta}
         onOpenWizard={onOpenWizard}
+        isNight={isNightMode}
       />
 
-      <Card className="border-slate-200">
+      <Card 
+        ref={ledgerRef}
+        className={cn(
+          "border-slate-200 transition-all duration-500",
+          ledgerHighlighted && "ring-4 ring-indigo-400/50 ring-offset-2 shadow-lg"
+        )}
+      >
         <CardHeader className="pb-2">
           <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span>Ledger</span>
+            <div className="flex items-center gap-2">
+              <span>Ledger</span>
+              {categoryFilter && (() => {
+                const activeCategory = categories.find(
+                  (cat) => cat.value.toLowerCase() === categoryFilter.toLowerCase()
+                );
+                return (
+                  <span className="flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
+                    <span>{activeCategory?.emoji ?? "🏷️"}</span>
+                    <span>Filtered: {activeCategory?.label ?? categoryFilter}</span>
+                  </span>
+                );
+              })()}
+            </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
               {availableTags.length > 0 && (
                 <Button
@@ -5040,12 +5132,14 @@ function GoalSummaryCard({
   goalContributionTotal,
   goalAllocationDelta,
   onOpenWizard,
+  isNight = false,
 }: {
   goalProjections: GoalProjection[];
   savingsTarget: number;
   goalContributionTotal: number;
   goalAllocationDelta: number;
   onOpenWizard: () => void;
+  isNight?: boolean;
 }) {
   const hasGoals = goalProjections.length > 0;
   const topGoals = goalProjections.slice(0, 2);
@@ -5053,13 +5147,18 @@ function GoalSummaryCard({
   const overAllocation = goalAllocationDelta < 0;
 
   return (
-    <Card className="border-slate-200">
+    <Card className={cn(
+      "border-slate-200",
+      isNight && "border-white/15"
+    )}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base font-semibold">
+          <CardTitle className={cn("text-base font-semibold", isNight && "text-white")}>
             Goals snapshot
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={onOpenWizard}>
+          <Button variant="outline" size="sm" onClick={onOpenWizard} className={cn(
+            isNight && "border-white/20 bg-white/10 text-slate-200 hover:bg-white/20"
+          )}>
             Edit in wizard
           </Button>
         </div>
@@ -5069,7 +5168,11 @@ function GoalSummaryCard({
           className={cn(
             "rounded-lg border px-3 py-2 text-xs",
             overAllocation
-              ? "border-amber-200 bg-amber-50 text-amber-700"
+              ? isNight
+                ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                : "border-amber-200 bg-amber-50 text-amber-700"
+              : isNight
+              ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
               : "border-emerald-200 bg-emerald-50 text-emerald-700"
           )}
         >
@@ -5115,29 +5218,34 @@ function GoalSummaryCard({
               return (
                 <div
                   key={projection.goal.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-xs"
+                  className={cn(
+                    "flex items-center justify-between rounded-lg border px-3 py-2 text-xs",
+                    isNight
+                      ? "border-white/15 bg-slate-800/60"
+                      : "border-slate-200"
+                  )}
                 >
                   <div>
-                    <div className="font-medium text-slate-700">
+                    <div className={cn("font-medium", isNight ? "text-white" : "text-slate-700")}>
                       {normalized.name || "Untitled goal"}
                     </div>
-                    <div className="text-slate-500">
+                    <div className={cn(isNight ? "text-slate-300" : "text-slate-500")}>
                       Need {currency(remainingAmount)}
                     </div>
                   </div>
-                  <div className="text-right text-slate-500">{timelineMessage}</div>
+                  <div className={cn("text-right", isNight ? "text-slate-300" : "text-slate-500")}>{timelineMessage}</div>
                 </div>
               );
             })}
             {goalProjections.length > topGoals.length && (
-              <div className="text-xs text-slate-500">
+              <div className={cn("text-xs", isNight ? "text-slate-300" : "text-slate-500")}>
                 +{goalProjections.length - topGoals.length} more goal
                 {goalProjections.length - topGoals.length === 1 ? "" : "s"} tracked.
               </div>
             )}
           </div>
         ) : (
-          <p className="text-xs text-slate-500">
+          <p className={cn("text-xs", isNight ? "text-slate-300" : "text-slate-500")}>
             Add a payoff or savings goal in the wizard to see projections here.
           </p>
         )}
