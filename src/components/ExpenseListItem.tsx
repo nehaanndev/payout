@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Trash2, Edit2, Calendar, TrendingUp, TrendingDown, DollarSign } from "lucide-react"
+import { Trash2, Edit2, TrendingUp, TrendingDown, DollarSign } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Expense, Member } from "@/types/group"
 import { formatMoneyWithMinor } from "@/lib/currency"

@@ -150,7 +150,11 @@ async function generateLearningLesson(
     question?: unknown;
     answers?: unknown;
     correctAnswer?: unknown;
-  }> = Array.isArray(lesson.quiz) ? (lesson.quiz as any[]) : [];
+  }> = Array.isArray(lesson.quiz) ? (lesson.quiz as Array<{
+    question?: unknown;
+    answers?: unknown;
+    correctAnswer?: unknown;
+  }>) : [];
   const quiz = quizRaw
     .slice(0, 3)
     .map((item) => ({

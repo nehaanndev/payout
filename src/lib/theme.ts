@@ -29,7 +29,6 @@
  * ```
  */
 
-import { type ToodlTheme } from "@/hooks/useToodlTheme";
 import { cn } from "@/lib/utils";
 
 /**

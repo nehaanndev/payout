@@ -15,7 +15,6 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
-  Home,
   Plus,
   Pencil,
   Receipt,

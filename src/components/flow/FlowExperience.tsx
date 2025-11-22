@@ -69,7 +69,6 @@ import {
   FlowDayOfWeek,
   FlowPlan,
   FlowReflection,
-  FlowReflectionSentiment,
   FlowSettings,
   FlowTask,
   FlowTaskStatus,
@@ -134,17 +133,6 @@ const TASK_TYPE_LABEL: Record<FlowTaskType, string> = {
 };
 
 
-const SENTIMENT_LABEL: Record<FlowReflectionSentiment, string> = {
-  positive: "On the rise",
-  neutral: "Steady",
-  challenging: "Weathering",
-};
-
-const SENTIMENT_STYLE: Record<FlowReflectionSentiment, string> = {
-  positive: "border-emerald-200 text-emerald-700 bg-emerald-50/70",
-  neutral: "border-slate-200 text-slate-600 bg-slate-50/80",
-  challenging: "border-rose-200 text-rose-700 bg-rose-50/80",
-};
 
 const MINUTE_OPTIONS = [15, 25, 45, 60, 90, 120];
 
@@ -1173,7 +1161,7 @@ export function FlowExperience() {
                   <div>
                     <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>Timeline focus</p>
                     <p className={cn("text-xs", isNight ? "text-slate-300" : "text-slate-500")}>
-                      Collapse planning tools to keep only Today's timeline visible.
+                      Collapse planning tools to keep only Today&apos;s timeline visible.
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -1210,7 +1198,7 @@ export function FlowExperience() {
                       "text-sm",
                       isNight ? "text-slate-300" : "text-slate-600"
                     )}>
-                      Keep the rhythm steady. We'll nudge you if anything drifts off tempo.
+                      Keep the rhythm steady. We&apos;ll nudge you if anything drifts off tempo.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -1401,7 +1389,7 @@ export function FlowExperience() {
                       "text-sm",
                       isNight ? "text-slate-300" : "text-slate-500"
                     )}>
-                      Add today's anchors and essentials. Flow will weave them into a timeline.
+                      Add today&apos;s anchors and essentials. Flow will weave them into a timeline.
                     </p>
                   </CardHeader>
                   <CardContent className="space-y-6">
@@ -1754,7 +1742,7 @@ export function FlowExperience() {
                           "text-xl font-semibold",
                           isNight ? "text-white" : "text-slate-900"
                         )}>
-                          Today's timeline
+                          Today&apos;s timeline
                         </CardTitle>
                         <p className={cn(
                           "text-sm",
@@ -2149,7 +2137,7 @@ export function FlowExperience() {
                               "text-xs",
                               isNight ? "text-slate-300" : "text-slate-500"
                             )}>
-                              Pick an emoji, jot a sentence or two, and keep your day's story in one place.
+                              Pick an emoji, jot a sentence or two, and keep your day&apos;s story in one place.
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2">

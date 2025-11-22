@@ -390,9 +390,11 @@ export function InterestWizard({ userId, onComplete, dark = false }: InterestWiz
             <Button
               onClick={handleSave}
               disabled={
-                (interests.length === 0 && !learningTopic.trim()) || 
-                saving || 
-                (existingLearningPlan && learningTopic.trim() && learningTopic.trim() !== existingLearningPlan.topic)
+                Boolean(
+                  (interests.length === 0 && !learningTopic.trim()) ||
+                  saving ||
+                  (existingLearningPlan && learningTopic.trim() && learningTopic.trim() !== existingLearningPlan.topic)
+                )
               }
               className={cn(
                 "text-white",

@@ -15,7 +15,6 @@ import { Input } from "@/components/ui/input";
 import { AppTopBar } from "@/components/AppTopBar";
 import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -59,15 +58,10 @@ import {
   Library,
   Calendar,
   Heart,
-  Lightbulb,
-  Zap,
-  Feather,
-  HeartHandshake,
   Target,
   Smile,
   CheckCircle2,
   Clock,
-  Search,
   FileEdit,
 } from "lucide-react";
 
@@ -572,13 +566,6 @@ const JournalExperience = () => {
     return `${window.location.origin}/journal?journal_id=${journalId}`;
   }, [journalId]);
 
-  const journalStatus = savingEntry
-    ? "Saving..."
-    : hasUnsavedChanges
-    ? "Draft in progress"
-    : lastSavedAt
-    ? `Last saved ${formatTimestamp(lastSavedAt)}`
-    : "Ready to capture";
 
   const displayName = member?.name ?? user?.displayName ?? "Writer";
 
@@ -1484,7 +1471,7 @@ const JournalExperience = () => {
 
                   <div className="space-y-6">
                     {journalPreview.length ? (
-                      journalPreview.map((section, sectionIndex) => {
+                      journalPreview.map((section) => {
                         const getSectionIcon = () => {
                           if (section.heading.includes("Scene")) return Sparkles;
                           if (section.heading.includes("Anchors")) return Target;
@@ -1803,7 +1790,7 @@ const JournalExperience = () => {
                                 ) : null}
                                 {entry.snippet ? (
                                   <span className={cn("line-clamp-2 text-left text-sm italic", themeUtils.text.muted(isNight))}>
-                                    "{entry.snippet}"
+                                    &quot;{entry.snippet}&quot;
                                   </span>
                                 ) : (
                                   <span className={cn("text-sm flex items-center gap-1", themeUtils.text.muted(isNight))}>

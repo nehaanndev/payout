@@ -876,7 +876,7 @@ export function ScratchPadExperience() {
                 <div>
                   <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>Links focus</p>
                   <p className={cn("text-xs", isNight ? "text-slate-300" : "text-slate-500")}>
-                    Collapse Orbit's capture tools to keep only "Your links" in view.
+                    Collapse Orbit&apos;s capture tools to keep only &quot;Your links&quot; in view.
                   </p>
                 </div>
                 <div className="flex items-center gap-3">

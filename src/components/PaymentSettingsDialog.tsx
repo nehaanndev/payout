@@ -158,7 +158,7 @@ export function PaymentSettingsDialog({
                     : "text-emerald-600 hover:text-emerald-500"
                 )}
               >
-                Follow PayPal's PayPal.Me setup guide
+                Follow PayPal&apos;s PayPal.Me setup guide
               </a>
               .
             </p>
@@ -185,7 +185,7 @@ export function PaymentSettingsDialog({
                 htmlFor="disable-paypal-prompts"
                 className={cn("text-sm font-medium", isNight ? "text-slate-200" : "text-slate-800")}
               >
-                Don't prompt me for this again
+                Don&apos;t prompt me for this again
               </Label>
               <p className={cn("text-xs", isNight ? "text-slate-400" : "text-slate-500")}>
                 You can always return here from the app menu to update your link.

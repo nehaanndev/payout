@@ -15,7 +15,6 @@ import { Badge } from '@/components/ui/badge';
 import { Expense, Member } from '@/types/group';
 import { Settlement, SettlementMethod } from '@/types/settlement';
 import { cn } from '@/lib/utils';
-import { theme } from '@/lib/theme';
 
 import { addExpense, updateExpense, deleteExpense } from "@/lib/firebaseUtils";
 import { calculateOpenBalancesMinor, calculateRawBalancesMinor } from '@/lib/financeUtils';
@@ -691,7 +690,7 @@ export interface ExpensesPanelProps {
                   </p>
                   <h3 className={cn("text-xl font-semibold", isNight ? "text-white" : "text-slate-900")}>Keep the ledger honest</h3>
                   <p className={cn("text-sm", isNight ? "text-slate-300" : "text-slate-500")}>
-                    Pending paybacks automatically adjust everyone's balance.
+                    Pending paybacks automatically adjust everyone&apos;s balance.
                   </p>
                 </div>
                 <div className="grid w-full gap-3 sm:grid-cols-3 md:w-auto">
@@ -704,7 +703,7 @@ export interface ExpensesPanelProps {
                       <div className="flex items-center gap-2 mb-2">
                         <TrendingUp className={cn("h-4 w-4", isNight ? "text-emerald-300" : "text-emerald-600")} />
                         <p className={cn("text-xs font-semibold uppercase tracking-[0.3em]", isNight ? "text-emerald-200" : "text-slate-500")}>
-                          You're owed
+                          You&apos;re owed
                         </p>
                       </div>
                       <div className={cn("text-2xl font-bold mb-1", isNight ? "text-emerald-200" : "text-emerald-700")}>
@@ -866,7 +865,7 @@ export interface ExpensesPanelProps {
                                   ? "border-white/20 bg-white/5" 
                                   : "border-slate-200 bg-slate-50"
                               )}>
-                                <p className={cn("text-xs italic", isNight ? "text-slate-300" : "text-slate-600")}>"{note}"</p>
+                                <p className={cn("text-xs italic", isNight ? "text-slate-300" : "text-slate-600")}>&quot;{note}&quot;</p>
                               </div>
                             ) : null}
                             {isPending ? (
