@@ -1138,7 +1138,10 @@ export function FlowExperience() {
             <Spinner size="lg" />
           </div>
         ) : !user ? (
-          <Card className="flex flex-col items-center gap-4 border-slate-200 bg-white/90 p-12 text-center shadow-2xl shadow-emerald-200/30 backdrop-blur">
+          <Card className={cn(
+            "flex flex-col items-center gap-4 border-slate-200 bg-white/90 p-12 text-center backdrop-blur",
+            isNight ? "shadow-2xl shadow-slate-900/50" : "shadow-2xl shadow-emerald-200/30"
+          )}>
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
               <Flame className="h-6 w-6" />
             </div>
@@ -1189,14 +1192,25 @@ export function FlowExperience() {
             ) : null}
 
             {plan && !timelineOnly ? (
-              <Card className="border-none bg-gradient-to-br from-white via-white/90 to-emerald-50 p-6 shadow-xl shadow-emerald-200/40">
+              <Card className={cn(
+                "border-none p-6",
+                isNight
+                  ? "bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 shadow-xl shadow-slate-900/50"
+                  : "bg-gradient-to-br from-white via-white/90 to-emerald-50 shadow-xl shadow-emerald-200/40"
+              )}>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
-                    <h2 className="text-2xl font-semibold text-slate-900">
+                    <h2 className={cn(
+                      "text-2xl font-semibold",
+                      isNight ? "text-white" : "text-slate-900"
+                    )}>
                       {daytimeGreeting}, {user.displayName ?? "friend"} 👋
                     </h2>
-                    <p className="text-sm text-slate-600">
-                      Keep the rhythm steady. We’ll nudge you if anything drifts off tempo.
+                    <p className={cn(
+                      "text-sm",
+                      isNight ? "text-slate-300" : "text-slate-600"
+                    )}>
+                      Keep the rhythm steady. We'll nudge you if anything drifts off tempo.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -1222,25 +1236,46 @@ export function FlowExperience() {
                     </div>
                     <Button
                       variant="outline"
-                      className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                      className={cn(
+                        "gap-2",
+                        isNight
+                          ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
+                          : "border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                      )}
                       onClick={() => setWizardOpen(true)}
                     >
-                      <Sparkles className="h-4 w-4" /> Day rhythm wizard
+                      <Sparkles className="h-4 w-4" /> Plan Your Day
                     </Button>
                   </div>
                 </div>
                 {currentTask ? (
                   <div className="mt-6 grid gap-3 md:grid-cols-2">
-                    <div className="relative overflow-hidden rounded-3xl border border-emerald-200 bg-white/80 p-5 shadow-lg shadow-emerald-200/40">
-                      <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-white/90 to-transparent opacity-80" />
+                    <div className={cn(
+                      "relative overflow-hidden rounded-3xl border p-5",
+                      isNight
+                        ? "border-white/20 bg-slate-800/60 shadow-lg shadow-slate-900/50"
+                        : "border-emerald-200 bg-white/80 shadow-lg shadow-emerald-200/40"
+                    )}>
+                      {!isNight && (
+                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-white/90 to-transparent opacity-80" />
+                      )}
                       <div className="relative flex flex-col gap-2">
-                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-600">
+                        <div className={cn(
+                          "flex items-center gap-2 text-xs font-semibold uppercase tracking-wide",
+                          isNight ? "text-emerald-300" : "text-emerald-600"
+                        )}>
                           <HeartPulse className="h-4 w-4" /> Up next
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-900">
+                        <h3 className={cn(
+                          "text-lg font-semibold",
+                          isNight ? "text-white" : "text-slate-900"
+                        )}>
                           {currentTask.title}
                         </h3>
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                        <div className={cn(
+                          "flex flex-wrap items-center gap-2 text-sm",
+                          isNight ? "text-slate-300" : "text-slate-600"
+                        )}>
                           <Badge
                             variant="outline"
                             className={cn(
@@ -1349,13 +1384,24 @@ export function FlowExperience() {
                 )}
               >
                 {!timelineOnly ? (
-                  <Card className="border border-slate-200 bg-white/90 shadow-lg shadow-slate-200/50">
+                  <Card className={cn(
+                    "border",
+                    isNight
+                      ? "border-white/15 bg-slate-900/60"
+                      : "border-slate-200 bg-white/90 shadow-lg shadow-slate-200/50"
+                  )}>
                   <CardHeader className="space-y-1">
-                    <CardTitle className="text-xl font-semibold text-slate-900">
+                    <CardTitle className={cn(
+                      "text-xl font-semibold",
+                      isNight ? "text-white" : "text-slate-900"
+                    )}>
                       Capture queue
                     </CardTitle>
-                    <p className="text-sm text-slate-500">
-                      Add today’s anchors and essentials. Flow will weave them into a timeline.
+                    <p className={cn(
+                      "text-sm",
+                      isNight ? "text-slate-300" : "text-slate-500"
+                    )}>
+                      Add today's anchors and essentials. Flow will weave them into a timeline.
                     </p>
                   </CardHeader>
                   <CardContent className="space-y-6">
@@ -1564,7 +1610,12 @@ export function FlowExperience() {
                       />
                       <Button
                         variant="outline"
-                        className="w-full border-amber-200 text-amber-700 hover:bg-amber-50"
+                        className={cn(
+                          "w-full",
+                          isNight
+                            ? "border-amber-400/50 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30"
+                            : "bg-amber-500 text-white hover:bg-amber-600 border-transparent"
+                        )}
                         disabled={!choreDraft.title.trim()}
                         onClick={() => {
                           addTask("chore", choreDraft);
@@ -1645,7 +1696,12 @@ export function FlowExperience() {
                       </div>
                       <Button
                         variant="ghost"
-                        className="w-full border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                        className={cn(
+                          "w-full border",
+                          isNight
+                            ? "border-sky-400/30 bg-sky-500/10 text-sky-200 hover:bg-sky-500/20"
+                            : "bg-sky-500 text-white hover:bg-sky-600 border-transparent"
+                        )}
                         disabled={!flexDraft.title.trim()}
                         onClick={() => {
                           addTask("flex", flexDraft);
@@ -1663,7 +1719,12 @@ export function FlowExperience() {
                     <Separator />
 
                     <div className="space-y-4">
-                      <div className="rounded-3xl border border-emerald-200 bg-emerald-50/60 p-4 text-sm text-emerald-700">
+                      <div className={cn(
+                        "rounded-3xl border p-4 text-sm",
+                        isNight
+                          ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                          : "border-emerald-200 bg-emerald-50/60 text-emerald-700"
+                      )}>
                         Flow will stack priorities first, weave chores next, and float flex blocks where space allows.
                         Tune the schedule anytime.
                       </div>
@@ -1681,13 +1742,24 @@ export function FlowExperience() {
                 ) : null}
 
                 <div className="space-y-6">
-                  <Card className="border border-slate-200 bg-white/95 shadow-xl shadow-slate-200/50">
+                  <Card className={cn(
+                    "border shadow-xl",
+                    isNight
+                      ? "border-white/15 bg-slate-900/60 shadow-slate-900/50"
+                      : "border-slate-200 bg-white/95 shadow-slate-200/50"
+                  )}>
                     <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                       <div>
-                        <CardTitle className="text-xl font-semibold text-slate-900">
-                          Today’s timeline
+                        <CardTitle className={cn(
+                          "text-xl font-semibold",
+                          isNight ? "text-white" : "text-slate-900"
+                        )}>
+                          Today's timeline
                         </CardTitle>
-                        <p className="text-sm text-slate-500">
+                        <p className={cn(
+                          "text-sm",
+                          isNight ? "text-slate-300" : "text-slate-500"
+                        )}>
                           Drag the handles by nudging up/down. Mark progress inline.
                         </p>
                       </div>
@@ -1707,7 +1779,12 @@ export function FlowExperience() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {tasksForDate.length === 0 ? (
-                        <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/60 py-12 text-center text-sm text-slate-500">
+                        <div className={cn(
+                          "rounded-3xl border border-dashed py-12 text-center text-sm",
+                          isNight
+                            ? "border-white/15 bg-slate-800/40 text-slate-300"
+                            : "border-slate-200 bg-slate-50/60 text-slate-500"
+                        )}>
                           Add a few priorities or chores to build your flow.
                         </div>
                       ) : (
@@ -1721,24 +1798,66 @@ export function FlowExperience() {
                               const isPast =
                                 task.scheduledEnd &&
                                 new Date(task.scheduledEnd).getTime() < now;
+                              const getCategoryColor = (category: FlowCategory) => {
+                                switch (category) {
+                                  case "work":
+                                    return { border: "border-indigo-400/30", bg: "bg-indigo-500/10", text: "text-indigo-200", textMuted: "text-indigo-200/80" };
+                                  case "family":
+                                    return { border: "border-rose-400/30", bg: "bg-rose-500/10", text: "text-rose-200", textMuted: "text-rose-200/80" };
+                                  case "home":
+                                    return { border: "border-amber-400/30", bg: "bg-amber-500/10", text: "text-amber-200", textMuted: "text-amber-200/80" };
+                                  case "wellness":
+                                    return { border: "border-emerald-400/30", bg: "bg-emerald-500/10", text: "text-emerald-200", textMuted: "text-emerald-200/80" };
+                                  case "play":
+                                    return { border: "border-sky-400/30", bg: "bg-sky-500/10", text: "text-sky-200", textMuted: "text-sky-200/80" };
+                                  case "growth":
+                                    return { border: "border-purple-400/30", bg: "bg-purple-500/10", text: "text-purple-200", textMuted: "text-purple-200/80" };
+                                  default:
+                                    return { border: "border-emerald-400/30", bg: "bg-emerald-500/10", text: "text-emerald-200", textMuted: "text-emerald-200/80" };
+                                }
+                              };
+
+                              const categoryColors = getCategoryColor(task.category);
+                              const statusColors = isNight
+                                ? task.status === "skipped"
+                                  ? { border: "border-amber-400/30", bg: "bg-amber-500/10", text: "text-amber-200", textMuted: "text-amber-200/80" }
+                                  : task.status === "failed"
+                                  ? { border: "border-rose-400/30", bg: "bg-rose-500/10", text: "text-rose-200", textMuted: "text-rose-200/80" }
+                                  : categoryColors
+                                : categoryColors;
+
                               return (
                                 <div
                                   key={task.id}
                                   className={cn(
                                     "relative overflow-hidden rounded-3xl border px-4 py-4 transition",
-                                    "border-slate-200 bg-white",
-                                    isActive && "border-emerald-300 shadow-lg shadow-emerald-200/40",
-                                    task.status === "done" && "border-emerald-200 bg-emerald-50/60",
-                                    task.status === "skipped" && "border-amber-200 bg-amber-50/60",
-                                    task.status === "failed" && "border-rose-300 bg-rose-50/70"
+                                    isNight
+                                      ? `${statusColors.border} ${statusColors.bg} ${statusColors.text}`
+                                      : "border-slate-200 bg-white",
+                                    isActive && isNight
+                                      ? "border-emerald-400/50 shadow-lg"
+                                      : isActive
+                                      ? "border-emerald-300 shadow-lg shadow-emerald-200/40"
+                                      : "",
+                                    task.status === "done" && !isNight
+                                      ? "border-emerald-200 bg-emerald-50/60"
+                                      : "",
+                                    task.status === "skipped" && !isNight
+                                      ? "border-amber-200 bg-amber-50/60"
+                                      : "",
+                                    task.status === "failed" && !isNight
+                                      ? "border-rose-300 bg-rose-50/70"
+                                      : ""
                                   )}
                                 >
-                                  <div
-                                    className={cn(
-                                      "absolute inset-0 opacity-25",
-                                      meta.accent
-                                    )}
-                                  />
+                                  {!isNight && (
+                                    <div
+                                      className={cn(
+                                        "absolute inset-0 opacity-25",
+                                        meta.accent
+                                      )}
+                                    />
+                                  )}
                                   <div className="relative flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                     <div className="space-y-2">
                                       <div className="flex flex-wrap items-center gap-2">
@@ -1746,25 +1865,54 @@ export function FlowExperience() {
                                           variant="secondary"
                                           className={cn(
                                             "text-xs uppercase",
-                                            meta.chip
+                                            isNight
+                                              ? task.category === "work"
+                                                ? "bg-indigo-500/30 text-indigo-200 border-indigo-400/40"
+                                                : task.category === "family"
+                                                ? "bg-rose-500/30 text-rose-200 border-rose-400/40"
+                                                : task.category === "home"
+                                                ? "bg-amber-500/30 text-amber-200 border-amber-400/40"
+                                                : task.category === "wellness"
+                                                ? "bg-emerald-500/30 text-emerald-200 border-emerald-400/40"
+                                                : task.category === "play"
+                                                ? "bg-sky-500/30 text-sky-200 border-sky-400/40"
+                                                : "bg-purple-500/30 text-purple-200 border-purple-400/40"
+                                              : meta.chip
                                           )}
                                         >
                                           {meta.emoji} {meta.label}
                                         </Badge>
-                                        <Badge variant="outline" className="text-xs">
+                                        <Badge
+                                          variant="outline"
+                                          className={cn(
+                                            "text-xs",
+                                            isNight
+                                              ? "border-white/20 bg-white/5 text-slate-200"
+                                              : ""
+                                          )}
+                                        >
                                           {TASK_TYPE_LABEL[task.type]}
                                         </Badge>
                                       </div>
-                                      <h3 className="text-base font-semibold text-slate-900">
+                                      <h3 className={cn(
+                                        "text-base font-semibold",
+                                        isNight ? statusColors.text : "text-slate-900"
+                                      )}>
                                         {task.title}
                                       </h3>
-                                      <p className="text-sm text-slate-600">
+                                      <p className={cn(
+                                        "text-sm font-medium",
+                                        isNight ? statusColors.text : "text-slate-600"
+                                      )}>
                                         {formatTime(task.scheduledStart)} –{" "}
                                         {formatTime(task.scheduledEnd)} ·{" "}
                                         {task.estimateMinutes} min
                                       </p>
                                       {task.notes ? (
-                                        <p className="text-xs text-slate-500">
+                                        <p className={cn(
+                                          "text-xs",
+                                          isNight ? statusColors.textMuted : "text-slate-500"
+                                        )}>
                                           {task.notes}
                                         </p>
                                       ) : null}
@@ -1797,7 +1945,12 @@ export function FlowExperience() {
                                               <Button
                                                 size="icon"
                                                 variant="ghost"
-                                                className="h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                                className={cn(
+                                                  "h-8 w-8 rounded-full border",
+                                                  isNight
+                                                    ? "border-slate-500 bg-white/10 text-slate-200 hover:bg-white/20"
+                                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                                )}
                                                 onClick={() => {
                                                   setEditingTask(task);
                                                   setEditStartTime(
@@ -1820,7 +1973,11 @@ export function FlowExperience() {
                                                 className={cn(
                                                   "h-8 w-8 rounded-full border transition-colors",
                                                   task.status === "done"
-                                                    ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+                                                    ? isNight
+                                                      ? "border-emerald-500 bg-emerald-500 text-slate-900 hover:bg-emerald-400"
+                                                      : "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+                                                    : isNight
+                                                    ? "border-emerald-500 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
                                                     : "border-emerald-600 bg-white text-emerald-600 hover:bg-emerald-50"
                                                 )}
                                                 onClick={() =>
@@ -1848,7 +2005,11 @@ export function FlowExperience() {
                                                 className={cn(
                                                   "h-8 w-8 rounded-full border transition-colors",
                                                   task.status === "skipped"
-                                                    ? "border-sky-500 bg-sky-500 text-white hover:bg-sky-600"
+                                                    ? isNight
+                                                      ? "border-sky-500 bg-sky-500 text-slate-900 hover:bg-sky-400"
+                                                      : "border-sky-500 bg-sky-500 text-white hover:bg-sky-600"
+                                                    : isNight
+                                                    ? "border-sky-500 bg-sky-500/20 text-sky-300 hover:bg-sky-500/30"
                                                     : "border-sky-300 bg-white text-sky-600 hover:bg-sky-50"
                                                 )}
                                                 onClick={() =>
@@ -1876,7 +2037,11 @@ export function FlowExperience() {
                                                 className={cn(
                                                   "h-8 w-8 rounded-full border transition-colors",
                                                   task.status === "failed"
-                                                    ? "border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
+                                                    ? isNight
+                                                      ? "border-rose-500 bg-rose-500 text-slate-900 hover:bg-rose-400"
+                                                      : "border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
+                                                    : isNight
+                                                    ? "border-rose-500 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30"
                                                     : "border-rose-600 bg-white text-rose-600 hover:bg-rose-50"
                                                 )}
                                                 onClick={() =>
@@ -1901,7 +2066,12 @@ export function FlowExperience() {
                                               <Button
                                                 size="icon"
                                                 variant="ghost"
-                                                className="h-8 w-8 rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+                                                className={cn(
+                                                  "h-8 w-8 rounded-full border",
+                                                  isNight
+                                                    ? "border-slate-500 bg-white/10 text-slate-300 hover:bg-rose-500/30 hover:text-rose-300"
+                                                    : "border-slate-200 bg-white text-slate-500 hover:bg-rose-50 hover:text-rose-600"
+                                                )}
                                                 onClick={() => handleRemoveTask(task.id)}
                                               >
                                                 <Trash2 className="h-4 w-4" />
@@ -1915,13 +2085,28 @@ export function FlowExperience() {
                                     </div>
                                   </div>
                                   {isActive ? (
-                                    <div className="absolute -left-1 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-4 border-white bg-emerald-400 shadow-lg" />
+                                    <div className={cn(
+                                      "absolute -left-1 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-4 shadow-lg",
+                                      isNight
+                                        ? "border-slate-800 bg-emerald-400"
+                                        : "border-white bg-emerald-400"
+                                    )} />
                                   ) : null}
                                   {!isActive && isPast && task.status === "pending" ? (
-                                    <div className="absolute -left-1 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-4 border-white bg-amber-400 shadow-lg" />
+                                    <div className={cn(
+                                      "absolute -left-1 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-4 shadow-lg",
+                                      isNight
+                                        ? "border-slate-800 bg-amber-400"
+                                        : "border-white bg-amber-400"
+                                    )} />
                                   ) : null}
                                   {task.status === "failed" ? (
-                                    <div className="absolute -left-1 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-4 border-white bg-rose-500 shadow-lg" />
+                                    <div className={cn(
+                                      "absolute -left-1 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full border-4 shadow-lg",
+                                      isNight
+                                        ? "border-slate-800 bg-rose-500"
+                                        : "border-white bg-rose-500"
+                                    )} />
                                   ) : null}
                                 </div>
                               );
@@ -1932,20 +2117,39 @@ export function FlowExperience() {
                   </Card>
 
                   {!timelineOnly ? (
-                    <Card className="border border-slate-200 bg-white/95 shadow-lg shadow-slate-200/50">
+                    <Card className={cn(
+                      "border shadow-lg",
+                      isNight
+                        ? "border-white/15 bg-slate-900/60 shadow-slate-900/50"
+                        : "border-slate-200 bg-white/95 shadow-slate-200/50"
+                    )}>
                       <CardHeader>
-                        <CardTitle className="text-lg font-semibold text-slate-900">
+                        <CardTitle className={cn(
+                          "text-lg font-semibold",
+                          isNight ? "text-white" : "text-slate-900"
+                        )}>
                           Reflection log
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-6">
-                        <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+                        <div className={cn(
+                          "space-y-4 rounded-2xl border p-4",
+                          isNight
+                            ? "border-white/20 bg-slate-800/60"
+                            : "border-slate-200 bg-slate-50/60"
+                        )}>
                           <div className="space-y-1">
-                            <p className="text-sm font-semibold text-slate-900">
+                            <p className={cn(
+                              "text-sm font-semibold",
+                              isNight ? "text-white" : "text-slate-900"
+                            )}>
                               How are you feeling right now?
                             </p>
-                            <p className="text-xs text-slate-500">
-                              Pick an emoji, jot a sentence or two, and keep your day’s story in one place.
+                            <p className={cn(
+                              "text-xs",
+                              isNight ? "text-slate-300" : "text-slate-500"
+                            )}>
+                              Pick an emoji, jot a sentence or two, and keep your day's story in one place.
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -1961,7 +2165,11 @@ export function FlowExperience() {
                                   className={cn(
                                     "flex items-center gap-1 rounded-full border px-3 text-sm transition",
                                     active
-                                      ? "border-sky-400 bg-sky-50 text-sky-700 shadow-sm"
+                                      ? isNight
+                                        ? "border-sky-400 bg-sky-500/30 text-sky-200 shadow-sm"
+                                        : "border-sky-400 bg-sky-50 text-sky-700 shadow-sm"
+                                      : isNight
+                                      ? "border-white/20 bg-white/10 text-slate-300 hover:border-white/30 hover:bg-white/15"
                                       : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
                                   )}
                                   onClick={() =>
@@ -1981,14 +2189,27 @@ export function FlowExperience() {
                             onChange={(event) => setReflectionNote(event.target.value)}
                             placeholder="Free-write a quick thought, mood, or story beat…"
                             rows={4}
+                            className={cn(
+                              isNight
+                                ? "border-white/30 bg-slate-900/50 text-white placeholder:text-white/40"
+                                : ""
+                            )}
                           />
                           <div className="flex flex-wrap items-center gap-3">
-                            <p className="text-xs text-slate-500">
+                            <p className={cn(
+                              "text-xs",
+                              isNight ? "text-slate-300" : "text-slate-500"
+                            )}>
                               Reflections appear here and in Journal so you can spot patterns.
                             </p>
                             <Button
                               type="button"
-                              className="ml-auto bg-emerald-500 text-white hover:bg-emerald-400"
+                              className={cn(
+                                "ml-auto",
+                                isNight
+                                  ? "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400 border-transparent"
+                                  : "bg-emerald-500 text-white hover:bg-emerald-400"
+                              )}
                               onClick={handleAddReflection}
                               disabled={reflectionSaving || !reflectionNote.trim()}
                             >
@@ -2023,7 +2244,12 @@ export function FlowExperience() {
                                 return (
                                   <div
                                     key={reflection.id}
-                                    className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600"
+                                    className={cn(
+                                      "rounded-2xl border px-4 py-3 text-sm",
+                                      isNight
+                                        ? "border-white/20 bg-slate-800/60 text-slate-300"
+                                        : "border-slate-200 bg-white/80 text-slate-600"
+                                    )}
                                   >
                                     <div className="flex items-start justify-between gap-3">
                                       <div className="flex flex-1 items-start gap-2">
@@ -2031,28 +2257,28 @@ export function FlowExperience() {
                                           <span className="text-xl leading-none">{reflection.mood}</span>
                                         ) : null}
                                         <div className="space-y-1">
-                                          <p className="font-semibold text-slate-900">
+                                          <p className={cn(
+                                            "font-semibold",
+                                            isNight ? "text-white" : "text-slate-900"
+                                          )}>
                                             {task?.title ?? reflection.moodLabel ?? "Daily note"}
                                           </p>
-                                          <Badge
-                                            variant="outline"
-                                            className={cn(
-                                              "text-[11px]",
-                                              SENTIMENT_STYLE[reflection.sentiment]
-                                            )}
-                                          >
-                                            {reflection.moodLabel ?? SENTIMENT_LABEL[reflection.sentiment]}
-                                          </Badge>
                                         </div>
                                       </div>
-                                      <div className="text-xs text-slate-400">
+                                      <div className={cn(
+                                        "text-xs",
+                                        isNight ? "text-slate-400" : "text-slate-400"
+                                      )}>
                                         {new Date(reflection.createdAt).toLocaleTimeString([], {
                                           hour: "2-digit",
                                           minute: "2-digit",
                                         })}
                                       </div>
                                     </div>
-                                    <p className="mt-2 whitespace-pre-line text-slate-700">
+                                    <p className={cn(
+                                      "mt-2 whitespace-pre-line",
+                                      isNight ? "text-slate-300" : "text-slate-700"
+                                    )}>
                                       {reflection.note}
                                     </p>
                                   </div>
@@ -2060,7 +2286,12 @@ export function FlowExperience() {
                               })}
                           </div>
                         ) : (
-                          <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/60 py-10 text-center text-sm text-slate-500">
+                          <div className={cn(
+                            "rounded-3xl border border-dashed py-10 text-center text-sm",
+                            isNight
+                              ? "border-white/15 bg-slate-800/40 text-slate-300"
+                              : "border-slate-200 bg-slate-50/60 text-slate-500"
+                          )}>
                             Track how each block went, capture wins, moods, and tweaks for tomorrow.
                           </div>
                         )}
