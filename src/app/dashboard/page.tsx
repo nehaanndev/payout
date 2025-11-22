@@ -2968,7 +2968,7 @@ function LearningLessonCard({
               className={cn(
                 "text-sm font-semibold",
                 isNight
-                  ? "border-white/20 text-white hover:bg-white/10"
+                  ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
                   : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
               )}
               onClick={() => setOpen(true)}
@@ -2983,7 +2983,7 @@ function LearningLessonCard({
               className={cn(
                 "gap-2 text-sm font-semibold",
                 isNight
-                  ? "border-white/20 text-white hover:bg-white/10"
+                  ? "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400 border-transparent disabled:opacity-50"
                   : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
               )}
             >
