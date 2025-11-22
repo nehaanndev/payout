@@ -47,6 +47,29 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
+import { theme as themeUtils } from "@/lib/theme";
+import {
+  Sparkles,
+  BookOpen,
+  FileText,
+  ArrowRight,
+  ArrowLeft,
+  Save,
+  Copy,
+  Library,
+  Calendar,
+  Heart,
+  Lightbulb,
+  Zap,
+  Feather,
+  HeartHandshake,
+  Target,
+  Smile,
+  CheckCircle2,
+  Clock,
+  Search,
+  FileEdit,
+} from "lucide-react";
 
 type JournalQuestion = {
   id: keyof JournalAnswers;
@@ -64,6 +87,7 @@ type JournalStep = {
   title: string;
   subtitle: string;
   accent: string;
+  icon: React.ComponentType<{ className?: string }>;
   questions: JournalQuestion[];
 };
 type EntryMode = "daily" | "blog";
@@ -76,6 +100,7 @@ const DAILY_STEPS: JournalStep[] = [
       "Ground yourself in the day before you jump into the details. Capture the vibe like it's the first page of a fresh notebook.",
     accent:
       "from-rose-200 via-fuchsia-200 to-sky-200 text-fuchsia-900 border-pink-300",
+    icon: Sparkles,
     questions: [
       {
         id: "entryDate",
@@ -108,6 +133,7 @@ const DAILY_STEPS: JournalStep[] = [
       "Reach for the moments that defined work and home without flipping four pages.",
     accent:
       "from-amber-200 via-orange-200 to-rose-200 text-amber-900 border-amber-300",
+    icon: Target,
     questions: [
       {
         id: "workStory",
@@ -136,6 +162,7 @@ const DAILY_STEPS: JournalStep[] = [
       "Close the loop with how it felt and who/what deserves a thank-you.",
     accent:
       "from-lime-200 via-yellow-200 to-rose-200 text-lime-900 border-lime-300",
+    icon: Heart,
     questions: [
       {
         id: "workFeeling",
@@ -169,6 +196,7 @@ const BLOG_STEPS: JournalStep[] = [
     subtitle: "Pick a title and a short summary so sharing it is effortless.",
     accent:
       "from-sky-200 via-indigo-200 to-purple-200 text-indigo-900 border-indigo-300",
+    icon: FileEdit,
     questions: [
       {
         id: "blogTitle",
@@ -192,6 +220,7 @@ const BLOG_STEPS: JournalStep[] = [
     subtitle: "Capture the body and optional tags before you share.",
     accent:
       "from-emerald-200 via-teal-200 to-cyan-200 text-emerald-900 border-emerald-300",
+    icon: FileText,
     questions: [
       {
         id: "blogBody",
@@ -213,29 +242,31 @@ const BLOG_STEPS: JournalStep[] = [
 
 const ENTRY_MODE_OPTIONS: Record<
   EntryMode,
-  { title: string; description: string; badge: string }
+  { title: string; description: string; badge: string; icon: React.ComponentType<{ className?: string }> }
 > = {
   daily: {
     title: "Daily journal",
     description: "Guided prompts to capture the day in a handful of beats.",
     badge: "Daily",
+    icon: BookOpen,
   },
   blog: {
     title: "Blog post",
     description: "Long-form draft with title, summary, and tags for sharing.",
     badge: "Blog",
+    icon: FileText,
   },
 };
 
 const JOURNAL_STORAGE_KEY = "toodl:journalId";
 
 const moodPalette = [
-  { label: "Electric", value: "electric" },
-  { label: "Soft", value: "soft" },
-  { label: "Grateful", value: "grateful" },
-  { label: "Stretched", value: "stretched" },
-  { label: "Playful", value: "playful" },
-  { label: "Grounded", value: "grounded" },
+  { label: "Electric", value: "electric", emoji: "⚡", color: "yellow" },
+  { label: "Soft", value: "soft", emoji: "☁️", color: "blue" },
+  { label: "Grateful", value: "grateful", emoji: "🙏", color: "green" },
+  { label: "Stretched", value: "stretched", emoji: "🎯", color: "orange" },
+  { label: "Playful", value: "playful", emoji: "🎈", color: "pink" },
+  { label: "Grounded", value: "grounded", emoji: "🌱", color: "emerald" },
 ];
 
 const initialAnswers: JournalAnswers = {
@@ -891,8 +922,15 @@ const JournalExperience = () => {
 
   if (!authChecked) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+      <div className={cn(
+        "relative flex min-h-screen items-center justify-center",
+        isNight
+          ? "bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950"
+          : "bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100"
+      )}>
+        {!isNight && (
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+        )}
         <Spinner />
       </div>
     );
@@ -900,8 +938,15 @@ const JournalExperience = () => {
 
   if (authChecked && !user) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-10">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+      <div className={cn(
+        "relative min-h-screen overflow-hidden px-4 py-10",
+        isNight
+          ? "bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950"
+          : "bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100"
+      )}>
+        {!isNight && (
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+        )}
         <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-8">
           <AppTopBar
             product="journal"
@@ -911,7 +956,11 @@ const JournalExperience = () => {
             onThemeChange={setTheme}
             actions={
               <Button
-                className="bg-primary text-white hover:bg-payoutHover"
+                className={cn(
+                  isNight
+                    ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
+                    : "bg-primary text-white hover:bg-payoutHover"
+                )}
                 onClick={() => router.push("/split")}
               >
                 Sign in
@@ -922,20 +971,31 @@ const JournalExperience = () => {
                 product="journal"
                 displayName="Guest"
                 identityLabel="Browsing as"
+                dark={isNight}
               />
             }
           />
           <div className="flex min-h-[40vh] items-center justify-center">
-            <Card className="max-w-md space-y-6 border-none bg-white/80 p-8 text-center shadow-2xl shadow-rose-200/40 backdrop-blur-xl">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            <Card className={cn(
+              "max-w-md space-y-6 border-none p-8 text-center shadow-2xl backdrop-blur-xl",
+              isNight
+                ? "bg-slate-900/80 shadow-slate-900/50"
+                : "bg-white/80 shadow-rose-200/40"
+            )}>
+              <h1 className={cn("text-2xl font-bold tracking-tight", themeUtils.text.primary(isNight))}>
                 Sign-in required
               </h1>
-              <p className="text-sm leading-relaxed text-slate-600">
+              <p className={cn("text-sm leading-relaxed", themeUtils.text.secondary(isNight))}>
                 Toodl Story is private to your account. Please sign in to
                 continue, then come back to capture your stories.
               </p>
               <Button
-                className="w-full bg-primary text-white hover:bg-payoutHover"
+                className={cn(
+                  "w-full",
+                  isNight
+                    ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
+                    : "bg-primary text-white hover:bg-payoutHover"
+                )}
                 onClick={() => router.push("/split")}
               >
                 Go to sign-in
@@ -949,21 +1009,38 @@ const JournalExperience = () => {
 
   if (invalidJournal) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-10">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+      <div className={cn(
+        "relative min-h-screen overflow-hidden px-4 py-10",
+        isNight
+          ? "bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950"
+          : "bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100"
+      )}>
+        {!isNight && (
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+        )}
         <div className="mx-auto flex min-h-[70vh] w-full max-w-3xl items-center justify-center">
-          <Card className="w-full border-none bg-white/85 p-10 text-center shadow-2xl shadow-rose-200/50 backdrop-blur-xl">
-            <h2 className="font-serif text-3xl font-semibold text-slate-900">
+          <Card className={cn(
+            "w-full border-none p-10 text-center shadow-2xl backdrop-blur-xl",
+            isNight
+              ? "bg-slate-900/80 shadow-slate-900/50"
+              : "bg-white/85 shadow-rose-200/50"
+          )}>
+            <h2 className={cn("font-serif text-3xl font-semibold", themeUtils.text.primary(isNight))}>
               We couldn&apos;t open that journal.
             </h2>
-            <p className="mt-4 text-lg text-slate-600">
+            <p className={cn("mt-4 text-lg", themeUtils.text.secondary(isNight))}>
               The share link might be mistyped or no longer available. Want to
               spin up a fresh notebook?
             </p>
             <div className="mt-8 flex justify-center">
               <Button
                 onClick={handleStartFresh}
-                className="bg-rose-500 px-6 py-2 text-base font-semibold text-white shadow-lg shadow-rose-400/40 transition hover:bg-rose-400"
+                className={cn(
+                  "px-6 py-2 text-base font-semibold transition",
+                  isNight
+                    ? "bg-rose-500/90 text-slate-900 shadow-lg shadow-rose-400/40 hover:bg-rose-400 border-transparent"
+                    : "bg-rose-500 text-white shadow-lg shadow-rose-400/40 hover:bg-rose-400"
+                )}
               >
                 Start a new journal
               </Button>
@@ -976,16 +1053,30 @@ const JournalExperience = () => {
 
   if (loadingJournal || !member) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+      <div className={cn(
+        "relative flex min-h-screen items-center justify-center",
+        isNight
+          ? "bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950"
+          : "bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100"
+      )}>
+        {!isNight && (
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+        )}
         <Spinner />
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100 px-4 py-10">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+    <div className={cn(
+      "relative min-h-screen overflow-hidden px-4 py-10",
+      isNight
+        ? "bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950"
+        : "bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100"
+    )}>
+      {!isNight && (
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+      )}
       <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-10">
         <AppTopBar
           product="journal"
@@ -994,130 +1085,243 @@ const JournalExperience = () => {
           dark={isNight}
           theme={theme}
           onThemeChange={setTheme}
-          actions={
-            <div className="flex flex-col items-stretch gap-2 sm:items-end">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <Button
-                  variant="outline"
-                  onClick={handleCopyLink}
-                  disabled={!shareUrl}
-                  className="border-slate-300"
-                >
-                  Copy journal link
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => setLibraryOpen(true)}
-                  disabled={!journalId}
-                >
-                  Browse past entries
-                </Button>
-              </div>
-              <span className="text-xs text-slate-500">{journalStatus}</span>
-            </div>
-          }
           userSlot={
             <AppUserMenu
               product="journal"
               displayName={displayName}
               sections={journalMenuSections}
               onSignOut={user ? handleSignOut : undefined}
+              dark={isNight}
             />
           }
         />
-        <header className="space-y-4 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.35em] text-rose-400">
+        <div className={cn(
+          "flex flex-col gap-3 rounded-3xl border px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between",
+          isNight
+            ? "border-white/15 bg-slate-900/60 shadow-slate-900/50"
+            : "border-slate-200 bg-white/80"
+        )}>
+          <div className="flex-1" />
+          <p className={cn(
+            "text-sm font-semibold uppercase tracking-[0.35em]",
+            isNight ? "text-rose-300" : "text-rose-400"
+          )}>
             Toodl Story
           </p>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 md:text-5xl">
+          <div className="flex flex-1 items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={handleCopyLink}
+              disabled={!shareUrl}
+              className={cn("flex items-center gap-2", themeUtils.button.secondary(isNight))}
+            >
+              <Copy className="h-4 w-4" />
+              Copy journal link
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setLibraryOpen(true)}
+              disabled={!journalId}
+              className={cn("flex items-center gap-2", themeUtils.button.secondary(isNight))}
+            >
+              <Library className="h-4 w-4" />
+              Browse past entries
+            </Button>
+          </div>
+        </div>
+        <header className="space-y-4 text-center">
+          <h1 className={cn("text-4xl font-black tracking-tight md:text-5xl", themeUtils.text.primary(isNight))}>
             Capture the story of your day like it deserves the front page.
           </h1>
-          <p className="mx-auto max-w-2xl text-lg text-slate-600">
+          <p className={cn("mx-auto max-w-2xl text-lg", themeUtils.text.secondary(isNight))}>
             Drift through guided prompts that feel like flipping through a
             colorful notebook. We&apos;ll help you stitch together the work, the
             heart, and the sparks that made today yours.
           </p>
           <div className="mx-auto max-w-3xl space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+            <p className={cn("text-xs font-semibold uppercase tracking-[0.3em]", themeUtils.text.muted(isNight))}>
               Choose how you want to write
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               {(Object.keys(ENTRY_MODE_OPTIONS) as EntryMode[]).map((mode) => {
                 const option = ENTRY_MODE_OPTIONS[mode];
                 const isActive = entryMode === mode;
+                const Icon = option.icon;
                 return (
                   <button
                     key={mode}
                     type="button"
                     onClick={() => setEntryMode(mode)}
                     className={cn(
-                      "rounded-2xl border px-4 py-3 text-left transition",
+                      "group relative rounded-2xl border px-4 py-4 text-left transition-all duration-200",
                       isActive
-                        ? "border-rose-400 bg-white shadow-lg shadow-rose-200/60"
-                        : "border-transparent bg-white/60 hover:bg-white/80"
+                        ? isNight
+                          ? "border-rose-400/50 bg-slate-900/80 shadow-lg shadow-rose-500/20 scale-[1.02]"
+                          : "border-rose-400 bg-white shadow-lg shadow-rose-200/60 scale-[1.02]"
+                        : isNight
+                        ? "border-white/15 bg-slate-900/60 hover:bg-slate-900/80 hover:border-white/25"
+                        : "border-transparent bg-white/60 hover:bg-white/80 hover:border-rose-200/50"
                     )}
                   >
-                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-rose-400">
-                      {option.badge}
-                    </span>
-                    <p className="mt-1 text-lg font-semibold text-slate-900">
-                      {option.title}
-                    </p>
-                    <p className="text-sm text-slate-600">{option.description}</p>
+                    <div className="flex items-start gap-3">
+                      <div className={cn(
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors",
+                        isActive
+                          ? isNight
+                            ? "bg-rose-500/20 text-rose-300"
+                            : "bg-rose-100 text-rose-600"
+                          : isNight
+                          ? "bg-white/10 text-slate-400"
+                          : "bg-slate-100 text-slate-500"
+                      )}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className={cn(
+                          "text-xs font-semibold uppercase tracking-[0.3em]",
+                          isNight ? "text-rose-300" : "text-rose-400"
+                        )}>
+                          {option.badge}
+                        </span>
+                        <p className={cn("mt-1 text-lg font-semibold", themeUtils.text.primary(isNight))}>
+                          {option.title}
+                        </p>
+                        <p className={cn("text-sm mt-0.5", themeUtils.text.secondary(isNight))}>{option.description}</p>
+                      </div>
+                    </div>
                   </button>
                 );
               })}
             </div>
           </div>
-          <p className="text-sm font-medium uppercase tracking-[0.35em] text-slate-400">
+          <p className={cn("text-sm font-medium uppercase tracking-[0.35em]", themeUtils.text.muted(isNight))}>
             Journal ID · {journalId ?? "Not saved yet"}
           </p>
         </header>
 
-        <Card className="relative overflow-hidden border-none bg-white/80 p-6 shadow-2xl shadow-rose-200/50 backdrop-blur-xl md:p-10">
-          <div className="absolute -left-12 top-10 h-40 w-40 rounded-full bg-rose-200 blur-3xl" />
-          <div className="absolute right-4 top-4 h-14 w-14 rounded-full bg-orange-200 blur-2xl" />
-          <div className="absolute bottom-10 right-12 h-52 w-40 rounded-full bg-sky-200 blur-3xl" />
+        <Card className={cn(
+          "relative overflow-hidden border-none p-6 shadow-2xl backdrop-blur-xl md:p-10",
+          isNight
+            ? "bg-slate-900/80 shadow-slate-900/50"
+            : "bg-white/80 shadow-rose-200/50"
+        )}>
+          {!isNight && (
+            <>
+              <div className="absolute -left-12 top-10 h-40 w-40 rounded-full bg-rose-200 blur-3xl" />
+              <div className="absolute right-4 top-4 h-14 w-14 rounded-full bg-orange-200 blur-2xl" />
+              <div className="absolute bottom-10 right-12 h-52 w-40 rounded-full bg-sky-200 blur-3xl" />
+            </>
+          )}
 
           <div className="relative space-y-6">
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-400">
-                  {isSummaryStep
-                    ? "Journal Preview"
-                    : `Step ${currentStep + 1} of ${totalSteps}`}
-                </span>
-                <span className="text-sm font-medium text-slate-500">
-                  {progressValue}% complete
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className={cn("text-sm font-semibold uppercase tracking-[0.3em]", themeUtils.text.muted(isNight))}>
+                    {isSummaryStep
+                      ? "Journal Preview"
+                      : `Step ${currentStep + 1} of ${totalSteps}`}
+                  </span>
+                  {!isSummaryStep && activeStep && (
+                    <div className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-lg",
+                      isNight
+                        ? "bg-white/10 text-rose-300"
+                        : "bg-rose-100 text-rose-600"
+                    )}>
+                      {(() => {
+                        const StepIcon = activeStep.icon;
+                        return <StepIcon className="h-4 w-4" />;
+                      })()}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={cn("text-sm font-medium", themeUtils.text.muted(isNight))}>
+                    {progressValue}% complete
+                  </span>
+                  {progressValue === 100 && (
+                    <CheckCircle2 className={cn("h-4 w-4", isNight ? "text-emerald-400" : "text-emerald-600")} />
+                  )}
+                </div>
               </div>
-              <Progress value={progressValue} className="h-3 rounded-full" />
+              {/* Step indicators */}
+              {!isSummaryStep && (
+                <div className="flex items-center gap-2 pt-2">
+                  {Array.from({ length: totalSteps }).map((_, index) => {
+                    const stepNumber = index + 1;
+                    const isCompleted = stepNumber < currentStep + 1;
+                    const isCurrent = stepNumber === currentStep + 1;
+                    return (
+                      <div
+                        key={index}
+                        className={cn(
+                          "h-2 flex-1 rounded-full transition-all duration-300",
+                          isCurrent
+                            ? isNight
+                              ? "bg-rose-400/80"
+                              : "bg-rose-500"
+                            : isCompleted
+                            ? isNight
+                              ? "bg-emerald-400/50"
+                              : "bg-emerald-400"
+                            : isNight
+                            ? "bg-white/10"
+                            : "bg-slate-200"
+                        )}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {!isSummaryStep && activeStep ? (
               <div
                 className={cn(
-                  "relative rounded-3xl border bg-gradient-to-br p-8 shadow-xl",
-                  activeStep.accent
+                  "relative rounded-3xl border p-8 shadow-xl",
+                  isNight
+                    ? "border-white/15 bg-slate-800/60"
+                    : `bg-gradient-to-br ${activeStep.accent}`
                 )}
               >
-                <div className="absolute inset-0 rounded-3xl border border-white/40 bg-white/70 p-px [mask-image:linear-gradient(to_bottom,rgba(255,255,255,0.92),rgba(255,255,255,0.85))]" />
+                {!isNight && (
+                  <div className="absolute inset-0 rounded-3xl border border-white/40 bg-white/70 p-px [mask-image:linear-gradient(to_bottom,rgba(255,255,255,0.92),rgba(255,255,255,0.85))]" />
+                )}
                 <div className="relative space-y-8">
-                  <div className="space-y-3">
-                    <h2 className="font-serif text-3xl font-semibold tracking-tight">
-                      {activeStep.title}
-                    </h2>
-                    <p className="max-w-2xl text-base leading-relaxed text-slate-700">
-                      {activeStep.subtitle}
-                    </p>
+                  <div className="flex items-start gap-4">
+                    <div className={cn(
+                      "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl",
+                      isNight
+                        ? "bg-white/10 border border-white/20"
+                        : "bg-white/80 border border-white/40 shadow-sm"
+                    )}>
+                      {(() => {
+                        const StepIcon = activeStep.icon;
+                        return (
+                          <StepIcon className={cn(
+                            "h-7 w-7",
+                            isNight ? "text-rose-300" : "text-rose-600"
+                          )} />
+                        );
+                      })()}
+                    </div>
+                    <div className="flex-1 space-y-3">
+                      <h2 className={cn("font-serif text-3xl font-semibold tracking-tight", themeUtils.text.primary(isNight))}>
+                        {activeStep.title}
+                      </h2>
+                      <p className={cn("max-w-2xl text-base leading-relaxed", themeUtils.text.secondary(isNight))}>
+                        {activeStep.subtitle}
+                      </p>
+                    </div>
                   </div>
 
                   {entryMode === "daily" && currentStep === 0 ? (
                     <div>
-                      <Label className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                      <Label className={cn("text-sm font-semibold uppercase tracking-[0.2em]", themeUtils.text.muted(isNight))}>
                         Select your mood ink
                       </Label>
-                      <div className="mt-2 flex flex-wrap gap-3">
+                      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
                         {moodPalette.map((mood) => {
                           const isActive = selectedMood === mood.value;
                           return (
@@ -1126,13 +1330,24 @@ const JournalExperience = () => {
                               type="button"
                               onClick={() => handleSelectMood(mood.value)}
                               className={cn(
-                                "rounded-full px-4 py-2 text-sm font-semibold transition",
+                                "group relative flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-all duration-200",
                                 isActive
-                                  ? "bg-slate-900 text-white shadow-lg shadow-slate-500/30"
-                                  : "bg-white/70 text-slate-700 shadow-sm hover:bg-white"
+                                  ? isNight
+                                    ? "border-rose-400/50 bg-rose-500/20 text-rose-200 shadow-lg shadow-rose-500/20 scale-[1.02]"
+                                    : "border-rose-400 bg-rose-50 text-rose-700 shadow-lg shadow-rose-200/40 scale-[1.02]"
+                                  : isNight
+                                  ? "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10 hover:border-white/25"
+                                  : "border-slate-200 bg-white/70 text-slate-700 hover:bg-white hover:border-rose-200"
                               )}
                             >
-                              {mood.label}
+                              <span className="text-lg leading-none">{mood.emoji}</span>
+                              <span>{mood.label}</span>
+                              {isActive && (
+                                <CheckCircle2 className={cn(
+                                  "ml-auto h-4 w-4",
+                                  isNight ? "text-rose-300" : "text-rose-600"
+                                )} />
+                              )}
                             </button>
                           );
                         })}
@@ -1149,12 +1364,15 @@ const JournalExperience = () => {
                       ) {
                         return (
                           <div key={question.id}>
-                            <Label className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                            <Label className={cn("text-sm font-semibold uppercase tracking-[0.2em]", themeUtils.text.muted(isNight))}>
                               {question.label}
                             </Label>
                             <Input
                               type="date"
-                              className="mt-2 border-white/60 bg-white/80 shadow-inner shadow-slate-400/10 focus:border-rose-400 focus:ring-rose-300/40"
+                              className={cn(
+                                "mt-2",
+                                themeUtils.input(isNight)
+                              )}
                               value={answers.entryDate}
                               onChange={(event) =>
                                 updateAnswer("entryDate", event.target.value)
@@ -1165,7 +1383,7 @@ const JournalExperience = () => {
                       }
                       return (
                         <div key={question.id} className="space-y-2">
-                          <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+                          <Label className={cn("text-xs font-semibold uppercase tracking-[0.3em]", themeUtils.text.muted(isNight))}>
                             {question.label}
                           </Label>
                           {question.type === "textarea" ? (
@@ -1176,7 +1394,12 @@ const JournalExperience = () => {
                               }
                               placeholder={question.placeholder}
                               rows={question.rows}
-                              className="border-white/50 bg-white/80 shadow-inner shadow-slate-500/10 focus:border-slate-400 focus:ring-slate-300/40"
+                              className={cn(
+                                "w-full rounded-xl border px-3 py-2 text-sm",
+                                isNight
+                                  ? "border-white/30 bg-slate-900/50 text-white placeholder:text-white/40"
+                                  : "border-white/50 bg-white/80 shadow-inner shadow-slate-500/10 focus:border-slate-400 focus:ring-slate-300/40"
+                              )}
                             />
                           ) : (
                             <Input
@@ -1186,11 +1409,11 @@ const JournalExperience = () => {
                                 updateAnswer(question.id, event.target.value)
                               }
                               placeholder={question.placeholder}
-                              className="border-white/60 bg-white/80 shadow-inner shadow-slate-500/10 focus:border-slate-400 focus:ring-slate-300/40"
+                              className={themeUtils.input(isNight)}
                             />
                           )}
                           {question.helper ? (
-                            <p className="text-sm italic text-slate-600">
+                            <p className={cn("text-sm italic", themeUtils.text.secondary(isNight))}>
                               {question.helper}
                             </p>
                           ) : null}
@@ -1201,66 +1424,147 @@ const JournalExperience = () => {
                 </div>
               </div>
             ) : (
-              <div className="relative rounded-3xl border border-rose-200/60 bg-gradient-to-br from-white via-rose-50 to-white p-8 shadow-lg">
-                <div
-                  className="absolute inset-4 rounded-2xl border-l-4 border-rose-300 bg-white/85 p-6"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(to bottom, rgba(244, 244, 249, 0.7) 1px, transparent 1px)",
-                    backgroundSize: "100% 32px",
-                  }}
-                />
+              <div className={cn(
+                "relative rounded-3xl border p-8 shadow-lg",
+                isNight
+                  ? "border-white/15 bg-slate-800/60"
+                  : "border-rose-200/60 bg-gradient-to-br from-white via-rose-50 to-white"
+              )}>
+                {!isNight && (
+                  <div
+                    className="absolute inset-4 rounded-2xl border-l-4 border-rose-300 bg-white/85 p-6"
+                    style={{
+                      backgroundImage:
+                        "linear-gradient(to bottom, rgba(244, 244, 249, 0.7) 1px, transparent 1px)",
+                      backgroundSize: "100% 32px",
+                    }}
+                  />
+                )}
                 <div className="relative space-y-6">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm font-semibold uppercase tracking-[0.3em] text-rose-400">
-                      {entryMode === "blog"
-                        ? answers.blogTitle || "Blog preview"
-                        : answers.entryDate
-                        ? formatDisplayDate(answers.entryDate)
-                        : "Journal preview"}
-                    </span>
-                    <h2 className="font-serif text-4xl font-semibold text-slate-900">
-                      {entryMode === "blog" ? "Blog draft" : "Your story from today"}
-                    </h2>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
+                        isNight
+                          ? "bg-white/10 border border-white/20"
+                          : "bg-rose-100 border border-rose-200"
+                      )}>
+                        {entryMode === "blog" ? (
+                          <FileText className={cn("h-6 w-6", isNight ? "text-rose-300" : "text-rose-600")} />
+                        ) : (
+                          <BookOpen className={cn("h-6 w-6", isNight ? "text-rose-300" : "text-rose-600")} />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className={cn(
+                          "text-sm font-semibold uppercase tracking-[0.3em]",
+                          isNight ? "text-rose-300" : "text-rose-400"
+                        )}>
+                          {entryMode === "blog"
+                            ? answers.blogTitle || "Blog preview"
+                            : answers.entryDate
+                            ? formatDisplayDate(answers.entryDate)
+                            : "Journal preview"}
+                        </span>
+                        <h2 className={cn("font-serif text-4xl font-semibold mt-1", themeUtils.text.primary(isNight))}>
+                          {entryMode === "blog" ? "Blog draft" : "Your story from today"}
+                        </h2>
+                      </div>
+                    </div>
                     {entryMode === "daily" && selectedMood ? (
-                      <p className="text-sm font-medium uppercase tracking-[0.35em] text-slate-500">
-                        Mood: {selectedMood}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <Smile className={cn("h-4 w-4", themeUtils.text.muted(isNight))} />
+                        <p className={cn("text-sm font-medium uppercase tracking-[0.35em]", themeUtils.text.muted(isNight))}>
+                          Mood: {selectedMood}
+                        </p>
+                      </div>
                     ) : null}
                   </div>
 
-                  <div className="space-y-5">
+                  <div className="space-y-6">
                     {journalPreview.length ? (
-                      journalPreview.map((section) => (
-                        <div key={section.heading} className="space-y-2">
-                          <h3 className="font-semibold uppercase tracking-[0.25em] text-slate-500">
-                            {section.heading}
-                          </h3>
-                          <div className="space-y-3">
-                            {section.body.map((paragraph, index) => (
-                              <p
-                                key={`${section.heading}-${index}`}
-                                className="text-lg leading-relaxed text-slate-700"
-                              >
-                                {paragraph}
-                              </p>
-                            ))}
+                      journalPreview.map((section, sectionIndex) => {
+                        const getSectionIcon = () => {
+                          if (section.heading.includes("Scene")) return Sparkles;
+                          if (section.heading.includes("Anchors")) return Target;
+                          if (section.heading.includes("Feelings")) return Heart;
+                          if (section.heading.includes("Tags")) return FileText;
+                          return BookOpen;
+                        };
+                        const SectionIcon = getSectionIcon();
+                        return (
+                          <div key={section.heading} className="space-y-3">
+                            <div className={cn(
+                              "flex items-center gap-3 pb-2 border-b",
+                              isNight ? "border-white/10" : "border-slate-200"
+                            )}>
+                              <div className={cn(
+                                "flex h-8 w-8 items-center justify-center rounded-lg",
+                                isNight
+                                  ? "bg-white/10 text-rose-300"
+                                  : "bg-rose-100 text-rose-600"
+                              )}>
+                                <SectionIcon className="h-4 w-4" />
+                              </div>
+                              <h3 className={cn("font-semibold uppercase tracking-[0.25em]", themeUtils.text.muted(isNight))}>
+                                {section.heading}
+                              </h3>
+                            </div>
+                            <div className={cn(
+                              "space-y-3 pl-11",
+                              isNight ? "border-l border-white/10" : "border-l border-slate-200"
+                            )}>
+                              {section.body.map((paragraph, index) => (
+                                <p
+                                  key={`${section.heading}-${index}`}
+                                  className={cn("text-lg leading-relaxed", themeUtils.text.secondary(isNight))}
+                                >
+                                  {paragraph}
+                                </p>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
-                      <p className="text-lg text-slate-600">
-                        Your reflections will appear here once you add them.
-                      </p>
+                      <div className={cn(
+                        "flex flex-col items-center gap-3 rounded-2xl border border-dashed px-6 py-8 text-center",
+                        isNight
+                          ? "border-white/15 bg-slate-800/40"
+                          : "border-slate-200 bg-slate-50/50"
+                      )}>
+                        <BookOpen className={cn("h-12 w-12", isNight ? "text-slate-500" : "text-slate-400")} />
+                        <p className={cn("text-lg font-medium", themeUtils.text.primary(isNight))}>
+                          Your reflections will appear here once you add them.
+                        </p>
+                        <p className={cn("text-sm", themeUtils.text.muted(isNight))}>
+                          Fill out the steps above to see your journal preview.
+                        </p>
+                      </div>
                     )}
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-2xl border border-rose-200/60 bg-white/75 p-4 shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-rose-400">
-                        Entry Status
-                      </p>
-                      <p className="mt-2 text-base text-slate-700">
+                    <div className={cn(
+                      "rounded-2xl border p-4 shadow-sm",
+                      isNight
+                        ? "border-white/15 bg-slate-800/60"
+                        : "border-rose-200/60 bg-white/75"
+                    )}>
+                      <div className="flex items-center gap-2 mb-2">
+                        {hasUnsavedChanges ? (
+                          <Clock className={cn("h-4 w-4", isNight ? "text-amber-400" : "text-amber-600")} />
+                        ) : (
+                          <CheckCircle2 className={cn("h-4 w-4", isNight ? "text-emerald-400" : "text-emerald-600")} />
+                        )}
+                        <p className={cn(
+                          "text-xs font-semibold uppercase tracking-[0.3em]",
+                          isNight ? "text-rose-300" : "text-rose-400"
+                        )}>
+                          Entry Status
+                        </p>
+                      </div>
+                      <p className={cn("mt-2 text-base", themeUtils.text.secondary(isNight))}>
                         {hasUnsavedChanges
                           ? "Draft — changes not saved yet."
                           : lastSavedAt
@@ -1268,27 +1572,57 @@ const JournalExperience = () => {
                           : "Saved."}
                       </p>
                       {saveError ? (
-                        <p className="mt-3 text-sm text-rose-600">{saveError}</p>
+                        <p className={cn("mt-3 text-sm flex items-center gap-2", isNight ? "text-rose-400" : "text-rose-600")}>
+                          <span className="text-xs">⚠️</span>
+                          {saveError}
+                        </p>
                       ) : null}
                     </div>
-                    <div className="space-y-2 rounded-2xl border border-rose-200/60 bg-white/75 p-4 shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-rose-400">
-                        Share this journal
-                      </p>
+                    <div className={cn(
+                      "space-y-2 rounded-2xl border p-4 shadow-sm",
+                      isNight
+                        ? "border-white/15 bg-slate-800/60"
+                        : "border-rose-200/60 bg-white/75"
+                    )}>
+                      <div className="flex items-center gap-2">
+                        <Copy className={cn("h-4 w-4", isNight ? "text-rose-300" : "text-rose-400")} />
+                        <p className={cn(
+                          "text-xs font-semibold uppercase tracking-[0.3em]",
+                          isNight ? "text-rose-300" : "text-rose-400"
+                        )}>
+                          Share this journal
+                        </p>
+                      </div>
                       <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                        <code className="flex-1 break-all rounded-lg bg-slate-900/90 px-3 py-2 text-xs text-white">
+                        <code className={cn(
+                          "flex-1 break-all rounded-lg px-3 py-2 text-xs font-mono",
+                          isNight
+                            ? "bg-slate-900/90 text-white border border-white/10"
+                            : "bg-slate-900/90 text-white border border-slate-700"
+                        )}>
                           {shareUrl}
                         </code>
                         <Button
                           variant="outline"
                           onClick={handleCopyLink}
-                          className="md:w-auto"
+                          className={cn("md:w-auto flex items-center gap-2", themeUtils.button.secondary(isNight))}
                         >
-                          {copyStatus === "copied"
-                            ? "Copied!"
-                            : copyStatus === "failed"
-                            ? "Copy failed"
-                            : "Copy link"}
+                          {copyStatus === "copied" ? (
+                            <>
+                              <CheckCircle2 className="h-4 w-4" />
+                              Copied!
+                            </>
+                          ) : copyStatus === "failed" ? (
+                            <>
+                              <span className="text-xs">⚠️</span>
+                              Copy failed
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-4 w-4" />
+                              Copy link
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -1303,14 +1637,22 @@ const JournalExperience = () => {
                   variant="ghost"
                   onClick={handleBack}
                   disabled={currentStep === 0 && !isSummaryStep}
+                  className={cn(
+                    "flex items-center gap-2",
+                    isNight
+                      ? "text-slate-300 hover:text-white hover:bg-white/10"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  )}
                 >
+                  <ArrowLeft className="h-4 w-4" />
                   Back
                 </Button>
                 <Button
                   variant="outline"
                   onClick={handleReset}
-                  className="bg-white/80"
+                  className={cn("flex items-center gap-2", themeUtils.button.secondary(isNight))}
                 >
+                  <FileEdit className="h-4 w-4" />
                   {isSummaryStep ? "Start another entry" : "Reset"}
                 </Button>
               </div>
@@ -1320,23 +1662,38 @@ const JournalExperience = () => {
                   <Button
                     onClick={handleNext}
                     disabled={!allowNext}
-                    className="bg-slate-900 px-6 py-2 text-base font-semibold text-white shadow-lg shadow-slate-500/30 transition hover:bg-slate-800"
+                    className={cn(
+                      "flex items-center gap-2 px-6 py-2 text-base font-semibold shadow-lg transition-all duration-200 hover:scale-[1.02]",
+                      isNight
+                        ? "bg-indigo-500/90 text-slate-900 shadow-indigo-500/30 hover:bg-indigo-400 border-transparent"
+                        : "bg-slate-900 text-white shadow-slate-500/30 hover:bg-slate-800"
+                    )}
                   >
-                    {currentStep === totalSteps - 1
-                      ? "Craft My Journal"
-                      : "Next Page"}
+                    {currentStep === totalSteps - 1 ? "Craft My Journal" : "Next Page"}
+                    <ArrowRight className="h-4 w-4" />
                   </Button>
                 ) : (
                   <Button
                     onClick={handleSaveEntry}
                     disabled={savingEntry}
-                    className="bg-rose-500 px-6 py-2 text-base font-semibold text-white shadow-lg shadow-rose-400/40 transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-75"
+                    className={cn(
+                      "flex items-center gap-2 px-6 py-2 text-base font-semibold shadow-lg transition-all duration-200 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-75",
+                      isNight
+                        ? "bg-rose-500/90 text-slate-900 shadow-rose-400/40 hover:bg-rose-400 border-transparent"
+                        : "bg-rose-500 text-white shadow-rose-400/40 hover:bg-rose-400"
+                    )}
                   >
-                    {savingEntry
-                      ? "Saving entry..."
-                      : hasUnsavedChanges
-                      ? "Save journal entry"
-                      : "Save again"}
+                    {savingEntry ? (
+                      <>
+                        <Clock className="h-4 w-4 animate-spin" />
+                        Saving entry...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        {hasUnsavedChanges ? "Save journal entry" : "Save again"}
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
@@ -1347,11 +1704,16 @@ const JournalExperience = () => {
       <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>
         <SheetContent
           side="right"
-          className="w-full max-w-md overflow-y-auto bg-white/85 backdrop-blur-xl"
+          className={cn(
+            "w-full max-w-md overflow-y-auto backdrop-blur-xl",
+            isNight
+              ? "bg-slate-900/95 border-white/15"
+              : "bg-white/85"
+          )}
         >
           <SheetHeader>
-            <SheetTitle>Past entries</SheetTitle>
-            <SheetDescription>
+            <SheetTitle className={themeUtils.text.primary(isNight)}>Past entries</SheetTitle>
+            <SheetDescription className={themeUtils.text.secondary(isNight)}>
               Revisit previous reflections and reopen them in the studio.
             </SheetDescription>
           </SheetHeader>
@@ -1361,17 +1723,30 @@ const JournalExperience = () => {
                 <Spinner />
               </div>
             ) : libraryError ? (
-              <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              <div className={cn(
+                "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+                isNight
+                  ? "border-rose-400/30 bg-rose-500/10 text-rose-300"
+                  : "border-rose-200 bg-rose-50 text-rose-700"
+              )}>
+                <span className="text-base">⚠️</span>
                 {libraryError}
               </div>
             ) : groupedLibraryEntries.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
-                Your notebook is waiting for its first entry.
+              <div className={cn(
+                "flex flex-col items-center gap-3 rounded-2xl border px-4 py-8 text-center",
+                isNight
+                  ? "border-white/15 bg-slate-800/60 text-slate-300"
+                  : "border-slate-200 bg-white text-slate-500"
+              )}>
+                <BookOpen className={cn("h-12 w-12", isNight ? "text-slate-500" : "text-slate-400")} />
+                <p className="text-sm font-medium">Your notebook is waiting for its first entry.</p>
+                <p className="text-xs">Start writing to see your entries here.</p>
               </div>
             ) : (
               groupedLibraryEntries.map((group, index) => (
                 <div key={`${group.label}-${index}`} className="space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
+                  <h3 className={cn("text-xs font-semibold uppercase tracking-[0.25em]", themeUtils.text.muted(isNight))}>
                     {group.label}
                   </h3>
                   <div className="space-y-2">
@@ -1387,33 +1762,60 @@ const JournalExperience = () => {
                           disabled={entryLoading}
                           onClick={() => void handleSelectEntry(entry.id)}
                           className={cn(
-                            "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-md",
-                            entryLoading && "opacity-60"
+                            "group w-full rounded-2xl border px-4 py-3 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+                            isNight
+                              ? "border-white/15 bg-slate-800/60 hover:border-rose-400/50 hover:bg-slate-800/80"
+                              : "border-slate-200 bg-white hover:border-rose-200 hover:bg-rose-50/30",
+                            entryLoading && "opacity-60 cursor-not-allowed"
                           )}
                         >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-semibold text-slate-700">
-                              {displayDate}
-                            </span>
-                            <span className="text-xs text-slate-400">
-                              Updated {updatedStamp}
-                            </span>
-                          </div>
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-                            {entry.mood ? (
-                              <Badge className="bg-rose-100 text-rose-700" variant="secondary">
-                                {entry.mood}
-                              </Badge>
-                            ) : null}
-                            {entry.snippet ? (
-                              <span className="line-clamp-2 text-left text-sm text-slate-500">
-                                “{entry.snippet}”
-                              </span>
-                            ) : (
-                              <span className="text-sm text-slate-400">
-                                No snippet saved
-                              </span>
-                            )}
+                          <div className="flex items-start gap-3">
+                            <div className={cn(
+                              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+                              isNight
+                                ? "bg-white/10 text-rose-300"
+                                : "bg-rose-100 text-rose-600"
+                            )}>
+                              <Calendar className="h-5 w-5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className={cn("text-sm font-semibold", themeUtils.text.primary(isNight))}>
+                                  {displayDate}
+                                </span>
+                                <span className={cn("text-xs flex items-center gap-1", themeUtils.text.muted(isNight))}>
+                                  <Clock className="h-3 w-3" />
+                                  {updatedStamp}
+                                </span>
+                              </div>
+                              <div className={cn("mt-2 flex flex-wrap items-center gap-2 text-sm", themeUtils.text.secondary(isNight))}>
+                                {entry.mood ? (
+                                  <Badge className={cn(
+                                    "flex items-center gap-1",
+                                    isNight
+                                      ? "bg-rose-500/20 text-rose-200 border-rose-400/30"
+                                      : "bg-rose-100 text-rose-700"
+                                  )} variant="secondary">
+                                    <Smile className="h-3 w-3" />
+                                    {entry.mood}
+                                  </Badge>
+                                ) : null}
+                                {entry.snippet ? (
+                                  <span className={cn("line-clamp-2 text-left text-sm italic", themeUtils.text.muted(isNight))}>
+                                    "{entry.snippet}"
+                                  </span>
+                                ) : (
+                                  <span className={cn("text-sm flex items-center gap-1", themeUtils.text.muted(isNight))}>
+                                    <FileText className="h-3 w-3" />
+                                    No snippet saved
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <ArrowRight className={cn(
+                              "h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1",
+                              themeUtils.text.muted(isNight)
+                            )} />
                           </div>
                         </button>
                       );
