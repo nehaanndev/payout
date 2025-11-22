@@ -3,7 +3,17 @@
 import { MouseEvent as ReactMouseEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, LogOut, X, Home } from "lucide-react";
+import {
+  Menu,
+  LogOut,
+  X,
+  Home,
+  Wallet,
+  Activity,
+  NotebookPen,
+  Sparkles,
+  Workflow,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,37 +54,43 @@ const PRODUCT_DESTINATIONS: Array<{
   product: Exclude<ProductKey, "dashboard">;
   label: string;
   href: string;
-  icon: string;
+  icon: ReactNode;
+  gradient: string;
 }> = [
   {
-    product: "expense",
-    label: "Split",
-    href: "/split",
-    icon: "/brand/toodl-expense.svg",
-  },
-  {
-    product: "budget",
-    label: "Pulse",
-    href: "/budget",
-    icon: "/brand/toodl-budget.svg",
-  },
-  {
-    product: "journal",
-    label: "Story",
-    href: "/journal",
-    icon: "/brand/toodl-journal.svg",
+    product: "flow",
+    label: "Flow",
+    href: "/flow",
+    icon: <Workflow className="h-4 w-4" />,
+    gradient: "from-rose-400 via-orange-400 to-amber-500",
   },
   {
     product: "orbit",
     label: "Orbit",
     href: "/orbit",
-    icon: "/brand/toodl-orbit.svg",
+    icon: <Sparkles className="h-4 w-4" />,
+    gradient: "from-sky-400 via-cyan-400 to-indigo-500",
   },
   {
-    product: "flow",
-    label: "Flow",
-    href: "/flow",
-    icon: "/brand/toodl-flow.svg",
+    product: "budget",
+    label: "Pulse",
+    href: "/budget",
+    icon: <Activity className="h-4 w-4" />,
+    gradient: "from-violet-400 via-indigo-400 to-blue-600",
+  },
+  {
+    product: "expense",
+    label: "Split",
+    href: "/split",
+    icon: <Wallet className="h-4 w-4" />,
+    gradient: "from-emerald-400 via-teal-400 to-emerald-600",
+  },
+  {
+    product: "journal",
+    label: "Story",
+    href: "/journal",
+    icon: <NotebookPen className="h-4 w-4" />,
+    gradient: "from-amber-400 via-orange-400 to-pink-500",
   },
 ];
 
@@ -102,17 +118,22 @@ export function AppUserMenu({
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   const crossAppSection: AppUserMenuSection = useMemo(() => {
+    const baseIconStyles =
+      "flex h-8 w-8 items-center justify-center rounded-xl text-white shadow-inner";
     const coreItems = PRODUCT_DESTINATIONS.map((destination) => ({
       label: destination.label,
       href: destination.href,
       icon: (
-        <Image
-          src={destination.icon}
-          alt={destination.label}
-          width={20}
-          height={20}
-          className="brand-logo h-5 w-5"
-        />
+        <span
+          className={cn(
+            baseIconStyles,
+            "bg-gradient-to-r",
+            destination.gradient,
+            product === destination.product && "ring-2 ring-offset-2 ring-offset-white/60 ring-white/80"
+          )}
+        >
+          {destination.icon}
+        </span>
       ),
       disabled: product === destination.product,
       badge: product === destination.product ? "Current" : undefined,

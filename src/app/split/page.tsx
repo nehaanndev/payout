@@ -519,7 +519,13 @@ export default function Home() {
     setHasPromptedForPaypal(false);
   }, [session?.uid]);
 
-  const displayName = session?.displayName || anonUser?.firstName || 'Guest User';
+  const displayName = session 
+    ? (session.displayName ?? session.email ?? "You")
+    : anonUser 
+    ? (anonUser.firstName ?? anonUser.email ?? "Guest")
+    : "Guest";
+  
+  const avatarSrc = session?.photoURL ?? (anonUser ? avatar : undefined);
   const handleGoogleSignIn = async () => {
     try {
       await signInWithPopup(auth, provider);
@@ -716,9 +722,10 @@ export default function Home() {
               <AppUserMenu
                 product="expense"
                 displayName={displayName}
-                avatarSrc={avatar}
+                avatarSrc={avatarSrc}
                 onSignOut={session ? handleSignOut : undefined}
                 sections={expenseMenuSections}
+                identityLabel={session ? "Signed in as" : "Browsing as"}
                 dark={isNight}
               />
             }

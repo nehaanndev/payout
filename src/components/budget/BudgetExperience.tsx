@@ -2738,6 +2738,7 @@ const BudgetExperience = () => {
               <AppUserMenu
                 product="budget"
                 displayName={displayName}
+                avatarSrc={user?.photoURL ?? undefined}
                 sections={budgetMenuSections}
                 onSignOut={user ? handleSignOut : undefined}
                 dark={isNight}

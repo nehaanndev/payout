@@ -1089,6 +1089,7 @@ const JournalExperience = () => {
             <AppUserMenu
               product="journal"
               displayName={displayName}
+              avatarSrc={user?.photoURL ?? undefined}
               sections={journalMenuSections}
               onSignOut={user ? handleSignOut : undefined}
               dark={isNight}
