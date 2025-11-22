@@ -53,6 +53,7 @@ import type {
   InsightVoteDirection,
   OrbitInsightCard,
   WorkTaskHighlight,
+  OrbitLearningLesson,
 } from "@/types/orbit";
 
 const THEMES = {
@@ -1177,17 +1178,21 @@ export default function DailyDashboardPage() {
                 anchorStatusLookup={anchorStatusLookup}
                 canAddAnchors={Boolean(user && flowPlan)}
               />
-              <InsightCarousel
-                insights={dailySummary?.insights ?? []}
-                loading={dailySummaryLoading}
-                isNight={isNight}
-                votes={insightVotes}
-                messages={insightMessages}
-                savingInsightId={savingInsightId}
-                onVote={handleInsightVote}
-                onSave={handleInsightSave}
-                canInteract={Boolean(user)}
-              />
+              {dailySummary?.learningLesson ? (
+                <LearningLessonCard lesson={dailySummary.learningLesson} isNight={isNight} userId={user?.uid} />
+              ) : (
+                <InsightCarousel
+                  insights={dailySummary?.insights ?? []}
+                  loading={dailySummaryLoading}
+                  isNight={isNight}
+                  votes={insightVotes}
+                  messages={insightMessages}
+                  savingInsightId={savingInsightId}
+                  onVote={handleInsightVote}
+                  onSave={handleInsightSave}
+                  canInteract={Boolean(user)}
+                />
+              )}
             </div>
           </>
         ) : flowLoading ? (
@@ -2876,6 +2881,165 @@ function InsightCarousel({
           </p>
         )}
       </CardContent>
+    </Card>
+  );
+}
+
+function LearningLessonCard({
+  lesson,
+  isNight,
+  userId,
+}: {
+  lesson: OrbitLearningLesson;
+  isNight: boolean;
+  userId: string | null | undefined;
+}) {
+  const tone = isNight ? "text-indigo-200" : "text-slate-600";
+  const [open, setOpen] = useState(false);
+  const quizItems = lesson.quiz ?? [];
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  const handleSaveLesson = async () => {
+    if (!userId) {
+      setSaveMessage("Sign in to save lessons to Orbit.");
+      return;
+    }
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      const response = await fetch("/api/orbit/lesson-save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          topic: lesson.title,
+          lesson,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || payload?.error) {
+        throw new Error(payload?.error ?? "Failed to save lesson");
+      }
+      setSaveMessage("Saved to Orbit lessons.");
+    } catch (error) {
+      console.error("Failed to save lesson to Orbit", error);
+      setSaveMessage("Couldn't save this lesson. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Card
+      className={cn(
+        "rounded-[28px] p-6 shadow-sm",
+        isNight ? "border-white/15 bg-slate-900/70 text-white" : "border-emerald-200 bg-white/95 text-slate-900"
+      )}
+    >
+      <CardHeader className="p-0">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p
+              className={cn(
+                "text-xs font-semibold uppercase tracking-[0.35em]",
+                isNight ? "text-emerald-200" : "text-emerald-600"
+              )}
+            >
+              Learning mode
+            </p>
+            <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-slate-900")}>
+              Day {lesson.day} / {lesson.totalDays}: {lesson.title}
+            </CardTitle>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant={isNight ? "secondary" : "outline"}
+              className={cn(
+                "text-sm font-semibold",
+                isNight
+                  ? "border-white/20 text-white hover:bg-white/10"
+                  : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              )}
+              onClick={() => setOpen(true)}
+            >
+              Open lesson
+            </Button>
+            <Button
+              size="sm"
+              variant={isNight ? "secondary" : "outline"}
+              onClick={handleSaveLesson}
+              disabled={saving}
+              className={cn(
+                "gap-2 text-sm font-semibold",
+                isNight
+                  ? "border-white/20 text-white hover:bg-white/10"
+                  : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              )}
+            >
+              {saving ? "Saving…" : "Save to Orbit lessons"}
+            </Button>
+          </div>
+        </div>
+        <p className={cn("mt-2 text-sm", tone)}>{lesson.overview}</p>
+        {saveMessage ? <p className={cn("mt-1 text-xs", tone)}>{saveMessage}</p> : null}
+      </CardHeader>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          className={cn(
+            "max-w-3xl border-none p-6",
+            isNight ? "bg-slate-900/90 text-white" : "bg-white/95 text-slate-900"
+          )}
+        >
+          <DialogHeader className="p-0">
+            <DialogTitle className={cn("text-xl font-semibold", isNight ? "text-white" : "text-slate-900")}>
+              {lesson.title}
+            </DialogTitle>
+          </DialogHeader>
+          <p className={cn("text-sm", tone)}>
+            Day {lesson.day} of {lesson.totalDays} · {lesson.overview}
+          </p>
+          <div className="mt-4 space-y-3 text-sm leading-relaxed">
+            {lesson.paragraphs.map((paragraph, index) => (
+              <p key={index} className={isNight ? "text-indigo-100" : "text-slate-700"}>
+                {paragraph}
+              </p>
+            ))}
+          </div>
+          {quizItems.length ? (
+            <div className="mt-6 space-y-3 rounded-2xl border border-dashed border-emerald-200/60 p-4">
+              <p className={cn("text-xs font-semibold uppercase tracking-[0.35em]", tone)}>Quick quiz</p>
+              {quizItems.map((item, idx) => (
+                <div key={idx} className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
+                  <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>
+                    {item.question}
+                  </p>
+                  <ul className="space-y-1 text-sm">
+                    {item.answers.map((answer, answerIdx) => (
+                      <li
+                        key={answerIdx}
+                        className={cn(
+                          "rounded-lg border px-3 py-2",
+                          isNight ? "border-white/10 text-indigo-100" : "border-slate-200 text-slate-700",
+                          answer === item.correctAnswer &&
+                            (isNight ? "border-emerald-300/70 bg-emerald-500/10" : "border-emerald-200 bg-emerald-50")
+                        )}
+                      >
+                        {answer}
+                        {answer === item.correctAnswer ? (
+                          <span className={cn("ml-2 text-xs font-semibold", isNight ? "text-emerald-200" : "text-emerald-700")}>
+                            ✓
+                          </span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

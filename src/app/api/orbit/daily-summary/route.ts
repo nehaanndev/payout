@@ -5,6 +5,8 @@ import {
   getDailySummary,
   saveDailySummary,
   getInsightPreferences,
+  getLearningPlan,
+  recordLearningLesson,
 } from "@/lib/orbitSummaryService";
 import { fetchFlowPlanSnapshot } from "@/lib/flowService";
 import { getFlowDateKey } from "@/lib/flowService";
@@ -18,6 +20,8 @@ import type {
   OrbitInsightCard,
   WorkTaskHighlight,
   OrbitInsightType,
+  OrbitLearningPlan,
+  OrbitLearningLesson,
 } from "@/types/orbit";
 
 function getTodayDateKey(): string {
@@ -33,7 +37,7 @@ function getYesterdayDateKey(): string {
 
 function isMorning(): boolean {
   const hour = new Date().getHours();
-  return hour < 12; // Before noon
+  return hour < 17; // Before noon
 }
 
 const sortPreferenceTopics = (topics?: Record<string, number>) => {
@@ -62,12 +66,119 @@ type AiInsightResponse = {
   referenceUrl?: unknown;
 };
 
+type AiLearningResponse = {
+  lesson?: {
+    title?: unknown;
+    overview?: unknown;
+    paragraphs?: unknown;
+    quiz?: unknown;
+  };
+};
+
+const depthToLessons = (depth: OrbitLearningPlan["depth"]) =>
+  depth === "deep" ? 30 : depth === "standard" ? 10 : 7;
+
+async function generateLearningLesson(
+  plan: OrbitLearningPlan
+): Promise<OrbitLearningLesson | null> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    console.warn("OPENAI_API_KEY not configured");
+    return null;
+  }
+
+  const totalLessons = plan.totalLessons || depthToLessons(plan.depth);
+  const nextDay = Math.min(plan.currentLesson + 1, totalLessons);
+  const pastContext = plan.completedLessons
+    .sort((a, b) => a.day - b.day)
+    .slice(-3)
+    .map((lesson) => `Day ${lesson.day}: ${lesson.title} — ${lesson.overview}`);
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You write concise, approachable daily lessons for a micro-learning track. Always return JSON with one lesson and 2-3 quick quiz questions with short answers.",
+        },
+        {
+          role: "user",
+          content: `Create Day ${nextDay} of a ${plan.totalLessons}-day learning track on "${plan.topic}". Past lessons (summarize to stay consistent): ${pastContext.join(
+            " | "
+          ) || "none yet"}.\nReturn JSON:\n{\n  "lesson": {\n    "title": "<headline for today>",\n    "overview": "<2-sentence overview>",\n    "paragraphs": ["<3-4 short paragraphs, 3 sentences max each>"],\n    "quiz": [\n      {\n        "question": "<crisp question to reinforce recall>",\n        "answers": ["<brief correct answer>", "<optional distractor>", "<optional second distractor>"],\n        "correctAnswer": "<exact text of correct answer from answers>"\n      }\n    ]\n  }\n}\nTone: friendly, practical, avoid jargon. Keep within 250-300 words total. Quiz answers should be short phrases, not essays.`,
+        },
+      ],
+      temperature: 0.4,
+      max_tokens: 700,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("OpenAI learning API error", response.status, errorText);
+    return null;
+  }
+
+  const result = await response.json();
+  const content = result?.choices?.[0]?.message?.content;
+  let parsed: AiLearningResponse | null = null;
+  if (content) {
+    try {
+      parsed = JSON.parse(content);
+    } catch (error) {
+      console.error("Failed to parse learning JSON", error, content);
+    }
+  }
+
+  const lesson = parsed?.lesson;
+  if (!lesson) {
+    return null;
+  }
+
+  const paragraphs = Array.isArray(lesson.paragraphs)
+    ? (lesson.paragraphs as unknown[]).map((p) => String(p)).slice(0, 4)
+    : [];
+  const quizRaw: Array<{
+    question?: unknown;
+    answers?: unknown;
+    correctAnswer?: unknown;
+  }> = Array.isArray(lesson.quiz) ? (lesson.quiz as any[]) : [];
+  const quiz = quizRaw
+    .slice(0, 3)
+    .map((item) => ({
+      question: String(item.question ?? "").trim(),
+      answers: Array.isArray(item.answers)
+        ? (item.answers as unknown[]).map((a) => String(a)).filter(Boolean).slice(0, 3)
+        : [],
+      correctAnswer: String(item.correctAnswer ?? "").trim(),
+    }))
+    .filter((q) => q.question && q.answers.length);
+
+  return {
+    title: String(lesson.title ?? `Lesson ${nextDay}`),
+    overview: String(lesson.overview ?? ""),
+    paragraphs: paragraphs.length ? paragraphs : [String(lesson.overview ?? "")],
+    quiz: quiz.length ? quiz : [],
+    day: nextDay,
+    totalDays: totalLessons,
+  };
+}
+
 async function generatePersonalizedSummary(
   yesterdayFlow: FlowPlan | null,
   yesterdayOrbit: SharedLink[],
   yesterdayBudget: { totalSpent: number; entryCount: number } | null,
   interests: string[],
-  preferences: OrbitInsightPreferences | null
+  preferences: OrbitInsightPreferences | null,
+  options?: { skipInsights?: boolean }
 ): Promise<DailySummaryPayload> {
   const allTasks = Array.isArray(yesterdayFlow?.tasks) ? yesterdayFlow?.tasks : [];
   const workTasks = allTasks.filter((task) => task.category === "work");
@@ -178,7 +289,7 @@ async function generatePersonalizedSummary(
         },
         {
           role: "user",
-          content: `You are given context about a member's actual work tasks (completed + lingering), their Orbit saves, budgets, interests, and stated preferences. Using ONLY the provided work tasks, craft:\n\n{\n  "overview": [<3 paragraphs written in 2nd person summarizing yesterday's work wins and misses, referencing the provided task titles verbatim>],\n  "recommendations": [<2-3 concrete next steps for today referencing the same tasks or their projects>],\n  "insights": [\n    {\n      "id": "<slug>",\n      "topic": "<short topic>",\n      "title": "<card headline>",\n      "summary": "<one sentence hook>",\n      "paragraphs": [<exactly 3 or 4 richly written paragraphs about either a new development or a fundamental concept tied to the user's interests>],\n      "type": "<\"news\" or \"concept\">",\n      "referenceUrl": "<optional source>"\n    }\n  ]\n}\n\n- Mention chores or wellness only if explicitly present in the work task list (they will likely not be).\n- Keep the tone grounded, analytical, and encouraging.\n- Pull inspiration for the insights from the interest list, Orbit saves, or relevant industry progress. Respect preferences: emphasize wantsMoreOf topics and avoid repeating wantsLessOf subjects.\n- The overview must cite the provided work task titles (completed and pending) and differentiate wins vs carry-overs.\n- Recommendations must translate pending items into concrete next actions.\n- Insights MUST be distinct cards; return at most 2 cards. Each needs 3-4 paragraphs of 2-3 sentences each.\n\nContext JSON:\n${JSON.stringify(requestContext, null, 2)}`,
+          content: `You are given context about a member's actual work tasks (completed + lingering), their Orbit saves, budgets, interests, and stated preferences. Using ONLY the provided work tasks, craft:\n\n{\n  "overview": [<3 paragraphs written in 2nd person summarizing yesterday's work wins and misses, referencing the provided task titles verbatim>],\n  "recommendations": [<2-3 concrete next steps for today referencing the same tasks or their projects>],\n  "insights": ${options?.skipInsights ? "[]" : "[<up to 2 insight cards as described below>]"}\n}\n\nInsight card shape (only include if insights array is allowed):\n{\n  "id": "<slug>",\n  "topic": "<short topic>",\n  "title": "<card headline>",\n  "summary": "<one sentence hook>",\n  "paragraphs": [<exactly 3 or 4 richly written paragraphs about either a new development or a fundamental concept tied to the user's interests>],\n  "type": "<\"news\" or \"concept\">",\n  "referenceUrl": "<optional source>"\n}\n\n- Mention chores or wellness only if explicitly present in the work task list (they will likely not be).\n- Keep the tone grounded, analytical, and encouraging.\n- Pull inspiration for the insights from the interest list, Orbit saves, or relevant industry progress. Respect preferences: emphasize wantsMoreOf topics and avoid repeating wantsLessOf subjects.\n- The overview must cite the provided work task titles (completed and pending) and differentiate wins vs carry-overs.\n- Recommendations must translate pending items into concrete next actions.\n- When insights are requested, return at most 2 cards. Each needs 3-4 paragraphs of 2-3 sentences each.\n\nContext JSON:\n${JSON.stringify(requestContext, null, 2)}`,
         },
       ],
       temperature: 0.5,
@@ -262,7 +373,9 @@ async function generatePersonalizedSummary(
     })
     .filter((insight) => insight.paragraphs.length >= 3);
 
-  if (!insights.length) {
+  if (options?.skipInsights) {
+    insights = [];
+  } else if (!insights.length) {
     insights = defaultPayload.insights;
   }
 
@@ -299,6 +412,7 @@ export async function GET(request: NextRequest) {
     // Get user interests
     const interests = await getUserInterests(userId);
     const interestList = interests?.interests || [];
+    const learningPlan = await getLearningPlan(userId);
 
     // Get yesterday's data
     const yesterdayKey = getYesterdayDateKey();
@@ -349,17 +463,29 @@ export async function GET(request: NextRequest) {
 
     const insightPreferences = await getInsightPreferences(userId);
 
+    const learningActive =
+      learningPlan &&
+      learningPlan.currentLesson < (learningPlan.totalLessons || depthToLessons(learningPlan.depth));
+
+    const learningLesson = learningActive ? await generateLearningLesson(learningPlan) : null;
+
     // Generate personalized summary
     const summary = await generatePersonalizedSummary(
       yesterdayFlow,
       yesterdayOrbit,
       yesterdayBudget,
       interestList,
-      insightPreferences
+      insightPreferences,
+      { skipInsights: Boolean(learningLesson) }
     );
+    summary.learningLesson = learningLesson;
+    if (learningLesson) {
+      summary.insights = [];
+      await recordLearningLesson(userId, learningLesson);
+    }
 
     // Persist that we generated something today so we can avoid duplicates later
-    const summaryId = summary.insights[0]?.id ?? "ai-summary";
+    const summaryId = summary.insights[0]?.id ?? summary.learningLesson?.title ?? "ai-summary";
     await saveDailySummary(userId, dateKey, summary, summaryId);
 
     return NextResponse.json(summary);

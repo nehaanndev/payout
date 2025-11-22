@@ -11,12 +11,46 @@ export type UserInterests = {
   updatedAt: string;
 };
 
+export type OrbitLearningLesson = {
+  title: string;
+  day: number;
+  totalDays: number;
+  overview: string;
+  paragraphs: string[];
+  quiz: Array<{
+    question: string;
+    answers: string[];
+    correctAnswer: string;
+  }>;
+};
+
+export type OrbitLearningPlan = {
+  topic: string;
+  depth: "light" | "standard" | "deep";
+  totalLessons: number;
+  currentLesson: number;
+  startedAt: string;
+  completedLessons: Array<{
+    day: number;
+    title: string;
+    overview: string;
+  }>;
+  updatedAt: string;
+};
+
 export type DailySummaryPayload = {
   overview: string[];
   recommendations: string[];
   completedWork: WorkTaskHighlight[];
   pendingWork: WorkTaskHighlight[];
   insights: OrbitInsightCard[];
+  learningLesson?: OrbitLearningLesson | null;
+};
+
+export type OrbitLesson = OrbitLearningLesson & {
+  id: string;
+  topic: string;
+  createdAt: string;
 };
 
 export type DailySummary = {

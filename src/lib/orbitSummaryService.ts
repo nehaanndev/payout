@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, serverTimestamp, increment } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, increment, collection, addDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import {
   UserInterests,
@@ -6,6 +6,9 @@ import {
   OrbitInsightPreferences,
   InsightVoteDirection,
   DailySummaryPayload,
+  OrbitLearningPlan,
+  OrbitLearningLesson,
+  OrbitLesson,
 } from "@/types/orbit";
 
 
@@ -17,6 +20,12 @@ const dailySummaryDoc = (userId: string, date: string) =>
 
 const insightPreferencesDoc = (userId: string) =>
   doc(db, "users", userId, "preferences", "orbit-insight-preferences");
+
+const learningPlanDoc = (userId: string) =>
+  doc(db, "users", userId, "preferences", "orbit-learning-plan");
+
+const orbitLessonsCollection = (userId: string) =>
+  collection(db, "users", userId, "orbit-lessons");
 
 
 export const getUserInterests = async (userId: string): Promise<UserInterests | null> => {
@@ -108,6 +117,99 @@ export const saveDailySummary = async (
   );
 };
 
+export const getLearningPlan = async (userId: string): Promise<OrbitLearningPlan | null> => {
+  if (!userId) {
+    return null;
+  }
+  const ref = learningPlanDoc(userId);
+  const snapshot = await getDoc(ref);
+  if (!snapshot.exists()) {
+    return null;
+  }
+  return snapshot.data() as OrbitLearningPlan;
+};
+
+export const saveLearningPlan = async (userId: string, plan: OrbitLearningPlan): Promise<void> => {
+  if (!userId) {
+    throw new Error("User ID is required");
+  }
+  const ref = learningPlanDoc(userId);
+  const now = new Date().toISOString();
+  await setDoc(
+    ref,
+    {
+      ...plan,
+      startedAt: plan.startedAt ?? now,
+      updatedAt: now,
+    },
+    { merge: true }
+  );
+};
+
+export const recordLearningLesson = async (
+  userId: string,
+  lesson: OrbitLearningLesson
+): Promise<void> => {
+  if (!userId) {
+    throw new Error("User ID is required");
+  }
+  const ref = learningPlanDoc(userId);
+  const snapshot = await getDoc(ref);
+  const existing = snapshot.exists() ? (snapshot.data() as OrbitLearningPlan) : null;
+  const now = new Date().toISOString();
+  const completed = existing?.completedLessons ?? [];
+  const hasLesson = completed.some((item) => item.day === lesson.day);
+  const nextCompleted = hasLesson
+    ? completed
+    : [
+        ...completed,
+        {
+          day: lesson.day,
+          title: lesson.title,
+          overview: lesson.overview,
+        },
+      ];
+  const totalLessons = existing?.totalLessons ?? lesson.totalDays ?? 7;
+  const currentLesson = Math.min(totalLessons, Math.max(existing?.currentLesson ?? 0, lesson.day));
+  const basePlan =
+    existing ?? {
+      topic: lesson.title,
+      depth: "standard" as const,
+      totalLessons: lesson.totalDays || 7,
+      currentLesson: 0,
+      startedAt: now,
+      completedLessons: [],
+      updatedAt: now,
+    };
+  await setDoc(
+    ref,
+    {
+      ...basePlan,
+      currentLesson,
+      completedLessons: nextCompleted,
+      updatedAt: now,
+    },
+    { merge: true }
+  );
+};
+
+export const saveOrbitLesson = async (
+  userId: string,
+  lesson: OrbitLearningLesson,
+  topic: string
+): Promise<OrbitLesson> => {
+  if (!userId) {
+    throw new Error("User ID is required");
+  }
+  const now = new Date().toISOString();
+  const payload: Omit<OrbitLesson, "id"> = {
+    topic,
+    createdAt: now,
+    ...lesson,
+  };
+  const ref = await addDoc(orbitLessonsCollection(userId), payload);
+  return { id: ref.id, ...payload };
+};
 export const getInsightPreferences = async (
   userId: string
 ): Promise<OrbitInsightPreferences | null> => {

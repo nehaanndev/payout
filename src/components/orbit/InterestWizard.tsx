@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { saveUserInterests } from "@/lib/orbitSummaryService";
+import { saveUserInterests, saveLearningPlan } from "@/lib/orbitSummaryService";
+import type { OrbitLearningPlan } from "@/types/orbit";
 
 type InterestWizardProps = {
   userId: string;
@@ -42,6 +43,8 @@ export function InterestWizard({ userId, onComplete, dark = false }: InterestWiz
   const [interests, setInterests] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [saving, setSaving] = useState(false);
+  const [learningTopic, setLearningTopic] = useState("");
+  const [learningDepth, setLearningDepth] = useState<OrbitLearningPlan["depth"]>("standard");
 
   const addInterest = useCallback((interest: string) => {
     const trimmed = interest.trim().toLowerCase();
@@ -63,18 +66,35 @@ export function InterestWizard({ userId, onComplete, dark = false }: InterestWiz
   }, [inputValue, addInterest]);
 
   const handleSave = useCallback(async () => {
-    if (interests.length === 0) {
+    if (interests.length === 0 && !learningTopic.trim()) {
       return;
     }
     setSaving(true);
     try {
-      await saveUserInterests(userId, interests);
+      if (interests.length) {
+        await saveUserInterests(userId, interests);
+      }
+      if (learningTopic.trim()) {
+        const now = new Date().toISOString();
+        const totalLessons =
+          learningDepth === "deep" ? 30 : learningDepth === "standard" ? 10 : 7;
+        const plan: OrbitLearningPlan = {
+          topic: learningTopic.trim(),
+          depth: learningDepth,
+          totalLessons,
+          currentLesson: 0,
+          startedAt: now,
+          updatedAt: now,
+          completedLessons: [],
+        };
+        await saveLearningPlan(userId, plan);
+      }
       onComplete();
     } catch (error) {
       console.error("Failed to save interests", error);
       setSaving(false);
     }
-  }, [userId, interests, onComplete]);
+  }, [userId, interests, learningTopic, learningDepth, onComplete]);
 
   return (
     <Card
@@ -189,10 +209,66 @@ export function InterestWizard({ userId, onComplete, dark = false }: InterestWiz
           </div>
         </div>
 
+        <div className="rounded-2xl border border-dashed border-indigo-200/70 p-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className={cn("h-4 w-4", dark ? "text-indigo-200" : "text-indigo-500")} />
+            <p className={cn("text-sm font-semibold", dark ? "text-white" : "text-slate-900")}>
+              Learning mode (bite-sized lessons)
+            </p>
+          </div>
+          <p className={cn("mt-1 text-xs", dark ? "text-indigo-200" : "text-slate-600")}>
+            Set a topic and depth to get a daily micro-lesson and mini quiz in your dashboard.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label
+                className={cn(
+                  "text-xs font-semibold uppercase tracking-[0.35em]",
+                  dark ? "text-indigo-200" : "text-indigo-500"
+                )}
+              >
+                Topic
+              </label>
+              <Input
+                value={learningTopic}
+                onChange={(e) => setLearningTopic(e.target.value)}
+                placeholder="e.g., Neural networks basics"
+                className={cn(
+                  dark
+                    ? "border-white/30 bg-slate-900/50 text-white placeholder:text-white/40"
+                    : "border-indigo-200"
+                )}
+              />
+            </div>
+            <div className="space-y-1">
+              <label
+                className={cn(
+                  "text-xs font-semibold uppercase tracking-[0.35em]",
+                  dark ? "text-indigo-200" : "text-indigo-500"
+                )}
+              >
+                Depth
+              </label>
+              <select
+                value={learningDepth}
+                onChange={(e) => setLearningDepth(e.target.value as OrbitLearningPlan["depth"])}
+                className={cn(
+                  "w-full rounded-xl border px-3 py-2 text-sm",
+                  dark ? "border-white/30 bg-slate-900/50 text-white" : "border-indigo-200 bg-white text-slate-700"
+                )}
+              >
+                <option value="light">1 week (light)</option>
+                <option value="standard">10 days (standard)</option>
+                <option value="deep">30 days (deep)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div className="flex justify-end gap-3 pt-4">
           <Button
             onClick={handleSave}
-            disabled={interests.length === 0 || saving}
+            disabled={(interests.length === 0 && !learningTopic.trim()) || saving}
             className={cn(
               "text-white",
               dark ? "bg-indigo-500 hover:bg-indigo-400" : "bg-indigo-600 hover:bg-indigo-500"
