@@ -30,9 +30,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
+import { theme } from "@/lib/theme";
 import { AppTopBar } from "@/components/AppTopBar";
 import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -2603,9 +2603,10 @@ const BudgetExperience = () => {
             product="budget"
             subheading="Sign in to reopen Pulse or hop over to another Toodl space."
             dark={isNight}
+            theme={theme}
+            onThemeChange={setTheme}
             actions={
               <div className="flex flex-wrap items-center gap-2">
-                <ThemeToggle theme={theme} onSelect={setTheme} />
                 <Button
                   className="bg-emerald-600 text-white hover:bg-emerald-500"
                   onClick={() => router.push("/split")}
@@ -2731,17 +2732,8 @@ const BudgetExperience = () => {
             heading="Pulse"
             subheading="Pick a workspace to open or start a fresh one for a new goal."
             dark={isNight}
-            actions={
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <ThemeToggle theme={theme} onSelect={setTheme} />
-                <Button
-                  className="bg-emerald-600 text-white hover:bg-emerald-500"
-                  onClick={openCreateBudgetDialog}
-                >
-                  New budget
-                </Button>
-              </div>
-            }
+            theme={theme}
+            onThemeChange={setTheme}
             userSlot={
               <AppUserMenu
                 product="budget"
@@ -2762,7 +2754,11 @@ const BudgetExperience = () => {
               </div>
               <Button
                 variant="outline"
-                className="border-emerald-200"
+                className={cn(
+                  isNight
+                    ? "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400 border-transparent"
+                    : "bg-emerald-600 text-white hover:bg-emerald-500 border-transparent"
+                )}
                 onClick={openCreateBudgetDialog}
               >
                 Create budget
@@ -2849,9 +2845,10 @@ const BudgetExperience = () => {
           heading={headingNode}
           subheading={lastUpdatedMessage ?? undefined}
           dark={isNight}
+          theme={theme}
+          onThemeChange={setTheme}
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <ThemeToggle theme={theme} onSelect={setTheme} />
               <Button
                 variant="outline"
                 size="icon"

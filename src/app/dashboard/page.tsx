@@ -1059,14 +1059,25 @@ export default function DailyDashboardPage() {
               <span className="text-xs font-semibold uppercase tracking-[0.4em] text-current/70">
                 Ritual dashboard
               </span>
-              <div className="flex gap-2 rounded-full border border-white/40 bg-white/20 p-1 text-xs font-semibold text-white">
+              <div className={cn(
+                "flex gap-2 rounded-full border p-1 text-xs font-semibold",
+                theme === "night"
+                  ? "border-white/40 bg-white/20 text-white"
+                  : "border-slate-200 bg-slate-50 text-slate-700"
+              )}>
                 {Object.values(THEMES).map((option) => (
                   <button
                     key={option.id}
                     onClick={() => setTheme(option.id)}
                     className={cn(
-                      "rounded-full px-3 py-1",
-                      theme === option.id ? "bg-white/80 text-slate-900" : "text-white/80"
+                      "rounded-full px-3 py-1 transition",
+                      theme === option.id
+                        ? theme === "night"
+                          ? "bg-white/80 text-slate-900"
+                          : "bg-white text-slate-900"
+                        : theme === "night"
+                          ? "text-white/80 hover:text-white"
+                          : "text-slate-500 hover:text-slate-700"
                     )}
                   >
                     {option.label}
@@ -2368,14 +2379,13 @@ function ReflectionStreakCard({
   const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
   const tone = dark ? "text-indigo-200" : "text-slate-600";
   const accent = dark ? "text-white" : "text-slate-900";
-  const badgeTone = dark
-    ? "bg-white/10 text-indigo-100"
-    : "bg-indigo-100 text-indigo-700";
-  const streakLabel =
-    streak > 1 ? `${streak}-day run` : streak === 1 ? "1 day logged" : "No streak yet";
   const relative = formatRelativeDayDistance(lastReflectionAt);
   const lastEntryText = relative
-    ? `Last entry ${relative}.`
+    ? relative === "today"
+      ? "You logged a reflection today."
+      : relative === "yesterday"
+      ? "Your last reflection was logged yesterday."
+      : `Your last reflection was logged ${relative}.`
     : "Log a reflection to start your streak.";
 
   return (
@@ -2406,9 +2416,6 @@ function ReflectionStreakCard({
                   day streak
                 </span>
               </div>
-              <p className={cn("mt-1 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold", badgeTone)}>
-                {streakLabel}
-              </p>
             </div>
             <p className={cn("text-sm", tone)}>{lastEntryText}</p>
             {photoUrl ? (
@@ -2471,10 +2478,10 @@ function ReflectionStreakCard({
             {showJournalCTA ? (
               <Button
                 className={cn(
-                  "w-full font-semibold text-white shadow-lg shadow-indigo-500/30",
+                  "w-full font-semibold",
                   dark
-                    ? "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:brightness-110"
-                    : "bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 hover:brightness-105"
+                    ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
+                    : "bg-indigo-600 text-white hover:bg-indigo-500"
                 )}
                 onClick={onOpenJournal}
               >

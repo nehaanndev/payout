@@ -28,6 +28,7 @@ interface ExpenseSplitterProps {
   paymentPreferences?: ExpensePaymentPreferences | null;
   onShowPaymentSettings?: () => void;
   isNight?: boolean;
+  onTabStateChange?: (state: { activeTab: 'summary' | 'create'; showCreateTab: boolean; setActiveTab: (tab: 'summary' | 'create') => void }) => void;
 }
 
 export default function ExpenseSplitter({
@@ -38,11 +39,30 @@ export default function ExpenseSplitter({
   paymentPreferences,
   onShowPaymentSettings,
   isNight = false,
+  onTabStateChange,
 }: ExpenseSplitterProps) {
 const [loading, setLoading] = useState(true);
 const [activeTab, setActiveTab] = useState<'summary' | 'create'>('summary');
-  // only show the Create/Edit tab when the user has clicked “New Group” or loaded an existing one
+  // only show the Create/Edit tab when the user has clicked "New Group" or loaded an existing one
 const [showCreateTab, setShowCreateTab] = useState(false);
+
+  // Notify parent of tab state changes
+  // Use a ref to track the last state to avoid unnecessary updates
+  const lastStateRef = React.useRef<{ activeTab: 'summary' | 'create'; showCreateTab: boolean } | null>(null);
+  
+  useEffect(() => {
+    const currentState = { activeTab, showCreateTab };
+    // Only notify if state actually changed
+    if (
+      !lastStateRef.current ||
+      lastStateRef.current.activeTab !== currentState.activeTab ||
+      lastStateRef.current.showCreateTab !== currentState.showCreateTab
+    ) {
+      lastStateRef.current = currentState;
+      onTabStateChange?.({ activeTab, showCreateTab, setActiveTab });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, showCreateTab]); // Don't include onTabStateChange to avoid loops
 const [savedGroups, setSavedGroups] = useState<Group[]>([]);
 const [activeGroupId, setActiveGroupId] = useState<string>('');
 const [activeGroup, setActiveGroup] = useState<Group | null>(null);
@@ -513,7 +533,7 @@ const handleMarkSettled = (group: Group) => {
         onValueChange={(v: string) => setActiveTab(v as 'summary' | 'create')}
         className="space-y-6"
       >
-        <TabsList className="w-full">
+        <TabsList className="w-full hidden">
           <TabsTrigger value="summary">Overview</TabsTrigger>
           {showCreateTab && <TabsTrigger value="create">Expenses</TabsTrigger>}
         </TabsList>
@@ -623,6 +643,7 @@ const handleMarkSettled = (group: Group) => {
               settlements={settlementsByGroup[activeGroupId] ?? []}
               youId={session?.uid ?? anonUser?.id ?? ""}
               currency={currency}
+              isNight={isNight}
               /* SETTERS */
               setExpenses={setExpenses}
               setCurrentExpense={setCurrentExpense}
@@ -641,7 +662,7 @@ const handleMarkSettled = (group: Group) => {
               /* WIZARD NAV */
               onBack={() => setWizardStep('details')}
               onExpensesChange={(newExps) => {
-                // patch the parent’s savedGroups
+                // patch the parent's savedGroups
                 setSavedGroups(gs =>
                   gs.map(g => g.id === activeGroupId ? { ...g, expenses: newExps } : g)
                 );

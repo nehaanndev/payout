@@ -23,7 +23,6 @@ import {
 import { AppTopBar } from "@/components/AppTopBar";
 import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
 import { OrbitFlowNav } from "@/components/OrbitFlowNav";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1092,10 +1091,11 @@ export function FlowExperience() {
           heading="Flow"
           subheading="Design your day, weave priorities with pause, and stay on tempo."
           dark={isNight}
+          theme={theme}
+          onThemeChange={setTheme}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <OrbitFlowNav />
-              <ThemeToggle theme={theme} onSelect={setTheme} />
             </div>
           }
           userSlot={

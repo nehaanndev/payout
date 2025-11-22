@@ -26,7 +26,6 @@ import {
 import { AppTopBar } from "@/components/AppTopBar";
 import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
 import { OrbitFlowNav } from "@/components/OrbitFlowNav";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -806,12 +805,13 @@ export function ScratchPadExperience() {
         <AppTopBar
           product="orbit"
           heading="Orbit"
-          subheading="Collect sparks, links, and notes. Organize them when you’re ready."
+          subheading="Collect sparks, links, and notes. Organize them when you're ready."
           dark={isNight}
+          theme={theme}
+          onThemeChange={setTheme}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <OrbitFlowNav />
-              <ThemeToggle theme={theme} onSelect={setTheme} />
             </div>
           }
           userSlot={

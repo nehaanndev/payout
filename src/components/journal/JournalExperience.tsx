@@ -341,7 +341,7 @@ const JournalExperience = () => {
     () => (new Date().getHours() < 17 ? "morning" : "night"),
     []
   );
-  const { isNight } = useToodlTheme(initialTheme);
+  const { theme, setTheme, isNight } = useToodlTheme(initialTheme);
 
   const groupedLibraryEntries = useMemo(() => {
     if (!libraryEntries.length) {
@@ -907,6 +907,8 @@ const JournalExperience = () => {
             product="journal"
             subheading="Sign in to unlock Story or hop to another Toodl app."
             dark={isNight}
+            theme={theme}
+            onThemeChange={setTheme}
             actions={
               <Button
                 className="bg-primary text-white hover:bg-payoutHover"
@@ -990,6 +992,8 @@ const JournalExperience = () => {
           heading="Story"
           subheading="Capture the story behind the numbers, one guided reflection at a time."
           dark={isNight}
+          theme={theme}
+          onThemeChange={setTheme}
           actions={
             <div className="flex flex-col items-stretch gap-2 sm:items-end">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

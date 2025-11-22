@@ -159,6 +159,8 @@ export default function Summary({
   );
 
   useEffect(() => {
+    // Only depend on summaryIds (stable string) to avoid infinite loops
+    // sortedSummaries is already memoized and will be available in the closure
     setExpandedGroups((prev) => {
       const next: Record<string, boolean> = {};
       let changed = false;
@@ -175,9 +177,14 @@ export default function Summary({
           changed = true;
         }
       }
-      return changed ? next : prev;
+      // Only update if something actually changed
+      if (!changed) {
+        return prev;
+      }
+      return next;
     });
-  }, [summaryIds, sortedSummaries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summaryIds]); // Only depend on summaryIds, sortedSummaries is stable via useMemo
 
   const toggleGroupExpansion = (groupId: string) => {
     setExpandedGroups((prev) => ({

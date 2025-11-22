@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
+import { theme } from "@/lib/theme";
 
 type PaymentSettingsDialogMode = "prompt" | "settings";
 
@@ -27,6 +29,7 @@ type PaymentSettingsDialogProps = {
     paypalMeLink: string | null;
     suppressPaypalPrompt: boolean;
   }) => Promise<void> | void;
+  isNight?: boolean;
 };
 
 const normalizeLink = (value: string) => {
@@ -66,6 +69,7 @@ export function PaymentSettingsDialog({
   initialSuppressPrompt = false,
   onClose,
   onSave,
+  isNight = false,
 }: PaymentSettingsDialogProps) {
   const [paypalLink, setPaypalLink] = useState(initialLink ?? "");
   const [suppressPrompt, setSuppressPrompt] = useState(initialSuppressPrompt);
@@ -112,47 +116,63 @@ export function PaymentSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={(value) => (!value ? onClose() : null)}>
-      <DialogContent className="max-w-lg rounded-3xl border border-slate-200 bg-white/95 shadow-2xl shadow-slate-900/10 backdrop-blur">
+      <DialogContent className={cn(
+        "max-w-lg rounded-3xl border shadow-2xl backdrop-blur",
+        isNight
+          ? "border-white/15 bg-slate-900/95 shadow-slate-900/50"
+          : "border-slate-200 bg-white/95 shadow-slate-900/10"
+      )}>
         <DialogHeader className="space-y-2">
-          <DialogTitle className="text-xl font-semibold text-slate-900">
+          <DialogTitle className={cn("text-xl font-semibold", isNight ? "text-white" : "text-slate-900")}>
             {heading.title}
           </DialogTitle>
-          <DialogDescription className="text-sm text-slate-600">
+          <DialogDescription className={cn("text-sm", isNight ? "text-slate-300" : "text-slate-600")}>
             {heading.description}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-2">
           <div className="space-y-2">
-            <Label htmlFor="paypal-link">PayPal.Me link</Label>
+            <Label htmlFor="paypal-link" className={cn(isNight ? "text-slate-200" : "")}>PayPal.Me link</Label>
             <Input
               id="paypal-link"
               placeholder="https://paypal.me/yourname"
               value={paypalLink}
               onChange={(event) => setPaypalLink(event.target.value)}
               autoComplete="url"
+              className={theme.input(isNight)}
             />
-            <p className="text-xs text-slate-500">
+            <p className={cn("text-xs", isNight ? "text-slate-400" : "text-slate-500")}>
               Anything pasted here will appear when friends settle with you.
             </p>
-            <p className="text-xs text-slate-500">
+            <p className={cn("text-xs", isNight ? "text-slate-400" : "text-slate-500")}>
               Need to create one?{" "}
               <a
                 href="https://www.paypal.com/paypalme/"
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium text-emerald-600 underline underline-offset-2 hover:text-emerald-500"
+                className={cn(
+                  "font-medium underline underline-offset-2",
+                  isNight
+                    ? "text-emerald-400 hover:text-emerald-300"
+                    : "text-emerald-600 hover:text-emerald-500"
+                )}
               >
-                Follow PayPal’s PayPal.Me setup guide
+                Follow PayPal's PayPal.Me setup guide
               </a>
               .
             </p>
             {error ? (
-              <p className="text-sm font-medium text-rose-600">{error}</p>
+              <p className={cn("text-sm font-medium", isNight ? "text-rose-400" : "text-rose-600")}>{error}</p>
             ) : null}
           </div>
 
-          <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+          <div className={cn(
+            "flex items-start gap-3 rounded-2xl border p-3",
+            isNight
+              ? "border-white/15 bg-slate-800/60"
+              : "border-slate-200 bg-slate-50/70"
+          )}>
             <Checkbox
               id="disable-paypal-prompts"
               checked={suppressPrompt}
@@ -163,11 +183,11 @@ export function PaymentSettingsDialog({
             <div className="space-y-1">
               <Label
                 htmlFor="disable-paypal-prompts"
-                className="text-sm font-medium text-slate-800"
+                className={cn("text-sm font-medium", isNight ? "text-slate-200" : "text-slate-800")}
               >
-                Don’t prompt me for this again
+                Don't prompt me for this again
               </Label>
-              <p className="text-xs text-slate-500">
+              <p className={cn("text-xs", isNight ? "text-slate-400" : "text-slate-500")}>
                 You can always return here from the app menu to update your link.
               </p>
             </div>

@@ -1,8 +1,9 @@
 'use client'
 
-import { Suspense, useState, useEffect, useMemo } from "react";
+import { Suspense, useState, useEffect, useMemo, useCallback } from "react";
 import type { ComponentType, SVGProps } from "react";
 import { useRouter } from "next/navigation";
+import type { ReadonlyURLSearchParams } from "next/navigation";
 import SearchParamsClient from '@/components/SearchParamsClient'
 import {
   auth,
@@ -29,7 +30,6 @@ import { CurrencyCode } from "@/lib/currency_core";
 import { DEFAULT_CURRENCY, getGroupCurrency } from "@/lib/currency";
 import { AppTopBar } from "@/components/AppTopBar";
 import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   ArrowRight,
   BarChart3,
@@ -372,6 +372,11 @@ export default function Home() {
   const [session, setSession] = useState<User | null>(null);
   const [group, setGroup] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tabState, setTabState] = useState<{
+    activeTab: 'summary' | 'create';
+    showCreateTab: boolean;
+    setActiveTab: ((tab: 'summary' | 'create') => void) | null;
+  } | null>(null);
   const [showIdentityChoice, setShowIdentityChoice] = useState(false);
   const [sharedMembers, setSharedMembers] = useState<Member[] | null>(null);
   const [currency, setCurrency] = useState<CurrencyCode>(DEFAULT_CURRENCY);
@@ -390,7 +395,15 @@ export default function Home() {
     []
   );
   const { theme, setTheme, isNight } = useToodlTheme(initialTheme);
-    
+  
+  // Memoize the onParams callback to prevent infinite loops
+  const handleParamsChange = useCallback((params: ReadonlyURLSearchParams) => {
+    const newGroupId = params.get('group_id');
+    // Only update if the value has actually changed
+    if (newGroupId !== groupId) {
+      setGroupId(newGroupId);
+    }
+  }, [groupId]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -655,6 +668,15 @@ export default function Home() {
     });
   }
 
+  // Memoize the tab state change callback to prevent infinite loops
+  const handleTabStateChange = useCallback((state: {
+    activeTab: 'summary' | 'create';
+    showCreateTab: boolean;
+    setActiveTab: ((tab: 'summary' | 'create') => void) | null;
+  }) => {
+    setTabState(state);
+  }, []);
+
   
   if (loading) {
     return (
@@ -672,9 +694,7 @@ export default function Home() {
     <>
       {/* 3️⃣ Hydrate the client-only hook via Suspense */}
       <Suspense fallback={null}>
-        <SearchParamsClient onParams={params => {
-          setGroupId(params.get('group_id'))
-        }} />
+        <SearchParamsClient onParams={handleParamsChange} />
       </Suspense>
     { /* Case A: Signed-in or already-identified anon user → show the app */ }
     {session || anonUser ? (
@@ -690,19 +710,8 @@ export default function Home() {
             heading="Split"
             subheading="Invite your crew, log purchases, and keep every tab honest."
             dark={isNight}
-            actions={
-              <div className="flex flex-wrap gap-2">
-                <ThemeToggle theme={theme} onSelect={setTheme} />
-                <Button
-                  variant="outline"
-                  className={themeUtils.button.secondary(isNight)}
-                  onClick={() => setPaymentDialogMode("settings")}
-                  disabled={!session}
-                >
-                  Payment settings
-                </Button>
-              </div>
-            }
+            theme={theme}
+            onThemeChange={setTheme}
             userSlot={
               <AppUserMenu
                 product="expense"
@@ -714,6 +723,66 @@ export default function Home() {
               />
             }
           />
+          <div
+            className={cn(
+              "flex items-center justify-between rounded-3xl border px-4 py-3 shadow-sm",
+              isNight
+                ? "border-white/15 bg-slate-900/60 shadow-slate-900/50"
+                : "border-slate-200 bg-white/80"
+            )}
+          >
+            <div className="flex-1" />
+            <div className="flex items-center gap-2">
+              {tabState && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => tabState.setActiveTab?.('summary')}
+                    className={cn(
+                      "rounded-full px-4 py-1.5 text-sm font-semibold transition",
+                      tabState.activeTab === 'summary'
+                        ? isNight
+                          ? "bg-white/20 text-white"
+                          : "bg-slate-900 text-white"
+                        : isNight
+                        ? "text-slate-300 hover:text-white hover:bg-white/10"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    )}
+                  >
+                    Overview
+                  </button>
+                  {tabState.showCreateTab && (
+                    <button
+                      type="button"
+                      onClick={() => tabState.setActiveTab?.('create')}
+                      className={cn(
+                        "rounded-full px-4 py-1.5 text-sm font-semibold transition",
+                        tabState.activeTab === 'create'
+                          ? isNight
+                            ? "bg-white/20 text-white"
+                            : "bg-slate-900 text-white"
+                          : isNight
+                          ? "text-slate-300 hover:text-white hover:bg-white/10"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      )}
+                    >
+                      Expenses
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="flex flex-1 justify-end">
+              <Button
+                variant="outline"
+                className={themeUtils.button.secondary(isNight)}
+                onClick={() => setPaymentDialogMode("settings")}
+                disabled={!session}
+              >
+                Payment settings
+              </Button>
+            </div>
+          </div>
           <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
             <ExpenseSplitter
               session={session}
@@ -723,6 +792,7 @@ export default function Home() {
               paymentPreferences={paymentPreferences}
               onShowPaymentSettings={() => setPaymentDialogMode("settings")}
               isNight={isNight}
+              onTabStateChange={handleTabStateChange}
             />
           </div>
         </div>
@@ -784,6 +854,7 @@ export default function Home() {
         }
         onClose={() => setPaymentDialogMode(null)}
         onSave={handlePaymentPreferencesSave}
+        isNight={isNight}
       />
     </>
   );

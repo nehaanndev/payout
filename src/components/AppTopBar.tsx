@@ -5,6 +5,7 @@ import { cloneElement, isValidElement, useMemo } from "react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { theme, themeClasses } from "@/lib/theme";
+import type { ToodlTheme } from "@/hooks/useToodlTheme";
 
 const PRODUCT_META = {
   expense: {
@@ -41,6 +42,17 @@ const PRODUCT_META = {
 
 type ProductKey = keyof typeof PRODUCT_META;
 
+const THEMES = {
+  morning: {
+    id: "morning" as const,
+    label: "Morning",
+  },
+  night: {
+    id: "night" as const,
+    label: "Night",
+  },
+} as const;
+
 export function AppTopBar({
   product,
   heading,
@@ -49,6 +61,8 @@ export function AppTopBar({
   userSlot,
   className,
   dark = false,
+  theme: currentTheme,
+  onThemeChange,
 }: {
   product: ProductKey;
   heading?: ReactNode;
@@ -57,6 +71,8 @@ export function AppTopBar({
   userSlot?: React.ReactNode;
   className?: string;
   dark?: boolean;
+  theme?: ToodlTheme;
+  onThemeChange?: (theme: ToodlTheme) => void;
 }) {
   const meta = PRODUCT_META[product];
   const mobileUserSlot = useMemo(() => {
@@ -105,7 +121,36 @@ export function AppTopBar({
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3 md:gap-4">
               {mobileUserSlot ? (
-                <div className="flex-shrink-0 md:hidden">{mobileUserSlot}</div>
+                <div className="flex-shrink-0 md:hidden flex flex-col items-end gap-2">
+                  {mobileUserSlot}
+                  {currentTheme && onThemeChange ? (
+                    <div className={cn(
+                      "flex gap-2 rounded-full border p-1 text-xs font-semibold",
+                      dark
+                        ? "border-white/40 bg-white/20 text-white"
+                        : "border-slate-200 bg-slate-50 text-slate-700"
+                    )}>
+                      {Object.values(THEMES).map((option) => (
+                        <button
+                          key={option.id}
+                          onClick={() => onThemeChange(option.id)}
+                          className={cn(
+                            "rounded-full px-3 py-1 transition",
+                            currentTheme === option.id
+                              ? dark
+                                ? "bg-white/80 text-slate-900"
+                                : "bg-white text-slate-900"
+                              : dark
+                                ? "text-white/80 hover:text-white"
+                                : "text-slate-500 hover:text-slate-700"
+                          )}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
               <div className="flex items-center gap-3 md:gap-4">
                 <Image
@@ -175,7 +220,36 @@ export function AppTopBar({
             </div>
           </div>
           {desktopUserSlot ? (
-            <div className="hidden md:flex">{desktopUserSlot}</div>
+            <div className="hidden md:flex md:flex-col md:items-end md:gap-2">
+              {desktopUserSlot}
+              {currentTheme && onThemeChange ? (
+                <div className={cn(
+                  "flex gap-2 rounded-full border p-1 text-xs font-semibold",
+                  dark
+                    ? "border-white/40 bg-white/20 text-white"
+                    : "border-slate-200 bg-slate-50 text-slate-700"
+                )}>
+                  {Object.values(THEMES).map((option) => (
+                    <button
+                      key={option.id}
+                      onClick={() => onThemeChange(option.id)}
+                      className={cn(
+                        "rounded-full px-3 py-1 transition",
+                        currentTheme === option.id
+                          ? dark
+                            ? "bg-white/80 text-slate-900"
+                            : "bg-white text-slate-900"
+                          : dark
+                            ? "text-white/80 hover:text-white"
+                            : "text-slate-500 hover:text-slate-700"
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           ) : null}
         </div>
         {actions ? (

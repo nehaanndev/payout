@@ -1,9 +1,10 @@
 import { useState } from "react"
-import { Trash2, Edit2} from "lucide-react"
+import { Trash2, Edit2, Calendar, TrendingUp, TrendingDown, DollarSign } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Expense, Member } from "@/types/group"
 import { formatMoneyWithMinor } from "@/lib/currency"
 import { CurrencyCode, formatMoney } from "@/lib/currency_core"
+import { cn } from "@/lib/utils"
 
 export default function ExpenseListItem({
   expense,
@@ -11,8 +12,8 @@ export default function ExpenseListItem({
   onDelete,
   membersMapById,
   youId,
-  group_currency
-    
+  group_currency,
+  isNight = false
 }: {
   expense: Expense
   onEdit: () => void
@@ -20,6 +21,7 @@ export default function ExpenseListItem({
   membersMapById: Record<string, Member>
   youId: string
   group_currency: CurrencyCode
+  isNight?: boolean
 }) {
 
   const [expanded, setExpanded] = useState(false)
@@ -65,49 +67,144 @@ export default function ExpenseListItem({
   const lentVsOwed = isPayerYou ? "get back" : "lent you"
 
 
+  // Determine accent color based on payer
+  const accentColor = isPayerYou 
+    ? isNight ? "border-l-emerald-400/50" : "border-l-emerald-500"
+    : isNight ? "border-l-indigo-400/50" : "border-l-indigo-500"
+
   return (
-    <div className="bg-white border-b py-3 px-4 hover:bg-slate-50 transition">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="text-center text-gray-400 w-10">
-            <div className="text-xs uppercase">{date.toLocaleDateString('en-US', { month: 'short' })}</div>
-            <div className="text-lg font-bold">{date.getDate()}</div>
+    <div className={cn(
+      "group relative rounded-2xl border-l-4 border-r border-t border-b transition-all duration-200",
+      isNight 
+        ? "bg-slate-800/60 border-white/10 hover:bg-slate-800/80 hover:shadow-lg hover:shadow-slate-900/50 shadow-sm" 
+        : "bg-white border-slate-300 shadow-md hover:bg-slate-50 hover:shadow-lg hover:shadow-slate-400/30",
+      accentColor
+    )}>
+      <div className="p-4">
+        <div className="flex justify-between items-start gap-4">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            {/* Date Badge - Improved styling */}
+            <div className={cn(
+              "flex-shrink-0 rounded-xl border text-center p-2 min-w-[3.5rem]",
+              isNight 
+                ? "border-white/20 bg-white/5" 
+                : "border-slate-200 bg-slate-50"
+            )}>
+              <div className={cn("text-[10px] uppercase font-semibold tracking-wider", isNight ? "text-slate-400" : "text-slate-500")}>
+                {date.toLocaleDateString('en-US', { month: 'short' })}
+              </div>
+              <div className={cn("text-xl font-bold leading-none mt-1", isNight ? "text-white" : "text-slate-900")}>
+                {date.getDate()}
+              </div>
+            </div>
+            
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="flex items-start gap-2">
+                <DollarSign className={cn("h-4 w-4 flex-shrink-0 mt-0.5", isNight ? "text-slate-400" : "text-slate-500")} />
+                <h3 
+                  className={cn(
+                    "font-semibold cursor-pointer hover:underline transition",
+                    isNight ? "text-white" : "text-slate-900"
+                  )} 
+                  onClick={() => setExpanded(!expanded)}
+                >
+                  {expense.description}
+                </h3>
+              </div>
+              
+              {/* Amounts with better typography */}
+              <div className="flex flex-wrap items-baseline gap-4">
+                <div>
+                  <div className={cn("text-[10px] uppercase tracking-wider font-medium mb-0.5", isNight ? "text-slate-400" : "text-slate-500")}>
+                    {payerLabel} paid
+                  </div>
+                  <div className={cn("text-xl font-bold", isNight ? "text-white" : "text-slate-900")}>
+                    {formatMoneyWithMinor(amount, amountMinor, group_currency)}
+                  </div>
+                </div>
+
+                {yourSharePct > 0 && (
+                  <div>
+                    <div className={cn("text-[10px] uppercase tracking-wider font-medium mb-0.5 flex items-center gap-1", isNight ? "text-slate-400" : "text-slate-500")}>
+                      {isPayerYou ? (
+                        <TrendingUp className="h-3 w-3" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3" />
+                      )}
+                      {payerLabel} {lentVsOwed}
+                    </div>
+                    <div className={cn("text-xl font-bold", isNight ? "text-amber-300" : "text-orange-600")}>
+                      {owedTotal}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="text-gray-800 font-semibold underline cursor-pointer" onClick={() => setExpanded(!expanded)}>
-            {expense.description}
+
+          {/* Action buttons */}
+          <div className="flex gap-1 flex-shrink-0">
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={onEdit} 
+              className={cn(
+                "transition-all",
+                isNight 
+                  ? "text-slate-300 hover:text-white hover:bg-white/10" 
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              )}
+            >
+              <Edit2 className="w-4 h-4" />
+            </Button>
+            <Button 
+              size="sm" 
+              variant="ghost" 
+              onClick={onDelete} 
+              className={cn(
+                "transition-all",
+                isNight 
+                  ? "text-rose-300 hover:text-rose-200 hover:bg-rose-500/20" 
+                  : "text-red-600 hover:text-red-700 hover:bg-red-50"
+              )}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
           </div>
         </div>
-        <div className="flex items-end gap-8 text-right">
-  <div>
-    <div className="text-xs text-gray-500">{payerLabel} paid</div>
-    <div className="text-lg font-bold text-black">{formatMoneyWithMinor(amount, amountMinor, group_currency)}</div>
-  </div>
 
-  {yourSharePct > 0 && (
-    <div>
-      <div className="text-xs text-gray-500">{payerLabel} {lentVsOwed}</div>
-      <div className="text-lg font-semibold text-orange-500">
-      {owedTotal}
+        {/* Expanded splits view */}
+        {expanded && (
+          <div className={cn(
+            "mt-4 pt-4 border-t space-y-2",
+            isNight ? "border-white/10" : "border-slate-200"
+          )}>
+            <p className={cn("text-xs font-semibold uppercase tracking-wider mb-2", isNight ? "text-slate-400" : "text-slate-500")}>
+              Split breakdown
+            </p>
+            <div className={cn("grid grid-cols-2 gap-2 text-xs", isNight ? "text-slate-300" : "text-slate-600")}>
+              {Object.entries(expense.splits).map(([id, pct]) => {
+                const name = membersMapById[id]?.firstName ?? id
+                const isYou = id === youId
+                return (
+                  <div 
+                    key={id} 
+                    className={cn(
+                      "flex items-center justify-between px-2 py-1 rounded",
+                      isNight 
+                        ? isYou ? "bg-white/5" : ""
+                        : isYou ? "bg-slate-100" : ""
+                    )}
+                  >
+                    <span className={cn("font-medium", isYou && isNight ? "text-white" : "")}>{isYou ? "You" : name}</span>
+                    <span className={cn("font-semibold", isNight ? "text-slate-200" : "text-slate-700")}>{pct.toFixed(1)}%</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  )}
-</div>
-
-
-        <div className="flex gap-1 ml-4">
-          <Button size="sm" variant="ghost" onClick={onEdit}><Edit2 className="w-4 h-4" /></Button>
-          <Button size="sm" variant="ghost" onClick={onDelete}><Trash2 className="w-4 h-4 text-red-600" /></Button>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="mt-2 ml-12 text-xs text-gray-600 space-y-1">
-          {Object.entries(expense.splits).map(([id, pct]) => {
-            const name = membersMapById[id]?.firstName ?? id
-            return <div key={id}>{name}: {pct.toFixed(2)}%</div>
-          })}
-        </div>
-      )}
     </div>
   )
 }
