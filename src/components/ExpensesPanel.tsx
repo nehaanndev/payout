@@ -3,10 +3,10 @@ import { DollarSign, TrendingUp, TrendingDown, Clock, Wallet, CreditCard, Bankno
 // import { useMemo } from 'react';
 
 import {
-    Card,
-    CardHeader,
-    CardContent,
-  } from '@/components/ui/card';
+  Card,
+  CardHeader,
+  CardContent,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -46,65 +46,65 @@ const getSettlementMethodIcon = (method?: SettlementMethod) =>
   SETTLEMENT_METHOD_ICONS[method ?? "other"] ?? Wallet;
 
 export interface ExpensesPanelProps {
-    /* Data */
-    groupName: string;
-    expenses: Expense[];
-    members: Member[];
-    splitMode: 'percentage' | 'weight';
-    currentExpense: Omit<Expense, 'amount'> & { amount: string };
-    weightSplits: Record<string, number>;
-    isEditingExpense: boolean;
-    showExpenseForm: boolean;
-    settlements: Settlement[];
-    youId: string;
-    currency:CurrencyCode;
-    showReceiptUploader: boolean;
-    setShowReceiptUploader: (value: boolean) => void;
-    onReceiptPrefill: (data: ReceiptPrefillData) => void;
-    isNight?: boolean;
-  
-    /* Callbacks to mutate parent state */
-    setExpenses: (e: Expense[]) => void;
-    setCurrentExpense: (e: Omit<Expense, 'amount'> & { amount: string }) => void;
-    setWeightSplits: (w: Record<string, number>) => void;
-    setSplitMode: (m: 'percentage' | 'weight') => void;
-    setIsEditingExpense: (b: boolean) => void;
-    setShowExpenseForm: (b: boolean) => void;
-  
-    /* External helpers from parent */
-    membersMapById: Record<string, Member>;      // computed once in parent for easy lookup
-    activeGroupId: string;
-    onBack: () => void;      // wizard ←
-    onExpensesChange: (newExpenses: Expense[]) => void;
-    onConfirmSettlement: (settlement: Settlement) => Promise<void>;
-  }
-  
+  /* Data */
+  groupName: string;
+  expenses: Expense[];
+  members: Member[];
+  splitMode: 'percentage' | 'weight';
+  currentExpense: Omit<Expense, 'amount'> & { amount: string };
+  weightSplits: Record<string, number>;
+  isEditingExpense: boolean;
+  showExpenseForm: boolean;
+  settlements: Settlement[];
+  youId: string;
+  currency: CurrencyCode;
+  showReceiptUploader: boolean;
+  setShowReceiptUploader: (value: boolean) => void;
+  onReceiptPrefill: (data: ReceiptPrefillData) => void;
+  isNight?: boolean;
 
-  export default function ExpensesPanel({
-    /* DATA */
-    groupName,
-    expenses,
-    members,
-    splitMode,
-    currentExpense,
-    weightSplits,
-    isEditingExpense,
-    showExpenseForm,
-    settlements,
-    youId,
-    currency,
-    showReceiptUploader,
-    setShowReceiptUploader,
-    onReceiptPrefill,
-    isNight = false,
-    /* MUTATORS */
-    setExpenses,
-    setCurrentExpense,
-    setWeightSplits,
-    setSplitMode,
-    setIsEditingExpense,
-    setShowExpenseForm,
-    /* HELPERS */
+  /* Callbacks to mutate parent state */
+  setExpenses: (e: Expense[]) => void;
+  setCurrentExpense: (e: Omit<Expense, 'amount'> & { amount: string }) => void;
+  setWeightSplits: (w: Record<string, number>) => void;
+  setSplitMode: (m: 'percentage' | 'weight') => void;
+  setIsEditingExpense: (b: boolean) => void;
+  setShowExpenseForm: (b: boolean) => void;
+
+  /* External helpers from parent */
+  membersMapById: Record<string, Member>;      // computed once in parent for easy lookup
+  activeGroupId: string;
+  onBack: () => void;      // wizard ←
+  onExpensesChange: (newExpenses: Expense[]) => void;
+  onConfirmSettlement: (settlement: Settlement) => Promise<void>;
+}
+
+
+export default function ExpensesPanel({
+  /* DATA */
+  groupName,
+  expenses,
+  members,
+  splitMode,
+  currentExpense,
+  weightSplits,
+  isEditingExpense,
+  showExpenseForm,
+  settlements,
+  youId,
+  currency,
+  showReceiptUploader,
+  setShowReceiptUploader,
+  onReceiptPrefill,
+  isNight = false,
+  /* MUTATORS */
+  setExpenses,
+  setCurrentExpense,
+  setWeightSplits,
+  setSplitMode,
+  setIsEditingExpense,
+  setShowExpenseForm,
+  /* HELPERS */
   membersMapById,
   activeGroupId,
   /* WIZARD NAV */
@@ -145,8 +145,8 @@ export interface ExpensesPanelProps {
       return map;
     }, {} as Record<string,string>);
   }, [members]); */
-  
-  
+
+
 
   const editExpense = (expenseId: string) => {
     setIsEditingExpense(true);
@@ -167,23 +167,25 @@ export interface ExpensesPanelProps {
     const parsedAmount = parseFloat(currentExpense.amount.trim());
 
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-    alert('Please enter a valid, non-zero amount');
-    return;
+      alert('Please enter a valid, non-zero amount');
+      return;
     }
     // 1. Basic validation
-    if (!currentExpense.description ||
-        !parsedAmount ||
-        !currentExpense.paidBy ||
-        !currentExpense.createdAt
-    ) {
-      alert('Please fill in all expense details');
+    const missingFields: string[] = [];
+    if (!currentExpense.description) missingFields.push("Description");
+    if (!parsedAmount || parsedAmount <= 0) missingFields.push("Amount");
+    if (!currentExpense.paidBy) missingFields.push("Payer");
+    if (!currentExpense.createdAt) missingFields.push("Date");
+
+    if (missingFields.length > 0) {
+      alert(`Please fill in the following fields: ${missingFields.join(", ")}`);
       return;
     }
     if (!activeGroupId) {
       alert("Please create a group first to add expenses");
       return;
     }
-  
+
     // 2. Compute splits based on mode
     let computedSplits: Record<string, number> = { ...currentExpense.splits };
     if (splitMode === 'weight') {
@@ -208,7 +210,7 @@ export interface ExpensesPanelProps {
         return;
       }
     }
-  
+
     // 3. Persist & update local state
     let updatedExpenses: Expense[] = [];
     const amountMinor = toMinor(parsedAmount, currency);
@@ -224,17 +226,17 @@ export interface ExpensesPanelProps {
         amountMinor: amountMinor,
         splitsMinor: computedSplitsMinor,
       });
-  
+
       // b) Update in-memory list
       updatedExpenses = expenses.map(exp =>
         exp.id === currentExpense.id
           ? {
-              ...currentExpense,
-              amount: parsedAmount,
-              splits: computedSplits,
-              amountMinor,
-              splitsMinor: computedSplitsMinor,
-            }
+            ...currentExpense,
+            amount: parsedAmount,
+            splits: computedSplits,
+            amountMinor,
+            splitsMinor: computedSplitsMinor,
+          }
           : exp
       );
     } else {
@@ -258,38 +260,38 @@ export interface ExpensesPanelProps {
         amountMinor,
         computedSplitsMinor
       );
-  
+
       // b) Append to local state
       updatedExpenses = [
         ...expenses,
         { id: newExpenseId, ...newExpensePayload },
       ];
     }
-  
+
     // 4. Commit state and reset form
     setExpenses(updatedExpenses);
     onExpensesChange(updatedExpenses);
     clearExpenseForm();
   };
-  
 
 
-    // new local helper
+
+  // new local helper
   const clearExpenseForm = () => {
-        setShowExpenseForm(false);
-        setIsEditingExpense(false);
-        setCurrentExpense({
-            id: '',
-            description: '',
-            amount: '',
-            paidBy: '',
-            splits: {},
-            createdAt: new Date(),
-            amountMinor: 0,
-            splitsMinor: {},
-            tags: [],
-        });
-        };
+    setShowExpenseForm(false);
+    setIsEditingExpense(false);
+    setCurrentExpense({
+      id: '',
+      description: '',
+      amount: '',
+      paidBy: '',
+      splits: {},
+      createdAt: new Date(),
+      amountMinor: 0,
+      splitsMinor: {},
+      tags: [],
+    });
+  };
 
 
   const updateSplit = (memberId: string, value: string) => {
@@ -304,7 +306,7 @@ export interface ExpensesPanelProps {
       });
       return;
     }
-  
+
     // Otherwise parse the number.  If it’s invalid, you could ignore or set 0,
     // but at least you let the user finish typing “0” or “10” fully first.
     const num = parseFloat(value);
@@ -318,7 +320,7 @@ export interface ExpensesPanelProps {
       });
     }
   };
-  
+
 
   const splitEqually = () => {
     const equalPct = Number((100 / members.length).toFixed(4));
@@ -326,7 +328,7 @@ export interface ExpensesPanelProps {
       acc[m.id] = equalPct;
       return acc;
     }, {} as Record<string, number>);
-  
+
     // Non-functional update:
     setCurrentExpense({
       ...currentExpense,
@@ -335,31 +337,31 @@ export interface ExpensesPanelProps {
   };
 
   return (
-        <Card className={cn("rounded-3xl border shadow-sm", isNight ? "border-white/15 bg-slate-900/60" : "border-slate-200 bg-white")}>
-            <CardHeader className={cn("border-b p-6", isNight ? "border-white/15 bg-slate-800/60" : "border-slate-100 bg-slate-50/80")}>
-            <div className="flex items-center justify-between">
-                <div className={cn("flex items-center gap-2", isNight ? "text-white" : "text-slate-900")}>
-                <DollarSign className="h-6 w-6 text-emerald-500" />
-                <span className="text-xl font-semibold">
-                    Expenses for group
-                </span>
-                <Badge variant="outline" className={cn("px-2 py-0.5 text-sm", isNight ? "border-white/20 bg-white/10 text-slate-200" : "border-slate-300 bg-white text-slate-700")}>
-                    {groupName}
-                </Badge>
-                </div>
-                <Button
-                size="sm"
-                variant="outline"
-                className={cn(isNight ? "border-white/20 bg-white/10 text-slate-200 hover:bg-white/20" : "border-slate-300 text-slate-700 hover:bg-slate-100")}
-                onClick={onBack}
-                >
-                Edit group
-                </Button>
-            </div>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
+    <Card className={cn("rounded-3xl border shadow-sm", isNight ? "border-white/15 bg-slate-900/60" : "border-slate-200 bg-white")}>
+      <CardHeader className={cn("border-b p-6", isNight ? "border-white/15 bg-slate-800/60" : "border-slate-100 bg-slate-50/80")}>
+        <div className="flex items-center justify-between">
+          <div className={cn("flex items-center gap-2", isNight ? "text-white" : "text-slate-900")}>
+            <DollarSign className="h-6 w-6 text-emerald-500" />
+            <span className="text-xl font-semibold">
+              Expenses for group
+            </span>
+            <Badge variant="outline" className={cn("px-2 py-0.5 text-sm", isNight ? "border-white/20 bg-white/10 text-slate-200" : "border-slate-300 bg-white text-slate-700")}>
+              {groupName}
+            </Badge>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className={cn(isNight ? "border-white/20 bg-white/10 text-slate-200 hover:bg-white/20" : "border-slate-300 text-slate-700 hover:bg-slate-100")}
+            onClick={onBack}
+          >
+            Edit group
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="p-6 space-y-6">
         {showExpenseForm ? (
-            <div className={cn("rounded-2xl border p-6", isNight ? "border-white/15 bg-slate-800/60" : "border-slate-200 bg-slate-50/60")}>
+          <div className={cn("rounded-2xl border p-6", isNight ? "border-white/15 bg-slate-800/60" : "border-slate-200 bg-slate-50/60")}>
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-2">
                 <Plus className={cn("h-5 w-5", isNight ? "text-emerald-400" : "text-emerald-600")} />
@@ -370,224 +372,224 @@ export interface ExpensesPanelProps {
               </p>
             </div>
             <form onSubmit={handleExpenseSubmit} className="space-y-5">
-            <div>
+              <div>
                 <Label htmlFor="description" className={cn(isNight ? "text-slate-200" : "")}>Description</Label>
                 <Input
-                id="description"
-                value={currentExpense.description}
-                onChange={(e) => setCurrentExpense({ ...currentExpense, description: e.target.value })}
-                placeholder="What's this expense for?"
-                className={cn("mt-1", isNight ? "border-white/30 bg-slate-900/50 text-white placeholder:text-white/40" : "")}
-                required
+                  id="description"
+                  value={currentExpense.description}
+                  onChange={(e) => setCurrentExpense({ ...currentExpense, description: e.target.value })}
+                  placeholder="What's this expense for?"
+                  className={cn("mt-1", isNight ? "border-white/30 bg-slate-900/50 text-white placeholder:text-white/40" : "")}
+                  required
                 />
-            </div>
+              </div>
 
-            <div>
+              <div>
                 <Label htmlFor="amount" className={cn(isNight ? "text-slate-200" : "")}>Amount</Label>
                 <Input
-                    id="amount"
-                    type="number"
-                    inputMode="decimal"
-                    step="any"
-                    className={cn("mt-1 no-spinner", isNight ? "border-white/30 bg-slate-900/50 text-white placeholder:text-white/40" : "")}
-                    value={currentExpense.amount}
-                    onChange={(e) => {
-                        setCurrentExpense({
-                        ...currentExpense,
-                        amount: e.target.value, // allow user to type blank, float, etc.
-                        });
-                    }}
-                    required
+                  id="amount"
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  className={cn("mt-1 no-spinner", isNight ? "border-white/30 bg-slate-900/50 text-white placeholder:text-white/40" : "")}
+                  value={currentExpense.amount}
+                  onChange={(e) => {
+                    setCurrentExpense({
+                      ...currentExpense,
+                      amount: e.target.value, // allow user to type blank, float, etc.
+                    });
+                  }}
+                  required
                 />
 
-            </div>
+              </div>
 
-            <div>
-            <Label htmlFor="paidBy" className={cn(isNight ? "text-slate-200" : "")}>Paid By</Label>
-            <select
-              id="paidBy"
-              value={currentExpense.paidBy ?? ""} // this should be the member.id
-              onChange={(e) =>
-                setCurrentExpense({ ...currentExpense, paidBy: e.target.value })
-              }
-              className={cn("w-full mt-1 rounded-md border p-2", isNight ? "border-white/30 bg-slate-900/50 text-white" : "border-gray-300")}
-              required
-            >
-              <option value="">Select person</option>
-              {members.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.firstName}
-                </option>
-              ))}
-            </select>
-            </div>
-            <div>
+              <div>
+                <Label htmlFor="paidBy" className={cn(isNight ? "text-slate-200" : "")}>Paid By</Label>
+                <select
+                  id="paidBy"
+                  value={currentExpense.paidBy ?? ""} // this should be the member.id
+                  onChange={(e) =>
+                    setCurrentExpense({ ...currentExpense, paidBy: e.target.value })
+                  }
+                  className={cn("w-full mt-1 rounded-md border p-2", isNight ? "border-white/30 bg-slate-900/50 text-white" : "border-gray-300")}
+                  required
+                >
+                  <option value="">Select person</option>
+                  {members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.firstName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <Label htmlFor="date" className={cn(isNight ? "text-slate-200" : "")}>Date</Label>
                 <Input
-                id="date"
-                type="date"
-                value={currentExpense.createdAt ? new Date(currentExpense.createdAt).toISOString().split('T')[0] : ''}
-                onChange={(e) => setCurrentExpense({ ...currentExpense, createdAt: new Date(e.target.value) })}
-                className={cn("mt-1", isNight ? "border-white/30 bg-slate-900/50 text-white" : "")}
-                required
+                  id="date"
+                  type="date"
+                  value={currentExpense.createdAt ? new Date(currentExpense.createdAt).toISOString().split('T')[0] : ''}
+                  onChange={(e) => setCurrentExpense({ ...currentExpense, createdAt: new Date(e.target.value) })}
+                  className={cn("mt-1", isNight ? "border-white/30 bg-slate-900/50 text-white" : "")}
+                  required
                 />
-            </div>
-            <div>
+              </div>
+              <div>
                 <div className={cn("space-y-5 rounded-xl border p-4", isNight ? "border-white/10 bg-slate-900/40" : "border-slate-200 bg-white/80")}>
-                <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between">
                     <Label className={cn("text-sm font-semibold", isNight ? "text-slate-200" : "")}>Split By</Label>
                     <div className="flex items-center gap-3">
-                    <Label className={cn("text-sm font-medium", isNight ? "text-slate-300" : "text-slate-600")}>Split Mode</Label>
-                    <div className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 rounded-lg border",
-                      isNight 
-                        ? "border-white/20 bg-white/5" 
-                        : "border-slate-200 bg-slate-50"
-                    )}>
+                      <Label className={cn("text-sm font-medium", isNight ? "text-slate-300" : "text-slate-600")}>Split Mode</Label>
+                      <div className={cn(
+                        "flex items-center gap-2 px-3 py-1.5 rounded-lg border",
+                        isNight
+                          ? "border-white/20 bg-white/5"
+                          : "border-slate-200 bg-slate-50"
+                      )}>
                         <span className={cn(
                           "text-sm font-medium transition-colors",
-                          splitMode === 'percentage' 
+                          splitMode === 'percentage'
                             ? isNight ? "text-white" : "text-slate-900"
                             : isNight ? "text-slate-400" : "text-slate-500"
                         )}>%</span>
                         <Switch
-                        checked={splitMode === 'weight'}
-                        onCheckedChange={(checked) => {
+                          checked={splitMode === 'weight'}
+                          onCheckedChange={(checked) => {
                             const newMode = checked ? 'weight' : 'percentage';
 
                             if (newMode === 'weight') {
-                                // Convert current percentages to weights
-                                const newWeights = members.reduce<Record<string, number>>((acc, member) => {
-                                    acc[member.id] = currentExpense.splits[member.id] || 0;
-                                    return acc;
-                                }, {});
-                            setWeightSplits(newWeights);
+                              // Convert current percentages to weights
+                              const newWeights = members.reduce<Record<string, number>>((acc, member) => {
+                                acc[member.id] = currentExpense.splits[member.id] || 0;
+                                return acc;
+                              }, {});
+                              setWeightSplits(newWeights);
                             } else {
-                                // Convert weights to percentages
-                                const totalWeight = Object.values(weightSplits).reduce((sum, w) => sum + w, 0);
-                                if (totalWeight > 0) {
-                                    const newSplits = members.reduce<Record<string, number>>((acc, member) => {
-                                    const w = weightSplits[member.id] || 0;
-                                    acc[member.id] = (w / totalWeight) * 100;
-                                    return acc;
-                                    }, {});
-                                    // ✂️ FUNCTIONAL UPDATE → PLAIN OBJECT
-                                    setCurrentExpense({
-                                        ...currentExpense,
-                                        splits: newSplits,
-                                    });
-                                }
+                              // Convert weights to percentages
+                              const totalWeight = Object.values(weightSplits).reduce((sum, w) => sum + w, 0);
+                              if (totalWeight > 0) {
+                                const newSplits = members.reduce<Record<string, number>>((acc, member) => {
+                                  const w = weightSplits[member.id] || 0;
+                                  acc[member.id] = (w / totalWeight) * 100;
+                                  return acc;
+                                }, {});
+                                // ✂️ FUNCTIONAL UPDATE → PLAIN OBJECT
+                                setCurrentExpense({
+                                  ...currentExpense,
+                                  splits: newSplits,
+                                });
+                              }
                             }
 
                             setSplitMode(newMode);
-                        }}
+                          }}
                         />
                         <span className={cn(
                           "text-sm font-medium transition-colors",
-                          splitMode === 'weight' 
+                          splitMode === 'weight'
                             ? isNight ? "text-white" : "text-slate-900"
                             : isNight ? "text-slate-400" : "text-slate-500"
                         )}>w</span>
-                    </div>
+                      </div>
                     </div>
 
-                </div>
-                {splitMode === 'percentage' && (
+                  </div>
+                  {splitMode === 'percentage' && (
                     <>
-                    <div className="flex justify-between items-center">
+                      <div className="flex justify-between items-center">
                         <Label className={cn("text-sm font-semibold", isNight ? "text-slate-200" : "")}>Split Percentages</Label>
                         <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                          "transition-all duration-200 hover:scale-105",
-                          isNight 
-                            ? "border-white/20 bg-white/10 text-slate-200 hover:bg-white/20" 
-                            : "border-slate-300 text-slate-700 hover:bg-slate-50"
-                        )}
-                        onClick={splitEqually}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "transition-all duration-200 hover:scale-105",
+                            isNight
+                              ? "border-white/20 bg-white/10 text-slate-200 hover:bg-white/20"
+                              : "border-slate-300 text-slate-700 hover:bg-slate-50"
+                          )}
+                          onClick={splitEqually}
                         >
-                        Split Equally
+                          Split Equally
                         </Button>
-                    </div>
-                    <div className={cn("space-y-3 rounded-lg p-3", isNight ? "bg-slate-900/30" : "bg-white/60")}>
+                      </div>
+                      <div className={cn("space-y-3 rounded-lg p-3", isNight ? "bg-slate-900/30" : "bg-white/60")}>
                         {members.map(member => (
-                        <div key={member.firstName} className="flex items-center gap-3">
+                          <div key={member.firstName} className="flex items-center gap-3">
                             <span className={cn("w-24 text-sm font-medium", isNight ? "text-slate-200" : "text-slate-700")}>{member.firstName}</span>
                             <Input
-                            type="number"
-                            value={currentExpense.splits[member.id] ?? ''}
-                            onChange={(e) => updateSplit(member.id, e.target.value)}
-                            placeholder="0"
-                            className={cn("flex-1", isNight ? "border-white/30 bg-slate-900/50 text-white placeholder:text-white/40" : "")}
-                            required
+                              type="number"
+                              value={currentExpense.splits[member.id] ?? ''}
+                              onChange={(e) => updateSplit(member.id, e.target.value)}
+                              placeholder="0"
+                              className={cn("flex-1", isNight ? "border-white/30 bg-slate-900/50 text-white placeholder:text-white/40" : "")}
+                              required
                             />
                             <span className={cn("text-sm font-medium w-6", isNight ? "text-slate-300" : "text-slate-600")}>%</span>
-                        </div>
+                          </div>
                         ))}
-                    </div>
+                      </div>
                     </>
-                )}
-                {splitMode === 'weight' && (
+                  )}
+                  {splitMode === 'weight' && (
                     <>
-                    <Label className={cn("text-sm font-semibold", isNight ? "text-slate-200" : "")}>Weights</Label>
-                    <div className={cn("space-y-3 rounded-lg p-3", isNight ? "bg-slate-900/30" : "bg-white/60")}>
+                      <Label className={cn("text-sm font-semibold", isNight ? "text-slate-200" : "")}>Weights</Label>
+                      <div className={cn("space-y-3 rounded-lg p-3", isNight ? "bg-slate-900/30" : "bg-white/60")}>
                         {members.map(member => (
-                        <div key={member.firstName} className="flex items-center gap-3">
+                          <div key={member.firstName} className="flex items-center gap-3">
                             <span className={cn("w-24 text-sm font-medium", isNight ? "text-slate-200" : "text-slate-700")}>{member.firstName}</span>
                             <Input
-                            type="number"
-                            value={weightSplits[member.id] || ''}
-                            onChange={(e) => {
+                              type="number"
+                              value={weightSplits[member.id] || ''}
+                              onChange={(e) => {
                                 const value = parseFloat(e.target.value) || 0;
                                 const newSplits = { ...weightSplits, [member.id]: value };
                                 setWeightSplits(newSplits);
-                            }}
-                            placeholder="0"
-                            className={cn("flex-1", isNight ? "border-white/30 bg-slate-900/50 text-white placeholder:text-white/40" : "")}
-                            required
+                              }}
+                              placeholder="0"
+                              className={cn("flex-1", isNight ? "border-white/30 bg-slate-900/50 text-white placeholder:text-white/40" : "")}
+                              required
                             />
                             <span className={cn("text-sm font-medium w-10", isNight ? "text-slate-300" : "text-slate-600")}>pts</span>
-                        </div>
+                          </div>
                         ))}
-                    </div>
+                      </div>
                     </>
-                )}
+                  )}
                 </div>
-            </div>
+              </div>
 
-            <div className="flex justify-end space-x-3 mt-6 pt-4 border-t" style={isNight ? { borderColor: 'rgba(255, 255, 255, 0.1)' } : { borderColor: 'rgb(226, 232, 240)' }}>
-              <Button
-                type="button"
-                variant="outline"
-                className={cn(
-                  "transition-all duration-200 hover:scale-105",
-                  isNight 
-                    ? "border-white/20 bg-white/10 text-slate-200 hover:bg-white/20" 
-                    : "border-slate-300 text-slate-700 hover:bg-slate-50"
-                )}
-                onClick={() => clearExpenseForm()}
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t" style={isNight ? { borderColor: 'rgba(255, 255, 255, 0.1)' } : { borderColor: 'rgb(226, 232, 240)' }}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(
+                    "transition-all duration-200 hover:scale-105",
+                    isNight
+                      ? "border-white/20 bg-white/10 text-slate-200 hover:bg-white/20"
+                      : "border-slate-300 text-slate-700 hover:bg-slate-50"
+                  )}
+                  onClick={() => clearExpenseForm()}
                 >
-                Cancel
+                  Cancel
                 </Button>
                 <Button
-                type="submit"
-                className={cn(
-                  "font-medium transition-all duration-200 hover:scale-105 flex items-center gap-2",
-                  isNight 
-                    ? "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400 border-transparent" 
-                    : "bg-slate-900 hover:bg-slate-800 text-white"
-                )}
+                  type="submit"
+                  className={cn(
+                    "font-medium transition-all duration-200 hover:scale-105 flex items-center gap-2",
+                    isNight
+                      ? "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400 border-transparent"
+                      : "bg-slate-900 hover:bg-slate-800 text-white"
+                  )}
                 >
-                <DollarSign className="h-4 w-4" />
-                Save Expense
-              </Button>
-            </div>
+                  <DollarSign className="h-4 w-4" />
+                  Save Expense
+                </Button>
+              </div>
             </form>
-            </div>
+          </div>
         ) : showReceiptUploader ? (
-            <div className={cn("rounded-2xl border p-5", isNight ? "border-white/15 bg-slate-800/60" : "border-slate-200 bg-slate-50/60")}>
+          <div className={cn("rounded-2xl border p-5", isNight ? "border-white/15 bg-slate-800/60" : "border-slate-200 bg-slate-50/60")}>
             <ReceiptUploadPanel
               members={members}
               currency={currency}
@@ -597,45 +599,45 @@ export interface ExpensesPanelProps {
                 onReceiptPrefill(data);
               }}
             />
-            </div>
+          </div>
         ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Button
-                className={cn(
-                  "font-medium transition-all duration-200 hover:scale-[1.02] flex items-center gap-2",
-                  isNight 
-                    ? "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400 border-transparent" 
-                    : "bg-slate-900 hover:bg-slate-800 text-white"
-                )}
-                disabled={!activeGroupId}
-                onClick={() => {
-                  setShowReceiptUploader(false);
-                  setShowExpenseForm(true);
-                }}
-                title={!activeGroupId ? "Select or create a group first" : undefined}
-              >
-                <Plus className="h-4 w-4" />
-                Add Expense Manually
-              </Button>
-              <Button
-                variant="outline"
-                className={cn(
-                  "transition-all duration-200 hover:scale-[1.02] flex items-center gap-2",
-                  isNight 
-                    ? "border-white/20 bg-white/10 text-slate-200 hover:bg-white/20" 
-                    : "border-slate-300 text-slate-700 hover:bg-slate-50"
-                )}
-                disabled={!activeGroupId}
-                onClick={() => {
-                  setShowExpenseForm(false);
-                  setShowReceiptUploader(true);
-                }}
-                title={!activeGroupId ? "Select or create a group first" : undefined}
-              >
-                <FileText className="h-4 w-4" />
-                Upload Receipt
-              </Button>
-            </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Button
+              className={cn(
+                "font-medium transition-all duration-200 hover:scale-[1.02] flex items-center gap-2",
+                isNight
+                  ? "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400 border-transparent"
+                  : "bg-slate-900 hover:bg-slate-800 text-white"
+              )}
+              disabled={!activeGroupId}
+              onClick={() => {
+                setShowReceiptUploader(false);
+                setShowExpenseForm(true);
+              }}
+              title={!activeGroupId ? "Select or create a group first" : undefined}
+            >
+              <Plus className="h-4 w-4" />
+              Add Expense Manually
+            </Button>
+            <Button
+              variant="outline"
+              className={cn(
+                "transition-all duration-200 hover:scale-[1.02] flex items-center gap-2",
+                isNight
+                  ? "border-white/20 bg-white/10 text-slate-200 hover:bg-white/20"
+                  : "border-slate-300 text-slate-700 hover:bg-slate-50"
+              )}
+              disabled={!activeGroupId}
+              onClick={() => {
+                setShowExpenseForm(false);
+                setShowReceiptUploader(true);
+              }}
+              title={!activeGroupId ? "Select or create a group first" : undefined}
+            >
+              <FileText className="h-4 w-4" />
+              Upload Receipt
+            </Button>
+          </div>
         )}
         {/* 2️⃣ List of existing expenses */}
         {isIdleState && (
@@ -643,8 +645,8 @@ export interface ExpensesPanelProps {
             {expenses.length === 0 ? (
               <div className={cn(
                 "rounded-2xl border border-dashed p-8 text-center",
-                isNight 
-                  ? "border-white/15 bg-slate-800/40" 
+                isNight
+                  ? "border-white/15 bg-slate-800/40"
                   : "border-slate-200 bg-slate-50/80"
               )}>
                 <Receipt className={cn(
@@ -694,73 +696,71 @@ export interface ExpensesPanelProps {
                   </p>
                 </div>
                 <div className="grid w-full gap-3 sm:grid-cols-3 md:w-auto">
-                    <div className={cn(
-                      "relative rounded-2xl border p-4 overflow-hidden transition-all duration-200 hover:scale-[1.02]",
-                      isNight 
-                        ? "border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5" 
-                        : "border-slate-200 bg-gradient-to-br from-slate-50/70 to-emerald-50/30"
-                    )}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <TrendingUp className={cn("h-4 w-4", isNight ? "text-emerald-300" : "text-emerald-600")} />
-                        <p className={cn("text-xs font-semibold uppercase tracking-[0.3em]", isNight ? "text-emerald-200" : "text-slate-500")}>
-                          You&apos;re owed
-                        </p>
-                      </div>
-                      <div className={cn("text-2xl font-bold mb-1", isNight ? "text-emerald-200" : "text-emerald-700")}>
-                        {formatMoney(totalOwedToYou, currency)}
-                      </div>
-                      <p className={cn("text-xs leading-relaxed", isNight ? "text-emerald-200/80" : "text-slate-500")}>
-                        {totalOwedToYou > 0
-                          ? `From ${Math.max(membersWhoOweYou.length, 1)} roommate${
-                              Math.max(membersWhoOweYou.length, 1) > 1 ? "s" : ""
-                            }`
-                          : "No one owes you right now."}
+                  <div className={cn(
+                    "relative rounded-2xl border p-4 overflow-hidden transition-all duration-200 hover:scale-[1.02]",
+                    isNight
+                      ? "border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5"
+                      : "border-slate-200 bg-gradient-to-br from-slate-50/70 to-emerald-50/30"
+                  )}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className={cn("h-4 w-4", isNight ? "text-emerald-300" : "text-emerald-600")} />
+                      <p className={cn("text-xs font-semibold uppercase tracking-[0.3em]", isNight ? "text-emerald-200" : "text-slate-500")}>
+                        You&apos;re owed
                       </p>
                     </div>
-                    <div className={cn(
-                      "relative rounded-2xl border p-4 overflow-hidden transition-all duration-200 hover:scale-[1.02]",
-                      isNight 
-                        ? "border-rose-400/30 bg-gradient-to-br from-rose-500/10 to-rose-500/5" 
-                        : "border-slate-200 bg-gradient-to-br from-slate-50/70 to-rose-50/30"
-                    )}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <TrendingDown className={cn("h-4 w-4", isNight ? "text-rose-300" : "text-rose-600")} />
-                        <p className={cn("text-xs font-semibold uppercase tracking-[0.3em]", isNight ? "text-rose-200" : "text-slate-500")}>
-                          You owe
-                        </p>
-                      </div>
-                      <div className={cn("text-2xl font-bold mb-1", isNight ? "text-rose-200" : "text-rose-600")}>
-                        {formatMoney(totalYouOwe, currency)}
-                      </div>
-                      <p className={cn("text-xs leading-relaxed", isNight ? "text-rose-200/80" : "text-slate-500")}>
-                        {totalYouOwe > 0
-                          ? `To ${Math.max(membersYouOwe.length, 1)} friend${
-                              Math.max(membersYouOwe.length, 1) > 1 ? "s" : ""
-                            }`
-                          : "Nothing due on your side."}
+                    <div className={cn("text-2xl font-bold mb-1", isNight ? "text-emerald-200" : "text-emerald-700")}>
+                      {formatMoney(totalOwedToYou, currency)}
+                    </div>
+                    <p className={cn("text-xs leading-relaxed", isNight ? "text-emerald-200/80" : "text-slate-500")}>
+                      {totalOwedToYou > 0
+                        ? `From ${Math.max(membersWhoOweYou.length, 1)} roommate${Math.max(membersWhoOweYou.length, 1) > 1 ? "s" : ""
+                        }`
+                        : "No one owes you right now."}
+                    </p>
+                  </div>
+                  <div className={cn(
+                    "relative rounded-2xl border p-4 overflow-hidden transition-all duration-200 hover:scale-[1.02]",
+                    isNight
+                      ? "border-rose-400/30 bg-gradient-to-br from-rose-500/10 to-rose-500/5"
+                      : "border-slate-200 bg-gradient-to-br from-slate-50/70 to-rose-50/30"
+                  )}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingDown className={cn("h-4 w-4", isNight ? "text-rose-300" : "text-rose-600")} />
+                      <p className={cn("text-xs font-semibold uppercase tracking-[0.3em]", isNight ? "text-rose-200" : "text-slate-500")}>
+                        You owe
                       </p>
                     </div>
-                    <div className={cn(
-                      "relative rounded-2xl border p-4 overflow-hidden transition-all duration-200 hover:scale-[1.02]",
-                      isNight 
-                        ? "border-indigo-400/30 bg-gradient-to-br from-indigo-500/10 to-indigo-500/5" 
-                        : "border-slate-200 bg-gradient-to-br from-white to-indigo-50/20"
-                    )}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Clock className={cn("h-4 w-4", isNight ? "text-indigo-300" : "text-indigo-600")} />
-                        <p className={cn("text-xs font-semibold uppercase tracking-[0.3em]", isNight ? "text-indigo-200" : "text-slate-500")}>
-                          Pending
-                        </p>
-                      </div>
-                      <div className={cn("text-2xl font-bold mb-1", isNight ? "text-indigo-200" : "text-indigo-600")}>
-                        {pendingSettlements.length ? formatMoney(pendingTotal, currency) : "—"}
-                      </div>
-                      <p className={cn("text-xs leading-relaxed", isNight ? "text-indigo-200/80" : "text-slate-500")}>
-                        {pendingSettlements.length
-                          ? `${pendingSettlements.length} settlement${pendingSettlements.length > 1 ? "s" : ""} awaiting confirmation`
-                          : "All recent payments are confirmed."}
+                    <div className={cn("text-2xl font-bold mb-1", isNight ? "text-rose-200" : "text-rose-600")}>
+                      {formatMoney(totalYouOwe, currency)}
+                    </div>
+                    <p className={cn("text-xs leading-relaxed", isNight ? "text-rose-200/80" : "text-slate-500")}>
+                      {totalYouOwe > 0
+                        ? `To ${Math.max(membersYouOwe.length, 1)} friend${Math.max(membersYouOwe.length, 1) > 1 ? "s" : ""
+                        }`
+                        : "Nothing due on your side."}
+                    </p>
+                  </div>
+                  <div className={cn(
+                    "relative rounded-2xl border p-4 overflow-hidden transition-all duration-200 hover:scale-[1.02]",
+                    isNight
+                      ? "border-indigo-400/30 bg-gradient-to-br from-indigo-500/10 to-indigo-500/5"
+                      : "border-slate-200 bg-gradient-to-br from-white to-indigo-50/20"
+                  )}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className={cn("h-4 w-4", isNight ? "text-indigo-300" : "text-indigo-600")} />
+                      <p className={cn("text-xs font-semibold uppercase tracking-[0.3em]", isNight ? "text-indigo-200" : "text-slate-500")}>
+                        Pending
                       </p>
                     </div>
+                    <div className={cn("text-2xl font-bold mb-1", isNight ? "text-indigo-200" : "text-indigo-600")}>
+                      {pendingSettlements.length ? formatMoney(pendingTotal, currency) : "—"}
+                    </div>
+                    <p className={cn("text-xs leading-relaxed", isNight ? "text-indigo-200/80" : "text-slate-500")}>
+                      {pendingSettlements.length
+                        ? `${pendingSettlements.length} settlement${pendingSettlements.length > 1 ? "s" : ""} awaiting confirmation`
+                        : "All recent payments are confirmed."}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -817,8 +817,8 @@ export interface ExpensesPanelProps {
                             key={settlement.id}
                             className={cn(
                               "space-y-3 rounded-2xl border p-4 shadow-sm transition-all duration-200 hover:shadow-md",
-                              isNight 
-                                ? "border-white/15 bg-slate-800/60 shadow-slate-900/50 hover:bg-slate-800/70" 
+                              isNight
+                                ? "border-white/15 bg-slate-800/60 shadow-slate-900/50 hover:bg-slate-800/70"
                                 : "border-slate-200 bg-white hover:shadow-slate-200/50"
                             )}
                           >
@@ -840,15 +840,15 @@ export interface ExpensesPanelProps {
                               <div className="flex flex-wrap items-center gap-2">
                                 <Badge variant="outline" className={cn(
                                   "flex items-center gap-1.5",
-                                  isNight 
-                                    ? "border-white/20 bg-white/10 text-slate-200" 
+                                  isNight
+                                    ? "border-white/20 bg-white/10 text-slate-200"
                                     : "border-slate-200 text-slate-600"
                                 )}>
                                   <MethodIcon className="h-3 w-3" />
                                   {methodLabel}
                                 </Badge>
                                 <Badge variant="outline" className={cn(
-                                  isNight 
+                                  isNight
                                     ? settlement.status === "pending"
                                       ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
                                       : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
@@ -861,8 +861,8 @@ export interface ExpensesPanelProps {
                             {note ? (
                               <div className={cn(
                                 "rounded-lg border-l-2 pl-3 py-1.5",
-                                isNight 
-                                  ? "border-white/20 bg-white/5" 
+                                isNight
+                                  ? "border-white/20 bg-white/5"
                                   : "border-slate-200 bg-slate-50"
                               )}>
                                 <p className={cn("text-xs italic", isNight ? "text-slate-300" : "text-slate-600")}>&quot;{note}&quot;</p>
@@ -875,8 +875,8 @@ export interface ExpensesPanelProps {
                                     size="sm"
                                     className={cn(
                                       "transition-all duration-200",
-                                      isNight 
-                                        ? "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400 border-transparent hover:scale-105" 
+                                      isNight
+                                        ? "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400 border-transparent hover:scale-105"
                                         : "bg-emerald-600 text-white hover:bg-emerald-500 hover:scale-105"
                                     )}
                                     onClick={() => {
@@ -907,8 +907,8 @@ export interface ExpensesPanelProps {
                       </h4>
                       <Badge variant="secondary" className={cn(
                         "text-xs uppercase tracking-wide flex items-center gap-1.5 animate-pulse",
-                        isNight 
-                          ? "bg-emerald-500/20 text-emerald-200 border-emerald-400/30" 
+                        isNight
+                          ? "bg-emerald-500/20 text-emerald-200 border-emerald-400/30"
                           : "bg-emerald-100 text-emerald-700 border-emerald-200"
                       )}>
                         <Sparkles className="h-3 w-3" />
@@ -927,17 +927,17 @@ export interface ExpensesPanelProps {
                           const name = membersMapById[id]?.firstName ?? id;
                           const positive = bal >= 0;
                           return (
-                            <div 
-                              key={id} 
+                            <div
+                              key={id}
                               className={cn(
                                 "flex items-center justify-between text-sm px-2 py-1.5 rounded-lg transition-colors",
-                                isNight 
+                                isNight
                                   ? positive ? "bg-emerald-500/5" : "bg-rose-500/5"
                                   : positive ? "bg-emerald-50/50" : "bg-rose-50/50"
                               )}
                             >
                               <span className={cn("font-medium", isNight ? "text-slate-200" : "text-slate-700")}>{name}</span>
-                              <span className={cn("font-bold text-base", positive 
+                              <span className={cn("font-bold text-base", positive
                                 ? isNight ? "text-emerald-200" : "text-emerald-600"
                                 : isNight ? "text-rose-200" : "text-rose-600"
                               )}>
@@ -971,17 +971,17 @@ export interface ExpensesPanelProps {
                           const name = membersMapById[id]?.firstName ?? id;
                           const positive = bal >= 0;
                           return (
-                            <div 
-                              key={id} 
+                            <div
+                              key={id}
                               className={cn(
                                 "flex items-center justify-between text-sm px-2 py-1.5 rounded-lg transition-colors",
-                                isNight 
+                                isNight
                                   ? positive ? "bg-emerald-500/5" : "bg-rose-500/5"
                                   : positive ? "bg-emerald-50/50" : "bg-rose-50/50"
                               )}
                             >
                               <span className={cn("font-medium", isNight ? "text-slate-200" : "text-slate-700")}>{name}</span>
-                              <span className={cn("font-bold text-base", positive 
+                              <span className={cn("font-bold text-base", positive
                                 ? isNight ? "text-emerald-200" : "text-emerald-600"
                                 : isNight ? "text-rose-200" : "text-rose-600"
                               )}>

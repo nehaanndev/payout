@@ -20,6 +20,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -39,6 +40,7 @@ import com.toodl.share.R
 import com.toodl.share.model.IncomingShare
 import com.toodl.share.model.ShareFormState
 import com.toodl.share.model.SharedLinkContentType
+import com.toodl.share.ui.SignInUiState
 
 @Composable
 fun ShareScreen(
@@ -46,6 +48,7 @@ fun ShareScreen(
     user: FirebaseUser?,
     incomingShare: IncomingShare?,
     formState: ShareFormState?,
+    signInState: SignInUiState,
     tagsInput: String,
     onTagsInputChange: (String) -> Unit,
     onTitleChange: (String) -> Unit,
@@ -57,11 +60,11 @@ fun ShareScreen(
 ) {
     Surface(modifier = modifier.fillMaxSize()) {
         when {
-            user == null -> SignInRequired(onSignIn)
             incomingShare == null -> MissingShareNotice()
             formState == null -> LoadingState()
             formState.didSave -> SavedState(onShareConsumed)
             else -> ShareForm(
+                user = user,
                 incomingShare = incomingShare,
                 formState = formState,
                 tagsInput = tagsInput,
@@ -69,28 +72,10 @@ fun ShareScreen(
                 onTitleChange = onTitleChange,
                 onNotesChange = onNotesChange,
                 onContentTypeChange = onContentTypeChange,
-                onSave = onSave
+                onSave = onSave,
+                signInState = signInState,
+                onSignIn = onSignIn
             )
-        }
-    }
-}
-
-@Composable
-private fun SignInRequired(onSignIn: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "Sign in to drop this link into your Scratch Pad",
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onSignIn) {
-            Text(text = stringResource(id = R.string.sign_in))
         }
     }
 }
@@ -140,6 +125,7 @@ private fun SavedState(onShareConsumed: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ShareForm(
+    user: FirebaseUser?,
     incomingShare: IncomingShare,
     formState: ShareFormState,
     tagsInput: String,
@@ -147,7 +133,9 @@ private fun ShareForm(
     onTitleChange: (String) -> Unit,
     onNotesChange: (String) -> Unit,
     onContentTypeChange: (SharedLinkContentType) -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    signInState: SignInUiState,
+    onSignIn: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -156,22 +144,22 @@ private fun ShareForm(
             .verticalScroll(rememberScrollState())
     ) {
         TopAppBar(
-            title = { Text(text = incomingShare.appName ?: "Shared link") },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            title = { Text(text = "Drop a link", fontWeight = FontWeight.SemiBold) },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
         )
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF4F4F7))
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(text = incomingShare.url, fontWeight = FontWeight.Medium)
-                if (!incomingShare.rawText.isNullOrBlank()) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(text = incomingShare.rawText!!)
-                }
-            }
+        Text(
+            text = "Paste a URL and add optional notes or tags. Anything you save lands in your Orbit queue.",
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+        )
+
+        if (user == null) {
+            SignInInline(signInState = signInState, onSignIn = onSignIn)
+            Spacer(Modifier.height(16.dp))
         }
+
+        SharedLinkDetailsCard(incomingShare)
 
         Spacer(Modifier.height(16.dp))
 
@@ -218,7 +206,7 @@ private fun ShareForm(
         Button(
             modifier = Modifier.fillMaxWidth(),
             onClick = onSave,
-            enabled = formState.canSave && !formState.isSaving,
+            enabled = formState.canSave && !formState.isSaving && user != null,
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
             if (formState.isSaving) {
@@ -230,7 +218,7 @@ private fun ShareForm(
                     color = Color.White
                 )
             } else {
-                Text(text = stringResource(id = R.string.save_to_toodl))
+                Text(text = stringResource(id = R.string.save_to_orbit))
             }
         }
 
@@ -238,11 +226,76 @@ private fun ShareForm(
             Text(
                 modifier = Modifier.padding(top = 12.dp),
                 text = formState.error ?: "",
-                color = Color(0xFFB00020)
+                color = MaterialTheme.colorScheme.error
             )
         }
 
         Spacer(Modifier.height(48.dp))
+    }
+}
+
+@Composable
+private fun SignInInline(
+    signInState: SignInUiState,
+    onSignIn: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Sign in to save to Orbit",
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "You need to sign in once to drop this link into your Orbit.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(
+                enabled = !signInState.isSigningIn,
+                onClick = onSignIn,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (signInState.isSigningIn) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .height(18.dp)
+                            .fillMaxWidth(0.15f),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                } else {
+                    Text(text = stringResource(id = R.string.sign_in))
+                }
+            }
+            AnimatedVisibility(visible = signInState.errorMessage != null) {
+                Text(
+                    text = signInState.errorMessage.orEmpty(),
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SharedLinkDetailsCard(incomingShare: IncomingShare) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = incomingShare.url, fontWeight = FontWeight.Medium)
+            if (!incomingShare.rawText.isNullOrBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(text = incomingShare.rawText!!)
+            }
+        }
     }
 }
 
@@ -283,8 +336,8 @@ private fun RowOfChips(
                 onClick = { onContentTypeChange(type) },
                 label = { Text(label) },
                 colors = AssistChipDefaults.assistChipColors(
-                    containerColor = if (selected == type) Color(0xFF1D4ED8) else Color(0xFFE8E8EF),
-                    labelColor = if (selected == type) Color.White else Color(0xFF303040)
+                    containerColor = if (selected == type) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                    labelColor = if (selected == type) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             )
         }

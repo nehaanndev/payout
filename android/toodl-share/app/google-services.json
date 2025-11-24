@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "197852096416-deamrj5vrlf990qtj4vstsnoicc1bubb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.toodl.share",
+            "certificate_hash": "b133fd6e375f8efe97c292cfd5cf303d13675050"
+          }
+        },
+        {
           "client_id": "197852096416-fmotuk5a1nbk8ckl7cnae5qqe3mkd1o3.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Toodl Share</string>
+    <string name="app_name">Orbit Share</string>
     <string name="sign_in">Continue with Google</string>
     <string name="share_title_hint">Title</string>
     <string name="share_notes_hint">Add a note (optional)</string>
-    <string name="save_to_toodl">Save to Toodl</string>
+    <string name="save_to_orbit">Save to Orbit</string>
     <string name="saving">Saving…</string>
     <string name="saved">Saved!</string>
     <string name="signing_in">Signing In…</string>
     <string name="share_missing_link">We could not find a link in this share.</string>
 </resources>
-

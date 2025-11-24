@@ -794,7 +794,8 @@ export function ScratchPadExperience() {
         tags,
         title: firstLine,
       });
-      setNoteEditorMessage("Note updated.");
+      // setNoteEditorMessage("Note updated."); // No need for message if we close
+      setSelectedNoteId(null); // Close the modal
     } catch (err) {
       console.error(err);
       setNoteEditorError("We couldn't update this note. Please try again.");
