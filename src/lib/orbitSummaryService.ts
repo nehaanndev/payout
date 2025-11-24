@@ -219,11 +219,15 @@ export const saveOrbitLesson = async (
     paragraphs: Array.isArray(lesson.paragraphs)
       ? lesson.paragraphs.map((p) => String(p ?? "")).filter(Boolean)
       : [],
-    code: Array.isArray((lesson as OrbitLearningLesson).code)
-      ? (lesson as OrbitLearningLesson).code
-          .map((block) => String(block ?? ""))
-          .filter((block) => Boolean(block?.trim()))
-      : undefined,
+    code: (() => {
+      const lessonCode = (lesson as OrbitLearningLesson).code;
+      if (!Array.isArray(lessonCode)) {
+        return undefined;
+      }
+      return lessonCode
+        .map((block) => String(block ?? ""))
+        .filter((block) => Boolean(block?.trim()));
+    })(),
     quiz: sanitizedQuiz.filter((item) => item.question && item.answers.length),
   };
   const now = new Date().toISOString();

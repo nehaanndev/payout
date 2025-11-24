@@ -87,6 +87,16 @@ type AiLearningResponse = {
 const depthToLessons = (depth: OrbitLearningPlan["depth"]) =>
   depth === "deep" ? 30 : depth === "standard" ? 10 : 7;
 
+const buildFallbackSyllabus = (plan: OrbitLearningPlan) => {
+  const totalLessons = plan.totalLessons || depthToLessons(plan.depth);
+  return Array.from({ length: totalLessons }).map((_, index) => ({
+    day: index + 1,
+    title: `${plan.topic}: Part ${index + 1}`,
+    summary: `Focus on aspect ${index + 1} of ${plan.topic}.`,
+    quizFocus: "Recall the main idea from today.",
+  }));
+};
+
 const generateLearningRoadmap = async (
   plan: OrbitLearningPlan
 ): Promise<OrbitLearningPlan["syllabus"]> => {
@@ -94,13 +104,7 @@ const generateLearningRoadmap = async (
   const totalLessons = plan.totalLessons || depthToLessons(plan.depth);
 
   if (!apiKey) {
-    // Fallback: simple scaffold to keep lessons distinct
-    return Array.from({ length: totalLessons }).map((_, index) => ({
-      day: index + 1,
-      title: `${plan.topic}: Part ${index + 1}`,
-      summary: `Focus on aspect ${index + 1} of ${plan.topic}.`,
-      quizFocus: "Recall the main idea from today.",
-    }));
+    return buildFallbackSyllabus(plan);
   }
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -132,13 +136,13 @@ const generateLearningRoadmap = async (
 
   if (!response.ok) {
     console.error("OpenAI syllabus API error", response.status, await response.text());
-    return null;
+    return buildFallbackSyllabus(plan);
   }
 
   const result = await response.json();
   const content = result?.choices?.[0]?.message?.content;
   if (!content) {
-    return null;
+    return buildFallbackSyllabus(plan);
   }
 
   let parsed: AiLearningResponse | null = null;
@@ -160,12 +164,7 @@ const generateLearningRoadmap = async (
     .filter((item) => item.title);
 
   if (!syllabus.length) {
-    return Array.from({ length: totalLessons }).map((_, index) => ({
-      day: index + 1,
-      title: `${plan.topic}: Part ${index + 1}`,
-      summary: `Focus on aspect ${index + 1} of ${plan.topic}.`,
-      quizFocus: "Recall the main idea from today.",
-    }));
+    return buildFallbackSyllabus(plan);
   }
 
   return syllabus;
