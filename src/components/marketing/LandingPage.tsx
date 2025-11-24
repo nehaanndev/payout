@@ -27,47 +27,47 @@ type SpotlightProduct = {
 const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
   {
     name: "Split",
-    tagline: "Settle tabs from a chat",
+    tagline: "Bills with friends, no spreadsheets",
     icon: "/brand/toodl-expense.svg",
     accent: "from-slate-900/10 via-slate-800/5 to-slate-900/0",
     description:
-      "Log purchases in the conversation view, auto-calc shares, and settle every crew instantly.",
+      "Add what you paid, pick who shared, and settle up with clear totals.",
     href: "/split",
   },
   {
     name: "Pulse",
-    tagline: "Budgets that breathe",
+    tagline: "Budget that adjusts as you spend",
     icon: "/brand/toodl-budget.svg",
     accent: "from-emerald-500/15 via-teal-400/10 to-emerald-500/0",
     description:
-      "Model cash, categories, and goals with AI projections that update as soon as you speak.",
+      "Track cash and categories with live projections so you know what’s safe to spend.",
     href: "/budget",
   },
   {
     name: "Story",
-    tagline: "Journal beside the math",
+    tagline: "Journal beside the numbers",
     icon: "/brand/toodl-journal.svg",
     accent: "from-rose-400/15 via-amber-300/10 to-sky-400/0",
     description:
-      "Write the day beside the numbers so feelings carry through every recap.",
+      "Drop a short reflection or photo so the story lives next to the dollars.",
     href: "/journal",
   },
   {
     name: "Flow",
-    tagline: "Line up the day’s moves",
+    tagline: "Plan a day you can actually finish",
     icon: "/brand/toodl-flow.svg",
     accent: "from-emerald-400/15 via-teal-300/10 to-amber-200/0",
     description:
-      "Turn intentions into a calm schedule without leaving the conversation.",
+      "Pick today’s 3 anchors and keep them visible so work and home both move.",
     href: "/flow",
   },
   {
     name: "Orbit",
-    tagline: "Save sparks you’ll act on",
+    tagline: "Save links you’ll reuse",
     icon: "/brand/toodl-orbit.svg",
     accent: "from-indigo-500/15 via-violet-400/10 to-blue-400/0",
     description:
-      "Drop research, receipts, and voice notes into Orbit so the ledger remembers for you.",
+      "Keep receipts, links, and notes in one shelf that shows up when you need it.",
     href: "/orbit",
   },
 ];
@@ -318,13 +318,13 @@ export function LandingPage({
             <div className="space-y-8">
               <span className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 ring-1 ring-slate-100">
                 <Wand2 className="h-3.5 w-3.5 text-amber-500" />
-                AI-first ledger
+                One app, five helpers
               </span>
               <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
-                AI conversations that run your life&apos;s ledger.
+                Toodl keeps money, plans, and notes together.
               </h1>
               <p className="text-lg text-slate-600 lg:text-xl">
-                Tell Toodl&apos;s AI what just happened or what needs to move next. That one conversation ripples into Split for bills, Pulse for budgets, Story for journals, Flow for plans, and Orbit for saves—no more juggling apps to stay organized.
+                A simple hub with five built-ins: Split for bills, Pulse for budgets, Flow for today’s plan, Story for journaling, and Orbit for links and receipts. Talk to it once and each part stays in sync—no jargon, no bouncing between apps.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button
@@ -365,10 +365,10 @@ export function LandingPage({
               <div className="rounded-3xl border border-slate-100 bg-white/80 p-4 shadow-sm">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
-                    The Toodl apps
+                    What each helper does
                   </p>
                   <span className="text-[11px] font-medium uppercase tracking-[0.35em] text-emerald-500">
-                    Five live · AI-ready
+                    Bills · Budget · Plan · Journal · Save
                   </span>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
