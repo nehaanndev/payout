@@ -6,6 +6,7 @@ import {
   saveDailySummary,
   getInsightPreferences,
   getLearningPlan,
+  saveLearningPlan,
   recordLearningLesson,
 } from "@/lib/orbitSummaryService";
 import { fetchFlowPlanSnapshot } from "@/lib/flowService";
@@ -72,27 +73,35 @@ type AiLearningResponse = {
     overview?: unknown;
     paragraphs?: unknown;
     quiz?: unknown;
+    code?: unknown;
   };
+  syllabus?: Array<{
+    day?: unknown;
+    title?: unknown;
+    summary?: unknown;
+    quizFocus?: unknown;
+    code?: unknown;
+  }>;
 };
 
 const depthToLessons = (depth: OrbitLearningPlan["depth"]) =>
   depth === "deep" ? 30 : depth === "standard" ? 10 : 7;
 
-async function generateLearningLesson(
+const generateLearningRoadmap = async (
   plan: OrbitLearningPlan
-): Promise<OrbitLearningLesson | null> {
+): Promise<OrbitLearningPlan["syllabus"]> => {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    console.warn("OPENAI_API_KEY not configured");
-    return null;
-  }
-
   const totalLessons = plan.totalLessons || depthToLessons(plan.depth);
-  const nextDay = Math.min(plan.currentLesson + 1, totalLessons);
-  const pastContext = plan.completedLessons
-    .sort((a, b) => a.day - b.day)
-    .slice(-3)
-    .map((lesson) => `Day ${lesson.day}: ${lesson.title} — ${lesson.overview}`);
+
+  if (!apiKey) {
+    // Fallback: simple scaffold to keep lessons distinct
+    return Array.from({ length: totalLessons }).map((_, index) => ({
+      day: index + 1,
+      title: `${plan.topic}: Part ${index + 1}`,
+      summary: `Focus on aspect ${index + 1} of ${plan.topic}.`,
+      quizFocus: "Recall the main idea from today.",
+    }));
+  }
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -107,13 +116,150 @@ async function generateLearningLesson(
         {
           role: "system",
           content:
-            "You write concise, approachable daily lessons for a micro-learning track. Always return JSON with one lesson and 2-3 quick quiz questions with short answers.",
+            "You design concise micro-learning syllabi. Return JSON with a `syllabus` array where each item has day, title, summary, and quizFocus. Make every day distinct and non-repetitive.",
         },
         {
           role: "user",
-          content: `Create Day ${nextDay} of a ${plan.totalLessons}-day learning track on "${plan.topic}". Past lessons (summarize to stay consistent): ${pastContext.join(
-            " | "
-          ) || "none yet"}.\nReturn JSON:\n{\n  "lesson": {\n    "title": "<headline for today>",\n    "overview": "<2-sentence overview>",\n    "paragraphs": ["<3-4 short paragraphs, 3 sentences max each>"],\n    "quiz": [\n      {\n        "question": "<crisp question to reinforce recall>",\n        "answers": ["<brief correct answer>", "<optional distractor>", "<optional second distractor>"],\n        "correctAnswer": "<exact text of correct answer from answers>"\n      }\n    ]\n  }\n}\nTone: friendly, practical, avoid jargon. Keep within 250-300 words total. Quiz answers should be short phrases, not essays.`,
+          content: `Create a ${totalLessons}-day learning roadmap for "${plan.topic}" at a ${
+            plan.depth
+          } depth. Keep days additive, avoid repeating angles, and ensure difficulty progresses.`,
+        },
+      ],
+      temperature: 0.3,
+      max_tokens: 700,
+    }),
+  });
+
+  if (!response.ok) {
+    console.error("OpenAI syllabus API error", response.status, await response.text());
+    return null;
+  }
+
+  const result = await response.json();
+  const content = result?.choices?.[0]?.message?.content;
+  if (!content) {
+    return null;
+  }
+
+  let parsed: AiLearningResponse | null = null;
+  try {
+    parsed = JSON.parse(content);
+  } catch (error) {
+    console.error("Failed to parse syllabus JSON", error, content);
+  }
+
+  const raw = Array.isArray(parsed?.syllabus) ? parsed?.syllabus : [];
+  const syllabus = raw
+    .slice(0, totalLessons)
+    .map((item, index) => ({
+      day: Number(item?.day) || index + 1,
+      title: String(item?.title ?? `${plan.topic}: Part ${index + 1}`),
+      summary: String(item?.summary ?? `Focus on aspect ${index + 1} of ${plan.topic}.`),
+      quizFocus: item?.quizFocus ? String(item.quizFocus) : undefined,
+    }))
+    .filter((item) => item.title);
+
+  if (!syllabus.length) {
+    return Array.from({ length: totalLessons }).map((_, index) => ({
+      day: index + 1,
+      title: `${plan.topic}: Part ${index + 1}`,
+      summary: `Focus on aspect ${index + 1} of ${plan.topic}.`,
+      quizFocus: "Recall the main idea from today.",
+    }));
+  }
+
+  return syllabus;
+};
+
+const ensureLearningRoadmap = async (
+  userId: string,
+  plan: OrbitLearningPlan
+): Promise<OrbitLearningPlan> => {
+  if (plan.syllabus && plan.syllabus.length >= (plan.totalLessons || depthToLessons(plan.depth))) {
+    return plan;
+  }
+  const syllabus = await generateLearningRoadmap(plan);
+  const nextPlan = {
+    ...plan,
+    syllabus: syllabus ?? plan.syllabus,
+    totalLessons: plan.totalLessons || depthToLessons(plan.depth),
+  };
+  try {
+    await saveLearningPlan(userId, nextPlan);
+  } catch (error) {
+    console.error("Failed to persist syllabus", error);
+  }
+  return nextPlan;
+};
+
+const buildFallbackLesson = (plan: OrbitLearningPlan): OrbitLearningLesson => {
+  const totalLessons = plan.totalLessons || depthToLessons(plan.depth);
+  const nextDay = Math.min((plan.currentLesson ?? 0) + 1, totalLessons);
+  const focus = plan.syllabus?.find((item) => item.day === nextDay);
+  return {
+    title: focus?.title ?? `Learning: ${plan.topic}`,
+    overview: focus?.summary ?? `Keep going on "${plan.topic}". Here is a quick refresher for today.`,
+    paragraphs: [
+      `You chose "${plan.topic}" as your learning track. Today is Day ${nextDay} of ${totalLessons}.`,
+      focus?.summary ??
+        "Take a moment to reflect on what stood out yesterday and jot one new takeaway.",
+      "When you're ready, tap Save to keep this lesson in Orbit.",
+    ],
+    code: undefined,
+    quiz: [
+      {
+        question: focus?.quizFocus ?? "What is one idea you learned about this topic?",
+        answers: [focus?.quizFocus ?? "Write your own takeaway"],
+        correctAnswer: focus?.quizFocus ?? "Write your own takeaway",
+      },
+    ],
+    day: nextDay,
+    totalDays: totalLessons,
+  };
+};
+
+async function generateLearningLesson(
+  plan: OrbitLearningPlan
+): Promise<OrbitLearningLesson | null> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    console.warn("OPENAI_API_KEY not configured");
+    return null;
+  }
+
+  const totalLessons = plan.totalLessons || depthToLessons(plan.depth);
+  const nextDay = Math.min(plan.currentLesson + 1, totalLessons);
+  const pastContext = plan.completedLessons
+    .sort((a, b) => a.day - b.day)
+    .slice(-5)
+    .map((lesson) => `Day ${lesson.day}: ${lesson.title} — ${lesson.overview}`);
+  const syllabusFocus = plan.syllabus?.find((item) => item.day === nextDay);
+  const upcomingFocus = plan.syllabus
+    ?.filter((item) => item.day >= nextDay && item.day < nextDay + 3)
+    .map((item) => `Day ${item.day}: ${item.title} — ${item.summary}`);
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You write concise, approachable daily lessons for a micro-learning track. Avoid repeating prior days. Use the provided syllabus focus for today. Always return JSON with one lesson and 2-3 quick quiz questions with short answers.",
+        },
+        {
+          role: "user",
+      content: `Create Day ${nextDay} of a ${plan.totalLessons}-day learning track on "${plan.topic}". Past lessons (avoid repeating them): ${pastContext.join(
+        " | "
+      ) || "none yet"}. Today's syllabus focus: ${syllabusFocus?.title ?? "continue the track"} — ${
+        syllabusFocus?.summary ?? "build on the topic with a new concept"
+      }. Upcoming focuses: ${upcomingFocus?.join(" | ") ?? "n/a"}.\nReturn JSON:\n{\n  "lesson": {\n    "title": "<headline for today tailored to today's focus>",\n    "overview": "<2-sentence overview>",\n    "paragraphs": ["<3-4 short paragraphs, 3 sentences max each; each paragraph should progress the idea>"],\n    "code": ["<optional preformatted snippet; include only if the topic benefits from code/config/command examples>"],\n    "quiz": [\n      {\n        "question": "<crisp question to reinforce recall>",\n        "answers": ["<brief correct answer>", "<optional distractor>", "<optional second distractor>"],\n        "correctAnswer": "<exact text of correct answer from answers>"\n      }\n    ]\n  }\n}\nTone: friendly, practical, avoid jargon. Keep within 250-300 words total. Quiz answers should be short phrases, not essays. Do not repeat prior quiz questions. Include code only when it clearly helps practice or implementation.`,
         },
       ],
       temperature: 0.4,
@@ -146,6 +292,12 @@ async function generateLearningLesson(
   const paragraphs = Array.isArray(lesson.paragraphs)
     ? (lesson.paragraphs as unknown[]).map((p) => String(p)).slice(0, 4)
     : [];
+  const codeBlocks = Array.isArray((lesson as Record<string, unknown>).code)
+    ? ((lesson as Record<string, unknown>).code as unknown[])
+        .map((block) => String(block ?? ""))
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
   const quizRaw: Array<{
     question?: unknown;
     answers?: unknown;
@@ -170,6 +322,7 @@ async function generateLearningLesson(
     title: String(lesson.title ?? `Lesson ${nextDay}`),
     overview: String(lesson.overview ?? ""),
     paragraphs: paragraphs.length ? paragraphs : [String(lesson.overview ?? "")],
+    code: codeBlocks.length ? codeBlocks : undefined,
     quiz: quiz.length ? quiz : [],
     day: nextDay,
     totalDays: totalLessons,
@@ -403,8 +556,29 @@ export async function GET(request: NextRequest) {
 
     const dateKey = getTodayDateKey();
 
+    const rawLearningPlan = await getLearningPlan(userId);
+    const learningPlan = rawLearningPlan ? await ensureLearningRoadmap(userId, rawLearningPlan) : null;
+    const learningActive =
+      learningPlan &&
+      learningPlan.currentLesson < (learningPlan.totalLessons || depthToLessons(learningPlan.depth));
     const existingDaily = await getDailySummary(userId, dateKey);
     if (existingDaily?.payload) {
+      // If a learning plan is active but the cached payload lacks a lesson, generate one and override sparks
+      if (learningActive && !existingDaily.payload.learningLesson) {
+        const lesson =
+          (await generateLearningLesson(learningPlan)) ?? buildFallbackLesson(learningPlan);
+        if (lesson) {
+          const patchedSummary: DailySummaryPayload = {
+            ...existingDaily.payload,
+            learningLesson: lesson,
+            insights: [],
+          };
+          await recordLearningLesson(userId, lesson);
+          const summaryId = lesson.title ?? existingDaily.shareId ?? "ai-summary";
+          await saveDailySummary(userId, dateKey, patchedSummary, summaryId);
+          return NextResponse.json(patchedSummary);
+        }
+      }
       return NextResponse.json(existingDaily.payload);
     }
 
@@ -416,7 +590,6 @@ export async function GET(request: NextRequest) {
     // Get user interests
     const interests = await getUserInterests(userId);
     const interestList = interests?.interests || [];
-    const learningPlan = await getLearningPlan(userId);
 
     // Get yesterday's data
     const yesterdayKey = getYesterdayDateKey();
@@ -467,11 +640,9 @@ export async function GET(request: NextRequest) {
 
     const insightPreferences = await getInsightPreferences(userId);
 
-    const learningActive =
-      learningPlan &&
-      learningPlan.currentLesson < (learningPlan.totalLessons || depthToLessons(learningPlan.depth));
-
-    const learningLesson = learningActive ? await generateLearningLesson(learningPlan) : null;
+    const learningLesson = learningActive
+      ? (await generateLearningLesson(learningPlan)) ?? buildFallbackLesson(learningPlan)
+      : null;
 
     // Generate personalized summary
     const summary = await generatePersonalizedSummary(

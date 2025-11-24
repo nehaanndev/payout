@@ -2909,6 +2909,18 @@ function LearningLessonCard({
   const quizItems = lesson.quiz ?? [];
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [quizResponses, setQuizResponses] = useState<
+    Record<number, { selected: string; isCorrect: boolean }>
+  >({});
+
+  const handleAnswerSelect = (questionIndex: number, answer: string, correctAnswer: string) => {
+    const isCorrect =
+      answer.trim().toLowerCase() === (correctAnswer ?? "").trim().toLowerCase();
+    setQuizResponses((prev) => ({
+      ...prev,
+      [questionIndex]: { selected: answer, isCorrect },
+    }));
+  };
 
   const handleSaveLesson = async () => {
     if (!userId) {
@@ -3017,6 +3029,23 @@ function LearningLessonCard({
                 {paragraph}
               </p>
             ))}
+            {lesson.code && lesson.code.length ? (
+              <div className="space-y-2">
+                {lesson.code.map((block, codeIdx) => (
+                  <pre
+                    key={codeIdx}
+                    className={cn(
+                      "overflow-auto rounded-xl border px-4 py-3 text-xs font-mono",
+                      isNight
+                        ? "border-white/10 bg-slate-900/80 text-emerald-100"
+                        : "border-slate-200 bg-slate-50 text-emerald-700"
+                    )}
+                  >
+                    {block}
+                  </pre>
+                ))}
+              </div>
+            ) : null}
           </div>
           {quizItems.length ? (
             <div className="mt-6 space-y-3 rounded-2xl border border-dashed border-emerald-200/60 p-4">
@@ -3026,26 +3055,52 @@ function LearningLessonCard({
                   <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>
                     {item.question}
                   </p>
-                  <ul className="space-y-1 text-sm">
-                    {item.answers.map((answer, answerIdx) => (
-                      <li
-                        key={answerIdx}
+                  <div className="space-y-2 text-sm">
+                    {item.answers.map((answer, answerIdx) => {
+                      const response = quizResponses[idx];
+                      const selected = response?.selected === answer;
+                      const isCorrect = response?.isCorrect ?? false;
+                      const correctAnswer = item.correctAnswer ?? "";
+                      const isRightAnswer =
+                        (answer ?? "").trim().toLowerCase() === correctAnswer.trim().toLowerCase();
+                      return (
+                        <button
+                          key={answerIdx}
+                          type="button"
+                          onClick={() => handleAnswerSelect(idx, answer, correctAnswer)}
+                          className={cn(
+                            "w-full rounded-lg border px-3 py-2 text-left transition",
+                            isNight
+                              ? "border-white/15 text-indigo-100 hover:border-emerald-300/60"
+                              : "border-slate-200 text-slate-700 hover:border-emerald-300/60",
+                            selected && isCorrect && (isNight ? "border-emerald-300/80 bg-emerald-500/10" : "border-emerald-400 bg-emerald-50"),
+                            selected && !isCorrect && (isNight ? "border-red-300/80 bg-red-500/10" : "border-red-300 bg-red-50"),
+                            !selected && response && isRightAnswer && (isNight ? "border-emerald-200/60" : "border-emerald-300")
+                          )}
+                        >
+                          {answer}
+                        </button>
+                      );
+                    })}
+                    {quizResponses[idx] ? (
+                      <p
                         className={cn(
-                          "rounded-lg border px-3 py-2",
-                          isNight ? "border-white/10 text-indigo-100" : "border-slate-200 text-slate-700",
-                          answer === item.correctAnswer &&
-                            (isNight ? "border-emerald-300/70 bg-emerald-500/10" : "border-emerald-200 bg-emerald-50")
+                          "text-xs font-semibold",
+                          quizResponses[idx].isCorrect
+                            ? isNight
+                              ? "text-emerald-200"
+                              : "text-emerald-700"
+                            : isNight
+                            ? "text-red-200"
+                            : "text-red-700"
                         )}
                       >
-                        {answer}
-                        {answer === item.correctAnswer ? (
-                          <span className={cn("ml-2 text-xs font-semibold", isNight ? "text-emerald-200" : "text-emerald-700")}>
-                            ✓
-                          </span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
+                        {quizResponses[idx].isCorrect
+                          ? "Correct!"
+                          : `Not quite. Correct answer: ${item.correctAnswer}`}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>

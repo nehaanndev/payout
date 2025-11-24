@@ -17,6 +17,7 @@ export type OrbitLearningLesson = {
   totalDays: number;
   overview: string;
   paragraphs: string[];
+  code?: string[]; // Optional preformatted snippets (e.g., source code)
   quiz: Array<{
     question: string;
     answers: string[];
@@ -30,6 +31,12 @@ export type OrbitLearningPlan = {
   totalLessons: number;
   currentLesson: number;
   startedAt: string;
+  syllabus?: Array<{
+    day: number;
+    title: string;
+    summary: string;
+    quizFocus?: string;
+  }>;
   completedLessons: Array<{
     day: number;
     title: string;
