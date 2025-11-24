@@ -87,7 +87,7 @@ type AiLearningResponse = {
 const depthToLessons = (depth: OrbitLearningPlan["depth"]) =>
   depth === "deep" ? 30 : depth === "standard" ? 10 : 7;
 
-const buildFallbackSyllabus = (plan: OrbitLearningPlan) => {
+const buildFallbackSyllabus = (plan: OrbitLearningPlan): NonNullable<OrbitLearningPlan["syllabus"]> => {
   const totalLessons = plan.totalLessons || depthToLessons(plan.depth);
   return Array.from({ length: totalLessons }).map((_, index) => ({
     day: index + 1,
@@ -99,7 +99,7 @@ const buildFallbackSyllabus = (plan: OrbitLearningPlan) => {
 
 const generateLearningRoadmap = async (
   plan: OrbitLearningPlan
-): Promise<OrbitLearningPlan["syllabus"]> => {
+): Promise<NonNullable<OrbitLearningPlan["syllabus"]>> => {
   const apiKey = process.env.OPENAI_API_KEY;
   const totalLessons = plan.totalLessons || depthToLessons(plan.depth);
 
