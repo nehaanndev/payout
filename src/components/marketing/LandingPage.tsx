@@ -4,14 +4,9 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
-  BarChart3,
   Brain,
-  CalendarCheck2,
-  Camera,
-  NotebookPen,
+  MessageCircle,
   Sparkles,
-  Users,
-  Wand2,
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 
@@ -27,47 +22,42 @@ type SpotlightProduct = {
 const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
   {
     name: "Split",
-    tagline: "Bills with friends, no spreadsheets",
+    tagline: "Split bills with friends",
     icon: "/brand/toodl-expense.svg",
     accent: "from-slate-900/10 via-slate-800/5 to-slate-900/0",
-    description:
-      "Add what you paid, pick who shared, and settle up with clear totals.",
+    description: "Track shared expenses and settle up instantly.",
     href: "/split",
   },
   {
     name: "Pulse",
-    tagline: "Budget that adjusts as you spend",
+    tagline: "Track your budget",
     icon: "/brand/toodl-budget.svg",
     accent: "from-emerald-500/15 via-teal-400/10 to-emerald-500/0",
-    description:
-      "Track cash and categories with live projections so you know what’s safe to spend.",
+    description: "See where your money goes and stay on track.",
     href: "/budget",
   },
   {
     name: "Story",
-    tagline: "Journal beside the numbers",
+    tagline: "Journal your days",
     icon: "/brand/toodl-journal.svg",
     accent: "from-rose-400/15 via-amber-300/10 to-sky-400/0",
-    description:
-      "Drop a short reflection or photo so the story lives next to the dollars.",
+    description: "Capture memories and reflections alongside your spend.",
     href: "/journal",
   },
   {
     name: "Flow",
-    tagline: "Plan a day you can actually finish",
+    tagline: "Plan your schedule",
     icon: "/brand/toodl-flow.svg",
     accent: "from-emerald-400/15 via-teal-300/10 to-amber-200/0",
-    description:
-      "Pick today’s 3 anchors and keep them visible so work and home both move.",
+    description: "Organize your day with tasks and focus blocks.",
     href: "/flow",
   },
   {
     name: "Orbit",
-    tagline: "Save links you’ll reuse",
+    tagline: "Save important things",
     icon: "/brand/toodl-orbit.svg",
     accent: "from-indigo-500/15 via-violet-400/10 to-blue-400/0",
-    description:
-      "Keep receipts, links, and notes in one shelf that shows up when you need it.",
+    description: "Keep receipts, documents, and links in one place.",
     href: "/orbit",
   },
 ];
@@ -78,112 +68,26 @@ type WorkflowStep = {
   icon: ComponentType<SVGProps<SVGSVGElement>>;
 };
 
-const WORKFLOW_STEPS: WorkflowStep[] = [
+const HOW_IT_WORKS_STEPS: WorkflowStep[] = [
   {
-    title: "Toodl Mind",
+    title: "Chat",
     description:
-      "Say what just happened or what needs to move next, let the AI organize the playbook.",
+      "Tell Toodl what’s happening—like buying groceries or planning a trip.",
+    icon: MessageCircle,
+  },
+  {
+    title: "Plan",
+    description:
+      "Toodl organizes it into the right app: Split, Pulse, Flow, or Orbit.",
     icon: Brain,
   },
   {
-    title: "Capture",
-    description:
-      "Save receipts, ideas, and quick notes the second they show up so nothing slips.",
-    icon: Camera,
-  },
-  {
-    title: "Schedule",
-    description:
-      "Map chores and follow-ups onto your calendar rhythm with lightweight nudges.",
-    icon: CalendarCheck2,
-  },
-  {
-    title: "Budget",
-    description:
-      "Plan months, cash, and goals—then watch live projections as you make edits.",
-    icon: BarChart3,
-  },
-  {
-    title: "Split bills",
-    description:
-      "Track tabs with your crew and settle balances instantly without spreadsheets.",
-    icon: Users,
-  },
-  {
-    title: "Journal",
-    description:
-      "Close the conversation by writing the story beside the numbers for every shared win.",
-    icon: NotebookPen,
+    title: "Relax",
+    description: "Stay on top of your money and time without the stress.",
+    icon: Sparkles,
   },
 ];
 
-const FEATURE_CALLOUTS: Array<{
-  title: string;
-  description: string;
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
-}> = [
-  {
-    title: "Conversation context everywhere",
-    description:
-      "The AI Mind listens across budgets, expenses, journals, Flow plans, and Orbit saves so every reply already knows the backstory.",
-    icon: Brain,
-  },
-  {
-    title: "Crew-ready workspaces",
-    description:
-      "Invite the household, cofounders, or wedding party. Every app respects roles but shares the same heartbeat.",
-    icon: Users,
-  },
-  {
-    title: "Photos on your terms",
-    description:
-      "Drop a quick snapshot with an expense or journal. The dashboard resurfaces the heartfelt ones automatically.",
-    icon: Camera,
-  },
-  {
-    title: "Playbooks that remember",
-    description:
-      "Trigger Flow tasks, journal prompts, or Orbit saves by talking to Toodl Mind once.",
-    icon: NotebookPen,
-  },
-];
-
-const DAILY_TRIGGERS = [
-  {
-    name: "Orientation",
-    question: "What’s the status of my crew?",
-    tactic: "Groups module highlights balances with context so users instantly know if they owe or are owed.",
-  },
-  {
-    name: "Completion",
-    question: "Did I finish the loop?",
-    tactic: "Flow & journal recap show streaks so people feel progress beyond to-dos.",
-  },
-  {
-    name: "Continuity",
-    question: "What’s next to keep the story moving?",
-    tactic: "Saved links & AI recaps hand them a next breadcrumb so they re-open Orbit/Story nightly.",
-  },
-];
-
-const RITUAL_LOOP = [
-  {
-    stage: "See",
-    blurb: "Start with balances + budget pulse so the brain registers “status check complete.”",
-  },
-  {
-    stage: "Do",
-    blurb: "The morning Flow card surfaces tasks + anchors. Buttons add expenses or notes quickly.",
-  },
-  {
-    stage: "Feel",
-    blurb: "Reflection + journal tiles remind them to capture the day, not just the math.",
-  },
-  {
-    stage: "Reflect",
-    blurb: "Weekly digest ties it all together while AI recaps spark next week’s curiosity.",
-  },
-];
 
 const DASHBOARD_SNAPSHOTS = [
   {
@@ -259,20 +163,7 @@ const DASHBOARD_SNAPSHOTS = [
   },
 ];
 
-const WEEKLY_HOOKS = [
-  {
-    label: "Morning calm",
-    description: "Flow + balances answer “What’s due?” before Slack can derail them.",
-  },
-  {
-    label: "Evening reflection",
-    description: "Journal + expenses close loops so they sleep better.",
-  },
-  {
-    label: "Sunday digest",
-    description: "AI highlights + Orbit links feed the planning ritual.",
-  },
-];
+
 
 const SOCIAL_PROOF = [
   {
@@ -316,15 +207,11 @@ export function LandingPage({
         <div className="relative mx-auto max-w-6xl px-6 py-24 lg:py-28">
           <div className="grid gap-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:items-center">
             <div className="space-y-8">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 ring-1 ring-slate-100">
-                <Wand2 className="h-3.5 w-3.5 text-amber-500" />
-                One app, five helpers
-              </span>
               <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
-                Toodl keeps money, plans, and notes together.
+                Plan your life.
               </h1>
               <p className="text-lg text-slate-600 lg:text-xl">
-                A simple hub with five built-ins: Split for bills, Pulse for budgets, Flow for today’s plan, Story for journaling, and Orbit for links and receipts. Talk to it once and each part stays in sync—no jargon, no bouncing between apps.
+                One app for your money, tasks, journals, and family.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button
@@ -431,14 +318,9 @@ export function LandingPage({
         </div>
       </section>
 
-      <DailyTriggersSection />
-      <RitualLoopSection />
+      <HowItWorksSection />
       <DailyDashboardShowcase />
-      <PhotoIntegrationCallout />
-      <WorkflowSection />
-      <FeatureSection />
       <SocialProofSection />
-      <LoopSummarySection />
 
       <section className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.25),transparent_55%)]" />
@@ -488,64 +370,9 @@ export function LandingPage({
   );
 }
 
-function DailyTriggersSection() {
-  return (
-    <section className="border-y border-slate-100 bg-white/90">
-      <div className="mx-auto max-w-6xl px-6 py-16 space-y-10">
-        <div className="space-y-2 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Psych triggers</p>
-          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
-            Why people come back every single day.
-          </h2>
-          <p className="text-base text-slate-600">
-            Orientation, completion, and continuity are baked into the dashboard loop.
-          </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {DAILY_TRIGGERS.map((trigger) => (
-            <div
-              key={trigger.name}
-              className="rounded-3xl border border-slate-100 bg-slate-50/60 p-6 shadow-sm"
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-500">
-                {trigger.name}
-              </p>
-              <p className="mt-3 text-base font-semibold text-slate-900">{trigger.question}</p>
-              <p className="mt-4 text-sm text-slate-600">{trigger.tactic}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
 
-function RitualLoopSection() {
-  return (
-    <section className="bg-slate-900">
-      <div className="mx-auto max-w-6xl px-6 py-16">
-        <div className="space-y-3 text-center text-white">
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-300">See → Do → Feel → Reflect</p>
-          <h2 className="text-3xl font-bold md:text-4xl">The loop that upgrades a tool into a ritual.</h2>
-          <p className="text-base text-slate-300">
-            The home screen answers what to see, what to do, how to feel, and when to reflect—every single day.
-          </p>
-        </div>
-        <div className="mt-10 grid gap-4 md:grid-cols-4">
-          {RITUAL_LOOP.map((item) => (
-            <div
-              key={item.stage}
-              className="rounded-3xl border border-white/10 bg-white/5 p-5 text-white"
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.45em] text-emerald-200">{item.stage}</p>
-              <p className="mt-3 text-sm text-slate-100">{item.blurb}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
+
+
 
 function DailyDashboardShowcase() {
   return (
@@ -616,62 +443,21 @@ function SnapshotCard({ snapshot }: { snapshot: Snapshot }) {
   );
 }
 
-function PhotoIntegrationCallout() {
-  return (
-    <section className="border-y border-slate-100 bg-white">
-      <div className="mx-auto max-w-6xl px-6 py-16 grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-center">
-        <div className="space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Light-touch photos</p>
-          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
-            Attach a photo anywhere, revisit it in the timeline gallery.
-          </h2>
-          <p className="text-base text-slate-600">
-            The home screen isn’t chasing social feeds. It uses photos to keep memories alive—attach to a journal, expense,
-            or Flow task, then see them pop back up when you need motivation.
-          </p>
-          <ul className="space-y-2 text-sm text-slate-600">
-            <li>• “Add photo” button lives beside journal + expense compose.</li>
-            <li>• Timeline shows “Your month in review” with lightly animated frames.</li>
-            <li>• AI Digest cherry-picks two moments every Sunday.</li>
-          </ul>
-        </div>
-        <div className="rounded-3xl border border-slate-100 bg-slate-50/70 p-6 shadow-sm">
-          <div className="space-y-4 text-sm text-slate-600">
-            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-500">Mock preview</p>
-            <p className="text-base font-semibold text-slate-900">
-              “Your month in review” gallery
-            </p>
-            <div className="grid grid-cols-3 gap-3">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div
-                  key={`photo-${index}`}
-                  className="h-20 rounded-2xl bg-gradient-to-br from-slate-200 via-white to-slate-100 shadow-inner"
-                />
-              ))}
-            </div>
-            <p>
-              Lightweight resurfacing keeps family users emotionally hooked without building a full social network.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
 
-function WorkflowSection() {
+
+function HowItWorksSection() {
   return (
     <section className="border-y border-slate-100 bg-white/95">
       <div className="mx-auto max-w-6xl px-6 py-16">
         <div className="space-y-2 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Workflow</p>
-          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">One conversation powers every lane.</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">How it works</p>
+          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">One conversation powers everything.</h2>
           <p className="text-base text-slate-600">
-            Start with the AI Mind, then watch Split, Pulse, Story, Flow, and Orbit stay perfectly in sync.
+            Just talk to Toodl, and it handles the rest.
           </p>
         </div>
         <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {WORKFLOW_STEPS.map((step) => {
+          {HOW_IT_WORKS_STEPS.map((step) => {
             const Icon = step.icon;
             return (
               <div
@@ -694,40 +480,7 @@ function WorkflowSection() {
   );
 }
 
-function FeatureSection() {
-  return (
-    <section className="border-y border-slate-100 bg-slate-50/60">
-      <div className="mx-auto max-w-6xl px-6 py-20">
-        <div className="space-y-4 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Under the hood</p>
-          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">Details that hold every Toodl app together.</h2>
-          <p className="mx-auto max-w-2xl text-base text-slate-600">
-            Shared identity, context-aware assistance, and reliable history mean each app feels specialized without living in its own silo.
-          </p>
-        </div>
-        <div className="mt-12 grid gap-6 md:grid-cols-2">
-          {FEATURE_CALLOUTS.map((feature) => {
-            const Icon = feature.icon;
-            return (
-              <div
-                key={feature.title}
-                className="flex h-full flex-col gap-4 rounded-3xl border border-slate-100 bg-white p-6 text-left shadow-sm transition hover:-translate-y-1 hover:border-slate-200 hover:shadow-lg"
-              >
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                  <Icon className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">{feature.title}</h3>
-                  <p className="mt-1 text-sm text-slate-600">{feature.description}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
+
 
 function SocialProofSection() {
   return (
@@ -761,44 +514,6 @@ function SocialProofSection() {
   );
 }
 
-function LoopSummarySection() {
-  return (
-    <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-      <div className="mx-auto max-w-6xl px-6 py-16 space-y-8">
-        <div className="space-y-2 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-emerald-300">Daily hook</p>
-          <h2 className="text-3xl font-bold md:text-4xl">Morning → Evening → Sunday.</h2>
-          <p className="text-base text-slate-200">
-            That cadence is how the app turns into a ritual instead of “yet another tool.”
-          </p>
-        </div>
-        <div className="grid gap-6 md:grid-cols-3">
-          {WEEKLY_HOOKS.map((hook) => (
-            <div
-              key={hook.label}
-              className="rounded-3xl border border-white/10 bg-white/5 p-5"
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.45em] text-emerald-200">
-                {hook.label}
-              </p>
-              <p className="mt-3 text-sm text-slate-100">{hook.description}</p>
-            </div>
-          ))}
-        </div>
-        <div className="flex flex-wrap justify-center gap-3 text-sm text-slate-200">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2">
-            Morning CTA → “What’s due? Where do we stand?”
-          </span>
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2">
-            Evening CTA → “Add expense + reflection”
-          </span>
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2">
-            Sunday CTA → “Read digest · Plan next week”
-          </span>
-        </div>
-      </div>
-    </section>
-  );
-}
+
 
 export type { LandingPageProps };

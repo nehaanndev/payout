@@ -125,7 +125,12 @@ export default function ToodlMindLauncher() {
       return;
     }
     setLastPrompt(trimmed);
-    await ask({ utterance: trimmed });
+
+    const currentIntent = typeof window !== "undefined" ? window.localStorage.getItem("toodl_intent") : null;
+    await ask({
+      utterance: trimmed,
+      contextHints: currentIntent ? { userIntent: currentIntent } : undefined
+    });
     setUtterance("");
   };
 
@@ -338,7 +343,7 @@ export default function ToodlMindLauncher() {
                 {debugEnabled ? (
                   <div className="mt-4">
                     <MindDebugPanel entries={debugEntries} darkMode={darkMode} />
-              </div>
+                  </div>
                 ) : null}
               </div>
               {messages.length === 0 ? (
@@ -358,65 +363,65 @@ export default function ToodlMindLauncher() {
                       statusText={message.statusText}
                       error={message.turnError}
                     >
-                    {message.responseStatus === "needs_confirmation" &&
-                    message.editableMessage &&
-                    message.isLatest &&
-                    editableTemplate &&
-                    editableValues ? (
-                      <EditableConfirmationPreview
-                        template={editableTemplate}
-                        fields={message.editableMessage.fields}
-                        values={editableValues}
-                        onChange={(key, value) =>
-                          setEditableValues((prev) =>
-                            prev ? { ...prev, [key]: value } : prev
-                          )
-                        }
-                      />
-                    ) : (
-                      <p
-                        className={cn(
-                          "text-sm leading-relaxed",
-                          isUser ? "text-indigo-50" : "text-indigo-900/80"
-                        )}
-                      >
-                        {message.content}
-                      </p>
-                    )}
-                    {message.isLatest && message.turnError ? (
-                      <p className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                        {message.turnError}
-                      </p>
-                    ) : null}
-                    {message.isLatest &&
-                    showConfirmControls &&
-                    message.responseStatus === "needs_confirmation" ? (
-                      <div className="mt-3 flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          className="gap-2 bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-400/40 transition hover:brightness-105"
-                          onClick={handleExecute}
-                          disabled={pending}
-                        >
-                          {pending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Check className="h-4 w-4" />
+                      {message.responseStatus === "needs_confirmation" &&
+                        message.editableMessage &&
+                        message.isLatest &&
+                        editableTemplate &&
+                        editableValues ? (
+                        <EditableConfirmationPreview
+                          template={editableTemplate}
+                          fields={message.editableMessage.fields}
+                          values={editableValues}
+                          onChange={(key, value) =>
+                            setEditableValues((prev) =>
+                              prev ? { ...prev, [key]: value } : prev
+                            )
+                          }
+                        />
+                      ) : (
+                        <p
+                          className={cn(
+                            "text-sm leading-relaxed",
+                            isUser ? "text-indigo-50" : "text-indigo-900/80"
                           )}
-                          Execute
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-2 border-indigo-500/60 text-indigo-600 hover:bg-indigo-50/70"
-                          onClick={handleDiscard}
-                          disabled={pending}
                         >
-                          <X className="h-4 w-4" />
-                          Discard
-                        </Button>
-                      </div>
-                    ) : null}
+                          {message.content}
+                        </p>
+                      )}
+                      {message.isLatest && message.turnError ? (
+                        <p className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                          {message.turnError}
+                        </p>
+                      ) : null}
+                      {message.isLatest &&
+                        showConfirmControls &&
+                        message.responseStatus === "needs_confirmation" ? (
+                        <div className="mt-3 flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            className="gap-2 bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-400/40 transition hover:brightness-105"
+                            onClick={handleExecute}
+                            disabled={pending}
+                          >
+                            {pending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Check className="h-4 w-4" />
+                            )}
+                            Execute
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-2 border-indigo-500/60 text-indigo-600 hover:bg-indigo-50/70"
+                            onClick={handleDiscard}
+                            disabled={pending}
+                          >
+                            <X className="h-4 w-4" />
+                            Discard
+                          </Button>
+                        </div>
+                      ) : null}
                     </MessageBubble>
                   );
                 })
@@ -427,11 +432,11 @@ export default function ToodlMindLauncher() {
           <div className="border-t border-muted px-6 pb-6">
             <form
               onSubmit={handlePlan}
-                    className={cn(
-                      "flex flex-col gap-2 rounded-xl p-3",
-                      darkMode ? "bg-slate-800/70" : "bg-muted/40"
-                    )}
-                  >
+              className={cn(
+                "flex flex-col gap-2 rounded-xl p-3",
+                darkMode ? "bg-slate-800/70" : "bg-muted/40"
+              )}
+            >
               <Textarea
                 value={utterance}
                 onChange={(event) => setUtterance(event.target.value)}

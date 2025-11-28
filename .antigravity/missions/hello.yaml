@@ -1,0 +1,7 @@
+mission:
+  name: hello
+  goal: "Print a friendly greeting and list the files in this repo."
+  tools:
+    - fs.list_dir
+  behavior:
+    temperature: 0
