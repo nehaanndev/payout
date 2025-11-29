@@ -104,13 +104,17 @@ export default function Home() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setSession(user); // Set the session as UserWithGroup type
-      setGroup(groupId); // Reset group state
-      console.log("group_id:", groupId);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [groupId]);  // Add `group_id` as a dependency
+  }, []);
+
+  useEffect(() => {
+    if (groupId) {
+      setGroup(groupId);
+    }
+  }, [groupId]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && !session) {
