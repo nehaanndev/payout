@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useState, useEffect, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
+
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import SearchParamsClient from '@/components/SearchParamsClient'
 import {
@@ -10,7 +10,6 @@ import {
   microsoftProvider,
   facebookProvider,
   signInWithPopup,
-  signOut,
   User,
   onAuthStateChanged,
 } from "@/lib/firebase"; // Import Firebase auth and providers
@@ -27,7 +26,7 @@ import Image from "next/image";
 import { CurrencyCode } from "@/lib/currency_core";
 import { DEFAULT_CURRENCY, getGroupCurrency } from "@/lib/currency";
 import { AppTopBar } from "@/components/AppTopBar";
-import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
+
 import {
   Users,
 } from "lucide-react";
@@ -65,7 +64,7 @@ const identitiesMatch = (
 };
 
 export default function Home() {
-  const router = useRouter();
+
   const [session, setSession] = useState<User | null>(null);
   const [group, setGroup] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,7 +79,7 @@ export default function Home() {
   const [existingName, setExistingName] = useState<string | null>(null);
   const [tempName, setTempName] = useState('');
   const [isNewUser, setIsNewUser] = useState(false);
-  const [avatar, setAvatar] = useState("/avatars/avatar5.png");
+
   const [anonUser, setAnonUser] = useState<Member | null>(null);
   const [groupId, setGroupId] = useState<string | null>(null)  // Get group_id from query string
   const [paymentPreferences, setPaymentPreferences] = useState<ExpensePaymentPreferences | null>(null);
@@ -115,8 +114,8 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && !session) {
-      const storedAvatar = localStorage.getItem("user_avatar");
-      if (storedAvatar) setAvatar(storedAvatar);
+
+
 
       const memberStr = localStorage.getItem("anon_member");
       if (memberStr) {
@@ -216,13 +215,7 @@ export default function Home() {
     setHasPromptedForPaypal(false);
   }, [session?.uid]);
 
-  const displayName = session
-    ? (session.displayName ?? session.email ?? "You")
-    : anonUser
-      ? (anonUser.firstName ?? anonUser.email ?? "Guest")
-      : "Guest";
 
-  const avatarSrc = session?.photoURL ?? (anonUser ? avatar : undefined);
   const handleGoogleSignIn = async () => {
     try {
       await signInWithPopup(auth, provider);
@@ -271,23 +264,9 @@ export default function Home() {
     });
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      router.replace("/");
-    } catch (error) {
-      console.error("Error signing out: ", error);
-    }
-  };
 
-  const handleResetIdentity = () => {
-    try {
-      localStorage.clear();
-    } catch (error) {
-      console.warn("Failed to clear stored identity", error);
-    }
-    location.reload();
-  };
+
+
 
   const handleContinueWithoutSignIn = () => {
     const existing_name = localStorage.getItem('user_name');
@@ -343,33 +322,7 @@ export default function Home() {
     setTempName("");
   };
 
-  const expenseMenuSections: AppUserMenuSection[] = [];
-  if (!session && anonUser) {
-    expenseMenuSections.push({
-      title: "Identity",
-      items: [
-        {
-          label: "Reset guest identity",
-          onClick: handleResetIdentity,
-        },
-      ],
-    });
-  }
 
-  if (session) {
-    expenseMenuSections.push({
-      title: "App settings",
-      items: [
-        {
-          label: "Payment settings",
-          description: paymentPreferences?.paypalMeLink
-            ? "Share or edit your PayPal.Me link"
-            : "Add a PayPal.Me link so friends can pay you quickly",
-          onClick: () => setPaymentDialogMode("settings"),
-        },
-      ],
-    });
-  }
 
   // Memoize the tab state change callback to prevent infinite loops
   const handleTabStateChange = useCallback((state: {
@@ -415,17 +368,7 @@ export default function Home() {
               dark={isNight}
               theme={theme}
               onThemeChange={setTheme}
-              userSlot={
-                <AppUserMenu
-                  product="expense"
-                  displayName={displayName}
-                  avatarSrc={avatarSrc}
-                  onSignOut={session ? handleSignOut : undefined}
-                  sections={expenseMenuSections}
-                  identityLabel={session ? "Signed in as" : "Browsing as"}
-                  dark={isNight}
-                />
-              }
+
             />
             <div
               className={cn(

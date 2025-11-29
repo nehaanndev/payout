@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
+
 import {
   CalendarClock,
   Check,
@@ -11,6 +11,7 @@ import {
   HeartPulse,
   Hourglass,
   Loader2,
+  MoreHorizontal,
   PauseCircle,
   Pencil,
   Sparkles,
@@ -21,7 +22,7 @@ import {
 } from "lucide-react";
 
 import { AppTopBar } from "@/components/AppTopBar";
-import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
+
 import { OrbitFlowNav } from "@/components/OrbitFlowNav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,8 +30,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
@@ -50,7 +60,6 @@ import {
   onAuthStateChanged,
   provider,
   signInWithPopup,
-  signOut,
   type User,
 } from "@/lib/firebase";
 import {
@@ -503,7 +512,7 @@ export function FlowExperience() {
   const [reflectionMoodId, setReflectionMoodId] = useState<string | null>(null);
   const [reflectionNote, setReflectionNote] = useState("");
   const [reflectionSaving, setReflectionSaving] = useState(false);
-  const router = useRouter();
+
   const initialTheme = useMemo(
     () => (new Date().getHours() < 17 ? "morning" : "night"),
     []
@@ -835,10 +844,10 @@ export function FlowExperience() {
         );
         const nextTasks = autoSchedulingActive(current)
           ? reschedulePendingTasks(
-              filtered,
-              current.date,
-              current.startTime
-            )
+            filtered,
+            current.date,
+            current.startTime
+          )
           : filtered;
         return {
           ...current,
@@ -872,10 +881,10 @@ export function FlowExperience() {
           ...current,
           tasks: autoSchedulingActive(current)
             ? reschedulePendingTasks(
-                reindexed,
-                current.date,
-                current.startTime
-              )
+              reindexed,
+              current.date,
+              current.startTime
+            )
             : reindexed,
         };
       });
@@ -994,7 +1003,7 @@ export function FlowExperience() {
     [plan, now]
   );
 
-  const menuSections = useMemo<AppUserMenuSection[]>(() => {
+  const menuSections = useMemo(() => {
     if (!user) {
       return [];
     }
@@ -1013,6 +1022,36 @@ export function FlowExperience() {
     ];
   }, [handleGenerateSchedule, plan?.tasks.length, user]);
 
+  const userSlot = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <MoreHorizontal className="h-5 w-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {menuSections.map((section, idx) => (
+          <Fragment key={idx}>
+            {section.title && <DropdownMenuLabel>{section.title}</DropdownMenuLabel>}
+            {section.items.map((item, itemIdx) => (
+              <DropdownMenuItem
+                key={itemIdx}
+                onClick={() => {
+                  if (item.onClick) void item.onClick();
+                }}
+                disabled={item.disabled}
+              >
+                {item.icon && <span className="mr-2">{item.icon}</span>}
+                {item.label}
+              </DropdownMenuItem>
+            ))}
+            {idx < menuSections.length - 1 && <DropdownMenuSeparator />}
+          </Fragment>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   const catchUpIds = catchUpTasks.map((task) => task.id);
 
   const handleSignIn = useCallback(
@@ -1022,8 +1061,8 @@ export function FlowExperience() {
           providerType === "microsoft"
             ? microsoftProvider
             : providerType === "facebook"
-            ? facebookProvider
-            : provider;
+              ? facebookProvider
+              : provider;
         await signInWithPopup(auth, selectedProvider);
       } catch (error) {
         console.error("Sign-in failed", error);
@@ -1039,10 +1078,7 @@ export function FlowExperience() {
     []
   );
 
-  const handleSignOut = useCallback(async () => {
-    await signOut(auth);
-    router.replace("/");
-  }, [router]);
+
 
   const handleDismissError = useCallback((id: string) => {
     setErrors((prev) => prev.filter((error) => error.id !== id));
@@ -1082,18 +1118,7 @@ export function FlowExperience() {
           theme={theme}
           onThemeChange={setTheme}
           actions={undefined}
-          userSlot={
-            user ? (
-              <AppUserMenu
-                product="flow"
-                displayName={user.displayName ?? user.email ?? "You"}
-                avatarSrc={user.photoURL}
-                sections={menuSections}
-                onSignOut={handleSignOut}
-                dark={isNight}
-              />
-            ) : undefined
-          }
+          userSlot={user ? userSlot : undefined}
         />
 
         {errors.length ? (
@@ -1378,354 +1403,354 @@ export function FlowExperience() {
                       ? "border-white/15 bg-slate-900/60"
                       : "border-slate-200 bg-white/90 shadow-lg shadow-slate-200/50"
                   )}>
-                  <CardHeader className="space-y-1">
-                    <CardTitle className={cn(
-                      "text-xl font-semibold",
-                      isNight ? "text-white" : "text-slate-900"
-                    )}>
-                      Capture queue
-                    </CardTitle>
-                    <p className={cn(
-                      "text-sm",
-                      isNight ? "text-slate-300" : "text-slate-500"
-                    )}>
-                      Add today&apos;s anchors and essentials. Flow will weave them into a timeline.
-                    </p>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <section className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
-                            Top priorities
-                          </h3>
-                          <p className="text-xs text-slate-500">
-                            Choose up to three moves that will shift the needle.
-                          </p>
-                        </div>
-                        <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-600">
-                          {priorityCount}/3
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="priority-title">Title</Label>
-                        <Input
-                          id="priority-title"
-                          value={priorityDraft.title}
-                          onChange={(event) =>
-                            setPriorityDraft((prev) => ({
-                              ...prev,
-                              title: event.target.value,
-                            }))
-                          }
-                          placeholder="Deep work block, design review, call prep…"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label>Category</Label>
-                          <Select
-                            value={priorityDraft.category}
-                            onValueChange={(value) =>
-                              setPriorityDraft((prev) => ({
-                                ...prev,
-                                category: value as FlowCategory,
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Pick a lane" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(CATEGORY_META).map(([id, meta]) => (
-                                <SelectItem key={id} value={id}>
-                                  <span className="flex items-center gap-2">
-                                    <span>{meta.emoji}</span>
-                                    {meta.label}
-                                  </span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                    <CardHeader className="space-y-1">
+                      <CardTitle className={cn(
+                        "text-xl font-semibold",
+                        isNight ? "text-white" : "text-slate-900"
+                      )}>
+                        Capture queue
+                      </CardTitle>
+                      <p className={cn(
+                        "text-sm",
+                        isNight ? "text-slate-300" : "text-slate-500"
+                      )}>
+                        Add today&apos;s anchors and essentials. Flow will weave them into a timeline.
+                      </p>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <section className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+                              Top priorities
+                            </h3>
+                            <p className="text-xs text-slate-500">
+                              Choose up to three moves that will shift the needle.
+                            </p>
+                          </div>
+                          <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-600">
+                            {priorityCount}/3
+                          </span>
                         </div>
                         <div className="space-y-2">
-                          <Label>Duration (min)</Label>
+                          <Label htmlFor="priority-title">Title</Label>
                           <Input
-                            type="number"
-                            min={5}
-                            value={priorityDraft.estimate}
+                            id="priority-title"
+                            value={priorityDraft.title}
                             onChange={(event) =>
                               setPriorityDraft((prev) => ({
                                 ...prev,
-                                estimate: Number(event.target.value),
+                                title: event.target.value,
                               }))
                             }
+                            placeholder="Deep work block, design review, call prep…"
                           />
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {MINUTE_OPTIONS.map((option) => (
-                              <Button
-                                key={`priority-minute-${option}`}
-                                variant="ghost"
-                                size="sm"
-                                className={cn(
-                                  "h-7 rounded-full border px-3 text-xs",
-                                  priorityDraft.estimate === option
-                                    ? "border-indigo-300 bg-indigo-50 text-indigo-600"
-                                    : "border-transparent text-slate-500 hover:border-slate-200"
-                                )}
-                                onClick={() =>
-                                  setPriorityDraft((prev) => ({
-                                    ...prev,
-                                    estimate: option,
-                                  }))
-                                }
-                              >
-                                {option}m
-                              </Button>
-                            ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>Category</Label>
+                            <Select
+                              value={priorityDraft.category}
+                              onValueChange={(value) =>
+                                setPriorityDraft((prev) => ({
+                                  ...prev,
+                                  category: value as FlowCategory,
+                                }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Pick a lane" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(CATEGORY_META).map(([id, meta]) => (
+                                  <SelectItem key={id} value={id}>
+                                    <span className="flex items-center gap-2">
+                                      <span>{meta.emoji}</span>
+                                      {meta.label}
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Duration (min)</Label>
+                            <Input
+                              type="number"
+                              min={5}
+                              value={priorityDraft.estimate}
+                              onChange={(event) =>
+                                setPriorityDraft((prev) => ({
+                                  ...prev,
+                                  estimate: Number(event.target.value),
+                                }))
+                              }
+                            />
+                            <div className="flex flex-wrap gap-1 pt-1">
+                              {MINUTE_OPTIONS.map((option) => (
+                                <Button
+                                  key={`priority-minute-${option}`}
+                                  variant="ghost"
+                                  size="sm"
+                                  className={cn(
+                                    "h-7 rounded-full border px-3 text-xs",
+                                    priorityDraft.estimate === option
+                                      ? "border-indigo-300 bg-indigo-50 text-indigo-600"
+                                      : "border-transparent text-slate-500 hover:border-slate-200"
+                                  )}
+                                  onClick={() =>
+                                    setPriorityDraft((prev) => ({
+                                      ...prev,
+                                      estimate: option,
+                                    }))
+                                  }
+                                >
+                                  {option}m
+                                </Button>
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="priority-notes">Notes</Label>
-                        <Textarea
-                          id="priority-notes"
-                          value={priorityDraft.notes}
-                          onChange={(event) =>
+                        <div className="space-y-2">
+                          <Label htmlFor="priority-notes">Notes</Label>
+                          <Textarea
+                            id="priority-notes"
+                            value={priorityDraft.notes}
+                            onChange={(event) =>
+                              setPriorityDraft((prev) => ({
+                                ...prev,
+                                notes: event.target.value,
+                              }))
+                            }
+                            placeholder="Intent, deliverable, or checkpoints."
+                            className="min-h-[80px]"
+                          />
+                        </div>
+                        <Button
+                          className="w-full bg-indigo-500 text-white hover:bg-indigo-400"
+                          disabled={!priorityDraft.title.trim() || priorityCount >= 3}
+                          onClick={() => {
+                            addTask("priority", priorityDraft);
                             setPriorityDraft((prev) => ({
+                              ...prev,
+                              title: "",
+                              notes: "",
+                            }));
+                          }}
+                        >
+                          <Flame className="mr-2 h-4 w-4" />
+                          Add top priority
+                        </Button>
+                      </section>
+
+                      <Separator />
+
+                      <section className="space-y-3">
+                        <div>
+                          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+                            Must-do chores
+                          </h3>
+                          <p className="text-xs text-slate-500">
+                            Keep your home, family, and admin in rhythm.
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="chore-title">Title</Label>
+                          <Input
+                            id="chore-title"
+                            value={choreDraft.title}
+                            onChange={(event) =>
+                              setChoreDraft((prev) => ({
+                                ...prev,
+                                title: event.target.value,
+                              }))
+                            }
+                            placeholder="Laundry reset, grocery run, call the dentist…"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>Category</Label>
+                            <Select
+                              value={choreDraft.category}
+                              onValueChange={(value) =>
+                                setChoreDraft((prev) => ({
+                                  ...prev,
+                                  category: value as FlowCategory,
+                                }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Pick a lane" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(CATEGORY_META).map(([id, meta]) => (
+                                  <SelectItem key={id} value={id}>
+                                    <span className="flex items-center gap-2">
+                                      <span>{meta.emoji}</span>
+                                      {meta.label}
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Duration (min)</Label>
+                            <Input
+                              type="number"
+                              min={5}
+                              value={choreDraft.estimate}
+                              onChange={(event) =>
+                                setChoreDraft((prev) => ({
+                                  ...prev,
+                                  estimate: Number(event.target.value),
+                                }))
+                              }
+                            />
+                          </div>
+                        </div>
+                        <Textarea
+                          value={choreDraft.notes}
+                          onChange={(event) =>
+                            setChoreDraft((prev) => ({
                               ...prev,
                               notes: event.target.value,
                             }))
                           }
-                          placeholder="Intent, deliverable, or checkpoints."
-                          className="min-h-[80px]"
+                          placeholder="Any context or reminders?"
+                          className="min-h-[72px]"
                         />
-                      </div>
-                      <Button
-                        className="w-full bg-indigo-500 text-white hover:bg-indigo-400"
-                        disabled={!priorityDraft.title.trim() || priorityCount >= 3}
-                        onClick={() => {
-                          addTask("priority", priorityDraft);
-                          setPriorityDraft((prev) => ({
-                            ...prev,
-                            title: "",
-                            notes: "",
-                          }));
-                        }}
-                      >
-                        <Flame className="mr-2 h-4 w-4" />
-                        Add top priority
-                      </Button>
-                    </section>
-
-                    <Separator />
-
-                    <section className="space-y-3">
-                      <div>
-                        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
-                          Must-do chores
-                        </h3>
-                        <p className="text-xs text-slate-500">
-                          Keep your home, family, and admin in rhythm.
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="chore-title">Title</Label>
-                        <Input
-                          id="chore-title"
-                          value={choreDraft.title}
-                          onChange={(event) =>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full",
+                            isNight
+                              ? "border-amber-400/50 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30"
+                              : "bg-amber-500 text-white hover:bg-amber-600 border-transparent"
+                          )}
+                          disabled={!choreDraft.title.trim()}
+                          onClick={() => {
+                            addTask("chore", choreDraft);
                             setChoreDraft((prev) => ({
+                              ...prev,
+                              title: "",
+                              notes: "",
+                            }));
+                          }}
+                        >
+                          <CircleCheckBig className="mr-2 h-4 w-4" />
+                          Add chore
+                        </Button>
+                      </section>
+
+                      <Separator />
+
+                      <section className="space-y-3">
+                        <div>
+                          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+                            Flex & recharge
+                          </h3>
+                          <p className="text-xs text-slate-500">
+                            Guard pauses, movement, or simple joys.
+                          </p>
+                        </div>
+                        <Input
+                          value={flexDraft.title}
+                          onChange={(event) =>
+                            setFlexDraft((prev) => ({
                               ...prev,
                               title: event.target.value,
                             }))
                           }
-                          placeholder="Laundry reset, grocery run, call the dentist…"
+                          placeholder="Walk outside, stretch, coffee catch-up…"
                         />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label>Category</Label>
-                          <Select
-                            value={choreDraft.category}
-                            onValueChange={(value) =>
-                              setChoreDraft((prev) => ({
-                                ...prev,
-                                category: value as FlowCategory,
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Pick a lane" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(CATEGORY_META).map(([id, meta]) => (
-                                <SelectItem key={id} value={id}>
-                                  <span className="flex items-center gap-2">
-                                    <span>{meta.emoji}</span>
-                                    {meta.label}
-                                  </span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>Category</Label>
+                            <Select
+                              value={flexDraft.category}
+                              onValueChange={(value) =>
+                                setFlexDraft((prev) => ({
+                                  ...prev,
+                                  category: value as FlowCategory,
+                                }))
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Pick a lane" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(CATEGORY_META).map(([id, meta]) => (
+                                  <SelectItem key={id} value={id}>
+                                    <span className="flex items-center gap-2">
+                                      <span>{meta.emoji}</span>
+                                      {meta.label}
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Duration (min)</Label>
+                            <Input
+                              type="number"
+                              min={5}
+                              value={flexDraft.estimate}
+                              onChange={(event) =>
+                                setFlexDraft((prev) => ({
+                                  ...prev,
+                                  estimate: Number(event.target.value),
+                                }))
+                              }
+                            />
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label>Duration (min)</Label>
-                          <Input
-                            type="number"
-                            min={5}
-                            value={choreDraft.estimate}
-                            onChange={(event) =>
-                              setChoreDraft((prev) => ({
-                                ...prev,
-                                estimate: Number(event.target.value),
-                              }))
-                            }
-                          />
-                        </div>
-                      </div>
-                      <Textarea
-                        value={choreDraft.notes}
-                        onChange={(event) =>
-                          setChoreDraft((prev) => ({
-                            ...prev,
-                            notes: event.target.value,
-                          }))
-                        }
-                        placeholder="Any context or reminders?"
-                        className="min-h-[72px]"
-                      />
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full",
+                        <Button
+                          variant="ghost"
+                          className={cn(
+                            "w-full border",
+                            isNight
+                              ? "border-sky-400/30 bg-sky-500/10 text-sky-200 hover:bg-sky-500/20"
+                              : "bg-sky-500 text-white hover:bg-sky-600 border-transparent"
+                          )}
+                          disabled={!flexDraft.title.trim()}
+                          onClick={() => {
+                            addTask("flex", flexDraft);
+                            setFlexDraft((prev) => ({
+                              ...prev,
+                              title: "",
+                            }));
+                          }}
+                        >
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Add a flex block
+                        </Button>
+                      </section>
+
+                      <Separator />
+
+                      <div className="space-y-4">
+                        <div className={cn(
+                          "rounded-3xl border p-4 text-sm",
                           isNight
-                            ? "border-amber-400/50 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30"
-                            : "bg-amber-500 text-white hover:bg-amber-600 border-transparent"
-                        )}
-                        disabled={!choreDraft.title.trim()}
-                        onClick={() => {
-                          addTask("chore", choreDraft);
-                          setChoreDraft((prev) => ({
-                            ...prev,
-                            title: "",
-                            notes: "",
-                          }));
-                        }}
-                      >
-                        <CircleCheckBig className="mr-2 h-4 w-4" />
-                        Add chore
-                      </Button>
-                    </section>
-
-                    <Separator />
-
-                    <section className="space-y-3">
-                      <div>
-                        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
-                          Flex & recharge
-                        </h3>
-                        <p className="text-xs text-slate-500">
-                          Guard pauses, movement, or simple joys.
-                        </p>
-                      </div>
-                      <Input
-                        value={flexDraft.title}
-                        onChange={(event) =>
-                          setFlexDraft((prev) => ({
-                            ...prev,
-                            title: event.target.value,
-                          }))
-                        }
-                        placeholder="Walk outside, stretch, coffee catch-up…"
-                      />
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label>Category</Label>
-                          <Select
-                            value={flexDraft.category}
-                            onValueChange={(value) =>
-                              setFlexDraft((prev) => ({
-                                ...prev,
-                                category: value as FlowCategory,
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Pick a lane" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(CATEGORY_META).map(([id, meta]) => (
-                                <SelectItem key={id} value={id}>
-                                  <span className="flex items-center gap-2">
-                                    <span>{meta.emoji}</span>
-                                    {meta.label}
-                                  </span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                            : "border-emerald-200 bg-emerald-50/60 text-emerald-700"
+                        )}>
+                          Flow will stack priorities first, weave chores next, and float flex blocks where space allows.
+                          Tune the schedule anytime.
                         </div>
-                        <div className="space-y-2">
-                          <Label>Duration (min)</Label>
-                          <Input
-                            type="number"
-                            min={5}
-                            value={flexDraft.estimate}
-                            onChange={(event) =>
-                              setFlexDraft((prev) => ({
-                                ...prev,
-                                estimate: Number(event.target.value),
-                              }))
-                            }
-                          />
-                        </div>
+                        <Button
+                          onClick={handleGenerateSchedule}
+                          className="w-full bg-emerald-500 text-white hover:bg-emerald-400"
+                          disabled={!plan.tasks.length}
+                        >
+                          <Wand2 className="mr-2 h-4 w-4" />
+                          Auto-build timeline
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        className={cn(
-                          "w-full border",
-                          isNight
-                            ? "border-sky-400/30 bg-sky-500/10 text-sky-200 hover:bg-sky-500/20"
-                            : "bg-sky-500 text-white hover:bg-sky-600 border-transparent"
-                        )}
-                        disabled={!flexDraft.title.trim()}
-                        onClick={() => {
-                          addTask("flex", flexDraft);
-                          setFlexDraft((prev) => ({
-                            ...prev,
-                            title: "",
-                          }));
-                        }}
-                      >
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Add a flex block
-                      </Button>
-                    </section>
-
-                    <Separator />
-
-                    <div className="space-y-4">
-                      <div className={cn(
-                        "rounded-3xl border p-4 text-sm",
-                        isNight
-                          ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
-                          : "border-emerald-200 bg-emerald-50/60 text-emerald-700"
-                      )}>
-                        Flow will stack priorities first, weave chores next, and float flex blocks where space allows.
-                        Tune the schedule anytime.
-                      </div>
-                      <Button
-                        onClick={handleGenerateSchedule}
-                        className="w-full bg-emerald-500 text-white hover:bg-emerald-400"
-                        disabled={!plan.tasks.length}
-                      >
-                        <Wand2 className="mr-2 h-4 w-4" />
-                        Auto-build timeline
-                      </Button>
-                    </div>
-                  </CardContent>
+                    </CardContent>
                   </Card>
                 ) : null}
 
@@ -1810,8 +1835,8 @@ export function FlowExperience() {
                                 ? task.status === "skipped"
                                   ? { border: "border-amber-400/30", bg: "bg-amber-500/10", text: "text-amber-200", textMuted: "text-amber-200/80" }
                                   : task.status === "failed"
-                                  ? { border: "border-rose-400/30", bg: "bg-rose-500/10", text: "text-rose-200", textMuted: "text-rose-200/80" }
-                                  : categoryColors
+                                    ? { border: "border-rose-400/30", bg: "bg-rose-500/10", text: "text-rose-200", textMuted: "text-rose-200/80" }
+                                    : categoryColors
                                 : categoryColors;
 
                               return (
@@ -1825,8 +1850,8 @@ export function FlowExperience() {
                                     isActive && isNight
                                       ? "border-emerald-400/50 shadow-lg"
                                       : isActive
-                                      ? "border-emerald-300 shadow-lg shadow-emerald-200/40"
-                                      : "",
+                                        ? "border-emerald-300 shadow-lg shadow-emerald-200/40"
+                                        : "",
                                     task.status === "done" && !isNight
                                       ? "border-emerald-200 bg-emerald-50/60"
                                       : "",
@@ -1857,14 +1882,14 @@ export function FlowExperience() {
                                               ? task.category === "work"
                                                 ? "bg-indigo-500/30 text-indigo-200 border-indigo-400/40"
                                                 : task.category === "family"
-                                                ? "bg-rose-500/30 text-rose-200 border-rose-400/40"
-                                                : task.category === "home"
-                                                ? "bg-amber-500/30 text-amber-200 border-amber-400/40"
-                                                : task.category === "wellness"
-                                                ? "bg-emerald-500/30 text-emerald-200 border-emerald-400/40"
-                                                : task.category === "play"
-                                                ? "bg-sky-500/30 text-sky-200 border-sky-400/40"
-                                                : "bg-purple-500/30 text-purple-200 border-purple-400/40"
+                                                  ? "bg-rose-500/30 text-rose-200 border-rose-400/40"
+                                                  : task.category === "home"
+                                                    ? "bg-amber-500/30 text-amber-200 border-amber-400/40"
+                                                    : task.category === "wellness"
+                                                      ? "bg-emerald-500/30 text-emerald-200 border-emerald-400/40"
+                                                      : task.category === "play"
+                                                        ? "bg-sky-500/30 text-sky-200 border-sky-400/40"
+                                                        : "bg-purple-500/30 text-purple-200 border-purple-400/40"
                                               : meta.chip
                                           )}
                                         >
@@ -1965,8 +1990,8 @@ export function FlowExperience() {
                                                       ? "border-emerald-500 bg-emerald-500 text-slate-900 hover:bg-emerald-400"
                                                       : "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
                                                     : isNight
-                                                    ? "border-emerald-500 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
-                                                    : "border-emerald-600 bg-white text-emerald-600 hover:bg-emerald-50"
+                                                      ? "border-emerald-500 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
+                                                      : "border-emerald-600 bg-white text-emerald-600 hover:bg-emerald-50"
                                                 )}
                                                 onClick={() =>
                                                   handleTaskStatusChange(
@@ -1997,8 +2022,8 @@ export function FlowExperience() {
                                                       ? "border-sky-500 bg-sky-500 text-slate-900 hover:bg-sky-400"
                                                       : "border-sky-500 bg-sky-500 text-white hover:bg-sky-600"
                                                     : isNight
-                                                    ? "border-sky-500 bg-sky-500/20 text-sky-300 hover:bg-sky-500/30"
-                                                    : "border-sky-300 bg-white text-sky-600 hover:bg-sky-50"
+                                                      ? "border-sky-500 bg-sky-500/20 text-sky-300 hover:bg-sky-500/30"
+                                                      : "border-sky-300 bg-white text-sky-600 hover:bg-sky-50"
                                                 )}
                                                 onClick={() =>
                                                   handleTaskStatusChange(
@@ -2029,8 +2054,8 @@ export function FlowExperience() {
                                                       ? "border-rose-500 bg-rose-500 text-slate-900 hover:bg-rose-400"
                                                       : "border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
                                                     : isNight
-                                                    ? "border-rose-500 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30"
-                                                    : "border-rose-600 bg-white text-rose-600 hover:bg-rose-50"
+                                                      ? "border-rose-500 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30"
+                                                      : "border-rose-600 bg-white text-rose-600 hover:bg-rose-50"
                                                 )}
                                                 onClick={() =>
                                                   handleTaskStatusChange(
@@ -2157,8 +2182,8 @@ export function FlowExperience() {
                                         ? "border-sky-400 bg-sky-500/30 text-sky-200 shadow-sm"
                                         : "border-sky-400 bg-sky-50 text-sky-700 shadow-sm"
                                       : isNight
-                                      ? "border-white/20 bg-white/10 text-slate-300 hover:border-white/30 hover:bg-white/15"
-                                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                                        ? "border-white/20 bg-white/10 text-slate-300 hover:border-white/30 hover:bg-white/15"
+                                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
                                   )}
                                   onClick={() =>
                                     setReflectionMoodId((prev) =>

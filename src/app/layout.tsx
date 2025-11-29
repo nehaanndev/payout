@@ -3,6 +3,7 @@ import Footer from "@/components/Footer";
 import ToodlMindProvider from "@/components/mind/ToodlMindProvider";
 import MindIdentityBridge from "@/components/mind/MindIdentityBridge";
 import ToodlMindLauncher from "@/components/mind/ToodlMindLauncher";
+import { AppShell } from "@/components/layout/AppShell";
 
 // app/layout.tsx
 export const metadata = {
@@ -39,11 +40,13 @@ export default async function RootLayout({
       <body className="flex flex-col min-h-screen">
         <ToodlMindProvider>
           <MindIdentityBridge />
-          <main className="flex-grow">{children}</main>
-          <Footer />
+          <AppShell>
+            <main className="flex-grow">{children}</main>
+            <Footer />
+          </AppShell>
           <ToodlMindLauncher />
         </ToodlMindProvider>
       </body>
-    </html> 
+    </html>
   );
 }

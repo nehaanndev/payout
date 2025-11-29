@@ -16,8 +16,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
-import { AppUserMenu } from "@/components/AppUserMenu";
-import { auth, signOut } from "@/lib/firebase";
+
+import { auth } from "@/lib/firebase";
 import {
   ensureFlowPlan,
   fetchFlowPlanSnapshot,
@@ -882,16 +882,9 @@ export default function DailyDashboardPage() {
 
   const palette = THEMES[theme];
   const greetingName = user?.displayName?.split(" ")[0] ?? "friend";
-  const userDisplayName = user?.displayName ?? user?.email ?? "You";
 
-  const handleSignOut = useCallback(async () => {
-    try {
-      await signOut(auth);
-      router.replace("/");
-    } catch (error) {
-      console.error("Failed to sign out", error);
-    }
-  }, [router]);
+
+
 
   const handleSearchClear = useCallback(() => {
     setSearchQuery("");
@@ -1096,17 +1089,7 @@ export default function DailyDashboardPage() {
                 Ritual dashboard
               </span>
             </div>
-            {user ? (
-              <div className="absolute top-2 right-4">
-                <AppUserMenu
-                  product="dashboard"
-                  displayName={userDisplayName}
-                  avatarSrc={user.photoURL}
-                  onSignOut={handleSignOut}
-                  dark={isNight}
-                />
-              </div>
-            ) : null}
+
             <div className={cn(
               "absolute bottom-2 right-4 flex gap-1 rounded-full border p-0.5",
               theme === "night"

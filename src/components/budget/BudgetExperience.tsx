@@ -22,8 +22,9 @@ import {
   Trash2,
   X,
   Upload,
+  MoreHorizontal,
 } from "lucide-react";
-import { User, onAuthStateChanged, signOut } from "firebase/auth";
+import { User, onAuthStateChanged } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +32,7 @@ import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
 import { theme as themeUtils } from "@/lib/theme";
 import { AppTopBar } from "@/components/AppTopBar";
-import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -47,6 +48,14 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -1506,10 +1515,10 @@ const BudgetExperience = () => {
       setBudgetDoc((prev) =>
         prev
           ? {
-              ...prev,
-              title: desiredName,
-              updatedAt: new Date().toISOString(),
-            }
+            ...prev,
+            title: desiredName,
+            updatedAt: new Date().toISOString(),
+          }
           : prev
       );
     } catch (error) {
@@ -1793,14 +1802,14 @@ const BudgetExperience = () => {
             setBudgetDoc((prev) =>
               prev
                 ? {
-                    ...prev,
-                    customCategories: metadataPayload.customCategories,
-                    categoryRules: metadataPayload.categoryRules,
-                    customTags: metadataPayload.customTags,
-                    tagRules: metadataPayload.tagRules,
-                    goals: metadataPayload.goals,
-                    updatedAt,
-                  }
+                  ...prev,
+                  customCategories: metadataPayload.customCategories,
+                  categoryRules: metadataPayload.categoryRules,
+                  customTags: metadataPayload.customTags,
+                  tagRules: metadataPayload.tagRules,
+                  goals: metadataPayload.goals,
+                  updatedAt,
+                }
                 : prev
             );
           }
@@ -1856,7 +1865,7 @@ const BudgetExperience = () => {
     return `${window.location.origin}/budget/share/${code}?month=${activeMonthKey}`;
   }, [activeMonthKey, budgetDoc?.shareCode, budgetId]);
 
-  const displayName = member?.name ?? user?.displayName ?? "Member";
+
 
   const headingNode = isRenamingTitle ? (
     <div className="flex items-center gap-2">
@@ -1922,17 +1931,10 @@ const BudgetExperience = () => {
     router.replace("/budget");
   }, [router]);
 
-  const handleSignOut = useCallback(async () => {
-    try {
-      await signOut(auth);
-      router.replace("/");
-    } catch (error) {
-      console.error("Failed to sign out", error);
-    }
-  }, [router]);
 
-  const budgetMenuSections: AppUserMenuSection[] = useMemo(() => {
-    const sections: AppUserMenuSection[] = [];
+
+  const budgetMenuSections = useMemo(() => {
+    const sections = [];
     if (budgetId) {
       sections.push({
         title: "Budget tools",
@@ -1969,6 +1971,35 @@ const BudgetExperience = () => {
     }
     return sections;
   }, [budgetId, handleCopyShareLink, handleSwitchBudgetView, mode, openCreateBudgetDialog, shareLink, toggleMode]);
+
+  const userSlot = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <MoreHorizontal className="h-5 w-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {budgetMenuSections.map((section, idx) => (
+          <React.Fragment key={idx}>
+            {section.title && <DropdownMenuLabel>{section.title}</DropdownMenuLabel>}
+            {section.items.map((item, itemIdx) => (
+              <DropdownMenuItem
+                key={itemIdx}
+                onClick={() => {
+                  if (item.onClick) void item.onClick();
+                }}
+                disabled={item.disabled}
+              >
+                {item.label}
+              </DropdownMenuItem>
+            ))}
+            {idx < budgetMenuSections.length - 1 && <DropdownMenuSeparator />}
+          </React.Fragment>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   const createBudgetDialog = (
     <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -2357,8 +2388,8 @@ const BudgetExperience = () => {
         const inputTags = Array.isArray(draft.tags)
           ? draft.tags
           : Array.isArray(existing.tags)
-          ? existing.tags
-          : [];
+            ? existing.tags
+            : [];
         const tagsWithRules = applyTagRulesList(
           inputTags,
           merchantValue ?? existing.merchant ?? null,
@@ -2614,14 +2645,7 @@ const BudgetExperience = () => {
                 </Button>
               </div>
             }
-            userSlot={
-              <AppUserMenu
-                product="budget"
-                displayName="Guest"
-                identityLabel="Browsing as"
-                dark={isNight}
-              />
-            }
+
           />
           <div className="flex flex-1 items-center justify-center">
             <Card className="max-w-md flex-1 space-y-6 border-none bg-white/85 p-8 text-center shadow-2xl shadow-emerald-200/40 backdrop-blur-xl">
@@ -2689,27 +2713,27 @@ const BudgetExperience = () => {
           <p className="text-sm leading-relaxed text-slate-600">
             The share link might be mistyped or the budget is no longer shared with you. Jump back to your budget list or spin up a new space.
           </p>
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setInvalidBudget(false);
-              handleSwitchBudgetView();
-            }}
-          >
-            View my budgets
-          </Button>
-          <Button
-            className="bg-emerald-600 text-white hover:bg-emerald-500"
-            onClick={() => {
-              setInvalidBudget(false);
-              handleSwitchBudgetView();
-              openCreateBudgetDialog();
-            }}
-          >
-            Create new budget
-          </Button>
-        </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setInvalidBudget(false);
+                handleSwitchBudgetView();
+              }}
+            >
+              View my budgets
+            </Button>
+            <Button
+              className="bg-emerald-600 text-white hover:bg-emerald-500"
+              onClick={() => {
+                setInvalidBudget(false);
+                handleSwitchBudgetView();
+                openCreateBudgetDialog();
+              }}
+            >
+              Create new budget
+            </Button>
+          </div>
         </Card>
       </div>
     );
@@ -2733,16 +2757,7 @@ const BudgetExperience = () => {
             dark={isNight}
             theme={theme}
             onThemeChange={setTheme}
-            userSlot={
-              <AppUserMenu
-                product="budget"
-                displayName={displayName}
-                avatarSrc={user?.photoURL ?? undefined}
-                sections={budgetMenuSections}
-                onSignOut={user ? handleSignOut : undefined}
-                dark={isNight}
-              />
-            }
+            userSlot={userSlot}
           />
           <Card className="border-none bg-white/85 p-6 shadow-xl shadow-emerald-200/40 backdrop-blur">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -2781,8 +2796,8 @@ const BudgetExperience = () => {
                       collaborators === 0
                         ? "Just you"
                         : collaborators === 1
-                        ? "1 collaborator"
-                        : `${collaborators} collaborators`;
+                          ? "1 collaborator"
+                          : `${collaborators} collaborators`;
                     return (
                       <button
                         key={budget.id}
@@ -2811,12 +2826,12 @@ const BudgetExperience = () => {
                   <p className="mt-2 text-sm text-slate-500">
                     Start with a blank slate and invite teammates once you&apos;re ready.
                   </p>
-          <Button
-            className="mt-4 bg-emerald-600 text-white hover:bg-emerald-500"
-            onClick={openCreateBudgetDialog}
-          >
-            Create your first budget
-          </Button>
+                  <Button
+                    className="mt-4 bg-emerald-600 text-white hover:bg-emerald-500"
+                    onClick={openCreateBudgetDialog}
+                  >
+                    Create your first budget
+                  </Button>
                 </div>
               )}
             </div>
@@ -2847,15 +2862,7 @@ const BudgetExperience = () => {
           dark={isNight}
           theme={theme}
           onThemeChange={setTheme}
-          userSlot={
-            <AppUserMenu
-              product="budget"
-              displayName={displayName}
-              sections={budgetMenuSections}
-              onSignOut={user ? handleSignOut : undefined}
-              dark={isNight}
-            />
-          }
+          userSlot={userSlot}
         />
         <div
           className={cn(
@@ -3771,8 +3778,8 @@ function Ledger({
       const normalizedEntryTags = tagList.map((tag) => tag.toLowerCase());
       const matchesTag = normalizedTagFilters.length
         ? normalizedTagFilters.every((filterTag) =>
-            normalizedEntryTags.includes(filterTag)
-          )
+          normalizedEntryTags.includes(filterTag)
+        )
         : true;
       return matchesCategory && matchesTag;
     });
@@ -3810,7 +3817,7 @@ function Ledger({
             top: offsetPosition,
             behavior: "smooth",
           });
-          
+
           // Highlight the ledger section briefly
           setLedgerHighlighted(true);
           setTimeout(() => setLedgerHighlighted(false), 2000);
@@ -3848,13 +3855,13 @@ function Ledger({
     ? progressPct < 60
       ? "bg-emerald-500/10 border-emerald-400/30"
       : progressPct < 90
-      ? "bg-amber-500/10 border-amber-400/30"
-      : "bg-rose-500/10 border-rose-400/30"
+        ? "bg-amber-500/10 border-amber-400/30"
+        : "bg-rose-500/10 border-rose-400/30"
     : progressPct < 60
-    ? "bg-emerald-100"
-    : progressPct < 90
-    ? "bg-amber-100"
-    : "bg-rose-100";
+      ? "bg-emerald-100"
+      : progressPct < 90
+        ? "bg-amber-100"
+        : "bg-rose-100";
 
   return (
     <div className="space-y-4">
@@ -3972,8 +3979,8 @@ function Ledger({
                       ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
                       : "border-emerald-300 bg-emerald-50 text-emerald-700"
                     : isNightMode
-                    ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
-                    : "border-rose-300 bg-rose-50 text-rose-700"
+                      ? "border-rose-400/30 bg-rose-500/10 text-rose-200"
+                      : "border-rose-300 bg-rose-50 text-rose-700"
                 )}
               >
                 <span className="text-lg">
@@ -4031,8 +4038,8 @@ function Ledger({
                           ? "border-indigo-400/50 bg-indigo-500/20 text-indigo-200"
                           : "border-slate-900 bg-slate-900 text-white"
                         : isNightMode
-                        ? "border-white/15 bg-white/10 text-slate-200 hover:bg-white/20"
-                        : "border-slate-200 bg-white/60 text-slate-700 hover:bg-slate-100"
+                          ? "border-white/15 bg-white/10 text-slate-200 hover:bg-white/20"
+                          : "border-slate-200 bg-white/60 text-slate-700 hover:bg-slate-100"
                     )}
                   >
                     <div className="flex items-center gap-2">
@@ -4096,7 +4103,7 @@ function Ledger({
         isNight={isNightMode}
       />
 
-      <Card 
+      <Card
         ref={ledgerRef}
         className={cn(
           "border-slate-200 transition-all duration-500",
@@ -4537,10 +4544,10 @@ const RULE_OPERATOR_OPTIONS: Array<{
   value: CategoryRuleOperator;
   label: string;
 }> = [
-  { value: "contains", label: "Description contains" },
-  { value: "starts_with", label: "Description starts with" },
-  { value: "equals", label: "Description equals" },
-];
+    { value: "contains", label: "Description contains" },
+    { value: "starts_with", label: "Description starts with" },
+    { value: "equals", label: "Description equals" },
+  ];
 
 function EntryEditorDialog({
   entry,
@@ -5172,8 +5179,8 @@ function GoalSummaryCard({
                 ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
                 : "border-amber-200 bg-amber-50 text-amber-700"
               : isNight
-              ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
-              : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700"
           )}
         >
           <div>
@@ -5211,10 +5218,10 @@ function GoalSummaryCard({
                 remainingAmount === 0
                   ? "Completed!"
                   : monthsToGoal === null
-                  ? "Set a contribution to project finish date."
-                  : formattedDate
-                  ? `≈${monthsToGoal} months (by ${formattedDate})`
-                  : `≈${monthsToGoal} months`;
+                    ? "Set a contribution to project finish date."
+                    : formattedDate
+                      ? `≈${monthsToGoal} months (by ${formattedDate})`
+                      : `≈${monthsToGoal} months`;
               return (
                 <div
                   key={projection.goal.id}
@@ -5354,11 +5361,11 @@ function SavingsGoalPlanner({
             <div>
               {allocationPositive
                 ? `Unallocated savings remaining: ${currency(
-                    allocationMagnitude
-                  )}`
+                  allocationMagnitude
+                )}`
                 : `Over-allocated by ${currency(
-                    allocationMagnitude
-                  )} — adjust a goal below.`}
+                  allocationMagnitude
+                )} — adjust a goal below.`}
             </div>
           ) : (
             <div>Every dollar of savings is assigned to a goal.</div>
@@ -5377,9 +5384,8 @@ function SavingsGoalPlanner({
                 remainingAmount === 0
                   ? "Goal complete! 🎉"
                   : monthsToGoal === null
-                  ? "Add a monthly contribution to project the finish date."
-                  : `~${monthsToGoal} month${
-                      monthsToGoal === 1 ? "" : "s"
+                    ? "Add a monthly contribution to project the finish date."
+                    : `~${monthsToGoal} month${monthsToGoal === 1 ? "" : "s"
                     }${formattedDate ? ` (by ${formattedDate})` : ""}`;
               return (
                 <div
@@ -6303,11 +6309,10 @@ function QuickAdd({
                   key={item.id}
                   type="button"
                   onClick={() => setCategory(item.value)}
-                  className={`rounded-full border px-3 py-2 text-sm transition ${
-                    selected
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "hover:bg-slate-50"
-                  }`}
+                  className={`rounded-full border px-3 py-2 text-sm transition ${selected
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "hover:bg-slate-50"
+                    }`}
                 >
                   {item.emoji && (
                     <span className="mr-1" aria-hidden>
