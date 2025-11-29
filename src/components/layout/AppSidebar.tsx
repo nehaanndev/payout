@@ -16,12 +16,15 @@ import { useToodlTheme } from "@/hooks/useToodlTheme";
 import { type User } from "firebase/auth";
 import Image from "next/image";
 
+import { type UserTier } from "@/types/user";
+
 type AppSidebarProps = {
     user: User | null;
+    tier?: UserTier;
     onSignOut: () => void;
 };
 
-export function AppSidebar({ user, onSignOut }: AppSidebarProps) {
+export function AppSidebar({ user, tier = 'free', onSignOut }: AppSidebarProps) {
     const pathname = usePathname();
     const { isNight } = useToodlTheme();
 
@@ -108,18 +111,30 @@ export function AppSidebar({ user, onSignOut }: AppSidebarProps) {
 
             <div className="flex flex-col items-center gap-4">
                 {user && (
-                    <button
-                        onClick={onSignOut}
-                        className={cn(
-                            "flex h-10 w-10 items-center justify-center rounded-xl transition-colors",
-                            isNight
-                                ? "text-slate-400 hover:bg-red-50 hover:text-red-600"
-                                : "text-slate-500 hover:bg-white/5 hover:text-red-400"
-                        )}
-                        title="Sign out"
-                    >
-                        <LogOut className="h-5 w-5" />
-                    </button>
+                    <>
+                        <div className={cn(
+                            "flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                            tier === 'plus'
+                                ? "bg-gradient-to-r from-amber-400 to-orange-500 text-white"
+                                : isNight
+                                    ? "bg-slate-100 text-slate-500"
+                                    : "bg-white/10 text-slate-400"
+                        )}>
+                            {tier}
+                        </div>
+                        <button
+                            onClick={onSignOut}
+                            className={cn(
+                                "flex h-10 w-10 items-center justify-center rounded-xl transition-colors",
+                                isNight
+                                    ? "text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                    : "text-slate-500 hover:bg-white/5 hover:text-red-400"
+                            )}
+                            title="Sign out"
+                        >
+                            <LogOut className="h-5 w-5" />
+                        </button>
+                    </>
                 )}
 
                 {user?.photoURL ? (
