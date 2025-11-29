@@ -6,14 +6,23 @@ import {
   useMemo,
   useRef,
   useState,
+  Fragment,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { AppTopBar } from "@/components/AppTopBar";
-import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
+
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,7 +37,7 @@ import {
   findJournalForMember,
   fetchJournalEntryByDate,
 } from "@/lib/journalService";
-import { auth, onAuthStateChanged, signOut } from "@/lib/firebase";
+import { auth, onAuthStateChanged } from "@/lib/firebase";
 import { generateId } from "@/lib/id";
 import { cn } from "@/lib/utils";
 import type { User } from "@/lib/firebase";
@@ -49,6 +58,7 @@ import { useToodlTheme } from "@/hooks/useToodlTheme";
 import { theme as themeUtils } from "@/lib/theme";
 import {
   Sparkles,
+  MoreHorizontal,
   BookOpen,
   FileText,
   ArrowRight,
@@ -567,7 +577,7 @@ const JournalExperience = () => {
   }, [journalId]);
 
 
-  const displayName = member?.name ?? user?.displayName ?? "Writer";
+
 
   useEffect(() => {
     setCopyStatus("idle");
@@ -763,16 +773,9 @@ const JournalExperience = () => {
     handleReset();
   }, [handleReset, router]);
 
-  const handleSignOut = useCallback(async () => {
-    try {
-      await signOut(auth);
-      router.replace("/");
-    } catch (error) {
-      console.error("Failed to sign out", error);
-    }
-  }, [router]);
 
-  const journalMenuSections: AppUserMenuSection[] = useMemo(
+
+  const journalMenuSections = useMemo(
     () => [
       {
         title: "Journal tools",
@@ -797,6 +800,35 @@ const JournalExperience = () => {
       },
     ],
     [handleCopyLink, handleStartFresh, journalId, shareUrl]
+  );
+
+  const userSlot = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <MoreHorizontal className="h-5 w-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {journalMenuSections.map((section, idx) => (
+          <Fragment key={idx}>
+            {section.title && <DropdownMenuLabel>{section.title}</DropdownMenuLabel>}
+            {section.items.map((item, itemIdx) => (
+              <DropdownMenuItem
+                key={itemIdx}
+                onClick={() => {
+                  if (item.onClick) void item.onClick();
+                }}
+                disabled={item.disabled}
+              >
+                {item.label}
+              </DropdownMenuItem>
+            ))}
+            {idx < journalMenuSections.length - 1 && <DropdownMenuSeparator />}
+          </Fragment>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 
   const loadLibraryEntries = useCallback(
@@ -953,14 +985,7 @@ const JournalExperience = () => {
                 Sign in
               </Button>
             }
-            userSlot={
-              <AppUserMenu
-                product="journal"
-                displayName="Guest"
-                identityLabel="Browsing as"
-                dark={isNight}
-              />
-            }
+            userSlot={undefined}
           />
           <div className="flex min-h-[40vh] items-center justify-center">
             <Card className={cn(
@@ -1072,16 +1097,7 @@ const JournalExperience = () => {
           dark={isNight}
           theme={theme}
           onThemeChange={setTheme}
-          userSlot={
-            <AppUserMenu
-              product="journal"
-              displayName={displayName}
-              avatarSrc={user?.photoURL ?? undefined}
-              sections={journalMenuSections}
-              onSignOut={user ? handleSignOut : undefined}
-              dark={isNight}
-            />
-          }
+          userSlot={user ? userSlot : undefined}
         />
         <div className={cn(
           "flex flex-col gap-3 rounded-3xl border px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between",
@@ -1147,8 +1163,8 @@ const JournalExperience = () => {
                           ? "border-rose-400/50 bg-slate-900/80 shadow-lg shadow-rose-500/20 scale-[1.02]"
                           : "border-rose-400 bg-white shadow-lg shadow-rose-200/60 scale-[1.02]"
                         : isNight
-                        ? "border-white/15 bg-slate-900/60 hover:bg-slate-900/80 hover:border-white/25"
-                        : "border-transparent bg-white/60 hover:bg-white/80 hover:border-rose-200/50"
+                          ? "border-white/15 bg-slate-900/60 hover:bg-slate-900/80 hover:border-white/25"
+                          : "border-transparent bg-white/60 hover:bg-white/80 hover:border-rose-200/50"
                     )}
                   >
                     <div className="flex items-start gap-3">
@@ -1159,8 +1175,8 @@ const JournalExperience = () => {
                             ? "bg-rose-500/20 text-rose-300"
                             : "bg-rose-100 text-rose-600"
                           : isNight
-                          ? "bg-white/10 text-slate-400"
-                          : "bg-slate-100 text-slate-500"
+                            ? "bg-white/10 text-slate-400"
+                            : "bg-slate-100 text-slate-500"
                       )}>
                         <Icon className="h-5 w-5" />
                       </div>
@@ -1250,12 +1266,12 @@ const JournalExperience = () => {
                               ? "bg-rose-400/80"
                               : "bg-rose-500"
                             : isCompleted
-                            ? isNight
-                              ? "bg-emerald-400/50"
-                              : "bg-emerald-400"
-                            : isNight
-                            ? "bg-white/10"
-                            : "bg-slate-200"
+                              ? isNight
+                                ? "bg-emerald-400/50"
+                                : "bg-emerald-400"
+                              : isNight
+                                ? "bg-white/10"
+                                : "bg-slate-200"
                         )}
                       />
                     );
@@ -1324,8 +1340,8 @@ const JournalExperience = () => {
                                     ? "border-rose-400/50 bg-rose-500/20 text-rose-200 shadow-lg shadow-rose-500/20 scale-[1.02]"
                                     : "border-rose-400 bg-rose-50 text-rose-700 shadow-lg shadow-rose-200/40 scale-[1.02]"
                                   : isNight
-                                  ? "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10 hover:border-white/25"
-                                  : "border-slate-200 bg-white/70 text-slate-700 hover:bg-white hover:border-rose-200"
+                                    ? "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10 hover:border-white/25"
+                                    : "border-slate-200 bg-white/70 text-slate-700 hover:bg-white hover:border-rose-200"
                               )}
                             >
                               <span className="text-lg leading-none">{mood.emoji}</span>
@@ -1451,8 +1467,8 @@ const JournalExperience = () => {
                           {entryMode === "blog"
                             ? answers.blogTitle || "Blog preview"
                             : answers.entryDate
-                            ? formatDisplayDate(answers.entryDate)
-                            : "Journal preview"}
+                              ? formatDisplayDate(answers.entryDate)
+                              : "Journal preview"}
                         </span>
                         <h2 className={cn("font-serif text-4xl font-semibold mt-1", themeUtils.text.primary(isNight))}>
                           {entryMode === "blog" ? "Blog draft" : "Your story from today"}
@@ -1556,8 +1572,8 @@ const JournalExperience = () => {
                         {hasUnsavedChanges
                           ? "Draft — changes not saved yet."
                           : lastSavedAt
-                          ? `Saved on ${formatTimestamp(lastSavedAt)}.`
-                          : "Saved."}
+                            ? `Saved on ${formatTimestamp(lastSavedAt)}.`
+                            : "Saved."}
                       </p>
                       {saveError ? (
                         <p className={cn("mt-3 text-sm flex items-center gap-2", isNight ? "text-rose-400" : "text-rose-600")}>

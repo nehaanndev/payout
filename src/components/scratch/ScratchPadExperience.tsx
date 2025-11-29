@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
 import type { ChangeEvent, MouseEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+
 import {
   CalendarDays,
   ExternalLink,
@@ -22,10 +22,11 @@ import {
   Image as ImageIcon,
   FileText,
   BookOpen,
+  MoreHorizontal,
 } from "lucide-react";
 
 import { AppTopBar } from "@/components/AppTopBar";
-import { AppUserMenu, AppUserMenuSection } from "@/components/AppUserMenu";
+
 import { OrbitFlowNav } from "@/components/OrbitFlowNav";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
@@ -148,10 +157,10 @@ const computeSmartScore = (
 
   const tagMatches = queryTags.length
     ? (link.tags ?? []).reduce(
-        (matches, tag) =>
-          queryTags.includes(tag.toLowerCase()) ? matches + 1 : matches,
-        0
-      )
+      (matches, tag) =>
+        queryTags.includes(tag.toLowerCase()) ? matches + 1 : matches,
+      0
+    )
     : 0;
 
   const typeWeight = link.contentType === "note" ? 10 : 0;
@@ -197,7 +206,7 @@ export function ScratchPadExperience() {
   const [interestsChecked, setInterestsChecked] = useState(false);
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
   const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set());
-  const router = useRouter();
+
   const initialTheme = useMemo(
     () => (new Date().getHours() < 17 ? "morning" : "night"),
     []
@@ -276,8 +285,8 @@ export function ScratchPadExperience() {
           providerType === "microsoft"
             ? microsoftProvider
             : providerType === "facebook"
-            ? facebookProvider
-            : provider;
+              ? facebookProvider
+              : provider;
         await signInWithPopup(auth, selectedProvider);
       } catch (err) {
         console.error("Sign-in failed", err);
@@ -287,10 +296,7 @@ export function ScratchPadExperience() {
     []
   );
 
-  const handleSignOut = useCallback(async () => {
-    await signOut(auth);
-    router.replace("/");
-  }, [router]);
+
 
   const resetUploadForm = useCallback(() => {
     setUploadFile(null);
@@ -344,7 +350,7 @@ export function ScratchPadExperience() {
     [maxUploadMb]
   );
 
-  const menuSections = useMemo<AppUserMenuSection[]>(() => {
+  const menuSections = useMemo(() => {
     if (!user) {
       return [];
     }
@@ -362,6 +368,44 @@ export function ScratchPadExperience() {
       },
     ];
   }, [user, allLinks]);
+
+  const userSlot = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <MoreHorizontal className="h-5 w-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {menuSections.map((section, idx) => (
+          <Fragment key={idx}>
+            {section.title && <DropdownMenuLabel>{section.title}</DropdownMenuLabel>}
+            {section.items.map((item, itemIdx) => (
+              <DropdownMenuItem
+                key={itemIdx}
+                onClick={() => {
+                  if (item.onClick) void item.onClick();
+                }}
+                disabled={item.disabled}
+              >
+                {item.icon && <span className="mr-2">{item.icon}</span>}
+                {item.label}
+              </DropdownMenuItem>
+            ))}
+            {idx < menuSections.length - 1 && <DropdownMenuSeparator />}
+          </Fragment>
+        ))}
+        {user && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => signOut(auth)}>
+              Sign out
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   const toggleBusy = useCallback((id: string, value: boolean) => {
     setBusyIds((prev) => ({ ...prev, [id]: value }));
@@ -672,10 +716,10 @@ export function ScratchPadExperience() {
     const now = Date.now();
     const filteredByTags = queryTags.length
       ? statusFilteredLinks.filter((link) =>
-          (link.tags ?? []).some((tag) =>
-            queryTags.includes(tag.toLowerCase())
-          )
+        (link.tags ?? []).some((tag) =>
+          queryTags.includes(tag.toLowerCase())
         )
+      )
       : statusFilteredLinks;
 
     return filteredByTags
@@ -820,18 +864,7 @@ export function ScratchPadExperience() {
           theme={theme}
           onThemeChange={setTheme}
           actions={undefined}
-          userSlot={
-            user ? (
-              <AppUserMenu
-                product="orbit"
-                displayName={user.displayName ?? user.email ?? "You"}
-                avatarSrc={user.photoURL}
-                sections={menuSections}
-                onSignOut={handleSignOut}
-                dark={isNight}
-              />
-            ) : undefined
-          }
+          userSlot={user ? userSlot : undefined}
         />
         {user && showInterestWizard ? (
           <InterestWizard
@@ -1009,225 +1042,73 @@ export function ScratchPadExperience() {
                 !linksOnly && "lg:grid-cols-[360px_minmax(0,1fr)]"
               )}
             >
-            {!linksOnly ? (
-              <div className="space-y-6">
-                <Card className="border-slate-200 bg-white/95 p-5 shadow-lg shadow-slate-200/40 backdrop-blur">
-                  <div className="space-y-4">
-                    <div>
-                      <h2 className="text-lg font-semibold text-slate-900">Drop a link</h2>
-                      <p className="text-sm text-slate-500">
-                        Paste a URL and add optional notes or tags. Anything you save lands in the
-                        queue below.
-                      </p>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2 md:col-span-2">
-                        <label className="text-sm font-medium text-slate-700" htmlFor="scratch-url">
-                          Link URL<span className="text-rose-500">*</span>
-                        </label>
-                        <Input
-                          id="scratch-url"
-                          value={linkUrl}
-                          onChange={(event) => setLinkUrl(event.target.value)}
-                          placeholder="https://"
-                          disabled={createBusy}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700" htmlFor="scratch-title">
-                          Title (optional)
-                        </label>
-                        <Input
-                          id="scratch-title"
-                          value={linkTitle}
-                          onChange={(event) => setLinkTitle(event.target.value)}
-                          placeholder="A quick headline"
-                          disabled={createBusy}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700" htmlFor="scratch-tags">
-                          Tags (comma separated)
-                        </label>
-                        <Input
-                          id="scratch-tags"
-                          value={linkTags}
-                          onChange={(event) => setLinkTags(event.target.value)}
-                          placeholder="read later, video, trip"
-                          disabled={createBusy}
-                        />
-                      </div>
-                      <div className="space-y-2 md:col-span-2">
-                        <label className="text-sm font-medium text-slate-700" htmlFor="scratch-notes">
-                          Notes (optional)
-                        </label>
-                        <Textarea
-                          id="scratch-notes"
-                          value={linkNotes}
-                          onChange={(event) => setLinkNotes(event.target.value)}
-                          placeholder="Why this link matters…"
-                          disabled={createBusy}
-                          className="min-h-[96px]"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Button
-                        onClick={handleCreateLink}
-                        disabled={!linkUrl.trim() || createBusy}
-                        className="bg-indigo-500 text-white hover:bg-indigo-400"
-                      >
-                        {createBusy ? (
-                          <>
-                            <Spinner size="sm" className="mr-2" />
-                            Saving…
-                          </>
-                        ) : (
-                          "Save link"
-                        )}
-                      </Button>
-                      {createSuccessSource === "link" && createSuccess ? (
-                        <span className="text-sm text-emerald-600">{createSuccess}</span>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <Separator className="my-5" />
-
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-900">Upload an image or PDF</h3>
-                      <p className="text-sm text-slate-500">
-                        Drop a screenshot, receipt, or research packet. Orbit uploads it to encrypted
-                        Firebase Storage and keeps the download link handy.
-                      </p>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2 md:col-span-2">
-                        <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file">
-                          File<span className="text-rose-500">*</span>
-                        </label>
-                        <Input
-                          key={fileInputKey}
-                          id="orbit-file"
-                          type="file"
-                          accept="image/*,application/pdf"
-                          onChange={handleFileSelection}
-                          disabled={createBusy}
-                        />
-                        <p className="text-xs text-slate-400">
-                          Images or PDFs up to {maxUploadMb} MB.
+              {!linksOnly ? (
+                <div className="space-y-6">
+                  <Card className="border-slate-200 bg-white/95 p-5 shadow-lg shadow-slate-200/40 backdrop-blur">
+                    <div className="space-y-4">
+                      <div>
+                        <h2 className="text-lg font-semibold text-slate-900">Drop a link</h2>
+                        <p className="text-sm text-slate-500">
+                          Paste a URL and add optional notes or tags. Anything you save lands in the
+                          queue below.
                         </p>
-                        {uploadFile ? (
-                          <p className="text-xs text-slate-500">
-                            Selected: <span className="font-medium">{uploadFile.name}</span> (
-                            {formatFileSize(uploadFile.size)})
-                          </p>
-                        ) : null}
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file-title">
-                          Title
-                        </label>
-                        <Input
-                          id="orbit-file-title"
-                          value={uploadTitle}
-                          onChange={(event) => setUploadTitle(event.target.value)}
-                          placeholder="Launch visuals"
-                          disabled={createBusy}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file-tags">
-                          Tags (optional)
-                        </label>
-                        <Input
-                          id="orbit-file-tags"
-                          value={uploadTags}
-                          onChange={(event) => setUploadTags(event.target.value)}
-                          placeholder="receipts, launch, design"
-                          disabled={createBusy}
-                        />
-                      </div>
-                      <div className="space-y-2 md:col-span-2">
-                        <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file-notes">
-                          Notes
-                        </label>
-                        <Textarea
-                          id="orbit-file-notes"
-                          value={uploadNotes}
-                          onChange={(event) => setUploadNotes(event.target.value)}
-                          placeholder="Any context you want to remember when this file resurfaces."
-                          disabled={createBusy}
-                          className="min-h-[96px]"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Button
-                        onClick={handleUploadFile}
-                        disabled={!uploadFile || createBusy}
-                        className={cn(
-                          isNight
-                            ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
-                            : "bg-slate-900 text-white hover:bg-slate-800"
-                        )}
-                      >
-                        {createBusy ? (
-                          <>
-                            <Spinner size="sm" className="mr-2" />
-                            Uploading…
-                          </>
-                        ) : (
-                          "Save file"
-                        )}
-                      </Button>
-                      {createSuccessSource === "file" && createSuccess ? (
-                        <span className="text-sm text-emerald-600">{createSuccess}</span>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <Separator className="my-5" />
-
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-900">Paste a quick note</h3>
-                      <p className="text-sm text-slate-500">
-                        Drop meeting notes, reminders, or ideas without a link. They stay alongside your
-                        read-later queue.
-                      </p>
-                    </div>
-                    <div className="space-y-3">
-                      <Textarea
-                        value={noteBody}
-                        onChange={(event) => setNoteBody(event.target.value)}
-                        placeholder="What do you want to remember?"
-                        className="min-h-[120px]"
-                        disabled={createBusy}
-                      />
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium text-slate-700" htmlFor="scratch-note-tags">
-                          Tags (optional)
-                        </label>
-                        <Input
-                          id="scratch-note-tags"
-                          value={noteTags}
-                          onChange={(event) => setNoteTags(event.target.value)}
-                          placeholder="brainstorm, follow-up"
-                          disabled={createBusy}
-                        />
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-medium text-slate-700" htmlFor="scratch-url">
+                            Link URL<span className="text-rose-500">*</span>
+                          </label>
+                          <Input
+                            id="scratch-url"
+                            value={linkUrl}
+                            onChange={(event) => setLinkUrl(event.target.value)}
+                            placeholder="https://"
+                            disabled={createBusy}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700" htmlFor="scratch-title">
+                            Title (optional)
+                          </label>
+                          <Input
+                            id="scratch-title"
+                            value={linkTitle}
+                            onChange={(event) => setLinkTitle(event.target.value)}
+                            placeholder="A quick headline"
+                            disabled={createBusy}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700" htmlFor="scratch-tags">
+                            Tags (comma separated)
+                          </label>
+                          <Input
+                            id="scratch-tags"
+                            value={linkTags}
+                            onChange={(event) => setLinkTags(event.target.value)}
+                            placeholder="read later, video, trip"
+                            disabled={createBusy}
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-medium text-slate-700" htmlFor="scratch-notes">
+                            Notes (optional)
+                          </label>
+                          <Textarea
+                            id="scratch-notes"
+                            value={linkNotes}
+                            onChange={(event) => setLinkNotes(event.target.value)}
+                            placeholder="Why this link matters…"
+                            disabled={createBusy}
+                            className="min-h-[96px]"
+                          />
+                        </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
                         <Button
-                          onClick={handleCreateNote}
-                          disabled={!noteBody.trim() || createBusy}
-                          variant="outline"
-                          className={cn(
-                            isNight
-                              ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
-                              : ""
-                          )}
+                          onClick={handleCreateLink}
+                          disabled={!linkUrl.trim() || createBusy}
+                          className="bg-indigo-500 text-white hover:bg-indigo-400"
                         >
                           {createBusy ? (
                             <>
@@ -1235,639 +1116,791 @@ export function ScratchPadExperience() {
                               Saving…
                             </>
                           ) : (
-                            "Save note"
+                            "Save link"
                           )}
                         </Button>
-                        {createSuccessSource === "note" && createSuccess ? (
+                        {createSuccessSource === "link" && createSuccess ? (
                           <span className="text-sm text-emerald-600">{createSuccess}</span>
                         ) : null}
-                        <span className="text-xs text-slate-400">
-                          Tip: paste text from your clipboard — we keep the formatting.
-                        </span>
                       </div>
                     </div>
-                  </div>
-                </Card>
-              </div>
-            ) : null}
-              <div className="space-y-6">
-            <Card className={cn(
-              "border shadow-xl",
-              isNight
-                ? "border-white/15 bg-slate-900/60 shadow-slate-900/50"
-                : "border-slate-200 bg-white/95 shadow-slate-200/50"
-            )}>
-              <CardHeader className={cn(
-                "border-b px-5 py-4",
-                isNight ? "border-white/10" : "border-slate-100"
-              )}>
-                <div className="space-y-4">
-                  <div>
-                    <CardTitle className={cn("text-lg font-semibold", isNight ? "text-white" : "text-slate-900")}>Your links</CardTitle>
-                    <p className={cn("text-sm", isNight ? "text-slate-300" : "text-slate-500")}>
-                      Filter by status to move items from your intake queue to your saved list.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                    {FILTERS.map((option) => (
-                      <Button
-                        key={option.id}
-                        variant={option.id === filter ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setFilter(option.id)}
-                        className={cn(
-                          option.id === filter
-                            ? "bg-indigo-500 text-white hover:bg-indigo-400"
-                            : isNight
-                            ? "border-white/20 text-white hover:bg-white/10"
-                            : "border-slate-200 text-slate-600 hover:bg-slate-100"
-                        )}
-                      >
-                        {option.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4 p-5">
-                {tagStats.length ? (
-                  <div className={cn(
-                    "rounded-3xl border",
-                    isNight
-                      ? "border-indigo-400/30 bg-indigo-500/10"
-                      : "border-slate-200 bg-slate-50/70"
-                  )}>
-                    <button
-                      type="button"
-                      onClick={() => setTagPaneOpen((prev) => !prev)}
-                      className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
-                    >
-                      <div className={cn(
-                        "flex items-center gap-2 text-sm font-semibold",
-                        isNight ? "text-indigo-200" : "text-slate-700"
-                      )}>
-                        <Tag className={cn("h-4 w-4", isNight ? "text-indigo-300" : "text-slate-500")} />
-                        Tags quick filter
-                        <span className={cn("text-xs font-normal", isNight ? "text-indigo-300/80" : "text-slate-500")}>
-                          {tagStats.length} tracked
-                        </span>
+
+                    <Separator className="my-5" />
+
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900">Upload an image or PDF</h3>
+                        <p className="text-sm text-slate-500">
+                          Drop a screenshot, receipt, or research packet. Orbit uploads it to encrypted
+                          Firebase Storage and keeps the download link handy.
+                        </p>
                       </div>
-                      <span className={cn(
-                        "text-xs font-medium",
-                        isNight ? "text-indigo-300" : "text-indigo-600"
-                      )}>
-                        {tagPaneOpen ? "Hide" : "Show"}
-                      </span>
-                    </button>
-                    {tagPaneOpen ? (
-                      <div className={cn(
-                        "flex flex-wrap gap-2 border-t px-4 py-4",
-                        isNight ? "border-indigo-400/20" : "border-slate-200"
-                      )}>
-                        {tagStats.slice(0, 60).map((tag) => (
-                          <button
-                            key={tag.tag}
-                            type="button"
-                            className={cn(
-                              "rounded-full border px-3 py-1 text-[11px] font-medium transition",
-                              isNight
-                                ? "border-indigo-400/30 bg-indigo-500/20 text-indigo-200 hover:border-indigo-300 hover:bg-indigo-500/30 hover:text-indigo-100"
-                                : "border-slate-200 text-slate-600 hover:border-indigo-200 hover:text-indigo-600"
-                            )}
-                            onClick={() => handleAddTagToQuery(tag.tag)}
-                          >
-                            #{tag.tag}{" "}
-                            <span className={cn("text-[10px]", isNight ? "text-indigo-300/70" : "text-slate-400")}>({tag.count})</span>
-                          </button>
-                        ))}
-                        {hasTagFilters ? (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file">
+                            File<span className="text-rose-500">*</span>
+                          </label>
+                          <Input
+                            key={fileInputKey}
+                            id="orbit-file"
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={handleFileSelection}
+                            disabled={createBusy}
+                          />
+                          <p className="text-xs text-slate-400">
+                            Images or PDFs up to {maxUploadMb} MB.
+                          </p>
+                          {uploadFile ? (
+                            <p className="text-xs text-slate-500">
+                              Selected: <span className="font-medium">{uploadFile.name}</span> (
+                              {formatFileSize(uploadFile.size)})
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file-title">
+                            Title
+                          </label>
+                          <Input
+                            id="orbit-file-title"
+                            value={uploadTitle}
+                            onChange={(event) => setUploadTitle(event.target.value)}
+                            placeholder="Launch visuals"
+                            disabled={createBusy}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file-tags">
+                            Tags (optional)
+                          </label>
+                          <Input
+                            id="orbit-file-tags"
+                            value={uploadTags}
+                            onChange={(event) => setUploadTags(event.target.value)}
+                            placeholder="receipts, launch, design"
+                            disabled={createBusy}
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file-notes">
+                            Notes
+                          </label>
+                          <Textarea
+                            id="orbit-file-notes"
+                            value={uploadNotes}
+                            onChange={(event) => setUploadNotes(event.target.value)}
+                            placeholder="Any context you want to remember when this file resurfaces."
+                            disabled={createBusy}
+                            className="min-h-[96px]"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                          onClick={handleUploadFile}
+                          disabled={!uploadFile || createBusy}
+                          className={cn(
+                            isNight
+                              ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
+                              : "bg-slate-900 text-white hover:bg-slate-800"
+                          )}
+                        >
+                          {createBusy ? (
+                            <>
+                              <Spinner size="sm" className="mr-2" />
+                              Uploading…
+                            </>
+                          ) : (
+                            "Save file"
+                          )}
+                        </Button>
+                        {createSuccessSource === "file" && createSuccess ? (
+                          <span className="text-sm text-emerald-600">{createSuccess}</span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <Separator className="my-5" />
+
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900">Paste a quick note</h3>
+                        <p className="text-sm text-slate-500">
+                          Drop meeting notes, reminders, or ideas without a link. They stay alongside your
+                          read-later queue.
+                        </p>
+                      </div>
+                      <div className="space-y-3">
+                        <Textarea
+                          value={noteBody}
+                          onChange={(event) => setNoteBody(event.target.value)}
+                          placeholder="What do you want to remember?"
+                          className="min-h-[120px]"
+                          disabled={createBusy}
+                        />
+                        <div className="space-y-1">
+                          <label className="text-sm font-medium text-slate-700" htmlFor="scratch-note-tags">
+                            Tags (optional)
+                          </label>
+                          <Input
+                            id="scratch-note-tags"
+                            value={noteTags}
+                            onChange={(event) => setNoteTags(event.target.value)}
+                            placeholder="brainstorm, follow-up"
+                            disabled={createBusy}
+                          />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
                           <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={handleClearTagFilters}
+                            onClick={handleCreateNote}
+                            disabled={!noteBody.trim() || createBusy}
+                            variant="outline"
                             className={cn(
-                              isNight ? "text-indigo-200 hover:text-indigo-100 hover:bg-indigo-500/20" : ""
+                              isNight
+                                ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
+                                : ""
                             )}
                           >
-                            Clear tag filters
+                            {createBusy ? (
+                              <>
+                                <Spinner size="sm" className="mr-2" />
+                                Saving…
+                              </>
+                            ) : (
+                              "Save note"
+                            )}
                           </Button>
+                          {createSuccessSource === "note" && createSuccess ? (
+                            <span className="text-sm text-emerald-600">{createSuccess}</span>
+                          ) : null}
+                          <span className="text-xs text-slate-400">
+                            Tip: paste text from your clipboard — we keep the formatting.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              ) : null}
+              <div className="space-y-6">
+                <Card className={cn(
+                  "border shadow-xl",
+                  isNight
+                    ? "border-white/15 bg-slate-900/60 shadow-slate-900/50"
+                    : "border-slate-200 bg-white/95 shadow-slate-200/50"
+                )}>
+                  <CardHeader className={cn(
+                    "border-b px-5 py-4",
+                    isNight ? "border-white/10" : "border-slate-100"
+                  )}>
+                    <div className="space-y-4">
+                      <div>
+                        <CardTitle className={cn("text-lg font-semibold", isNight ? "text-white" : "text-slate-900")}>Your links</CardTitle>
+                        <p className={cn("text-sm", isNight ? "text-slate-300" : "text-slate-500")}>
+                          Filter by status to move items from your intake queue to your saved list.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                        {FILTERS.map((option) => (
+                          <Button
+                            key={option.id}
+                            variant={option.id === filter ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setFilter(option.id)}
+                            className={cn(
+                              option.id === filter
+                                ? "bg-indigo-500 text-white hover:bg-indigo-400"
+                                : isNight
+                                  ? "border-white/20 text-white hover:bg-white/10"
+                                  : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                            )}
+                          >
+                            {option.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4 p-5">
+                    {tagStats.length ? (
+                      <div className={cn(
+                        "rounded-3xl border",
+                        isNight
+                          ? "border-indigo-400/30 bg-indigo-500/10"
+                          : "border-slate-200 bg-slate-50/70"
+                      )}>
+                        <button
+                          type="button"
+                          onClick={() => setTagPaneOpen((prev) => !prev)}
+                          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
+                        >
+                          <div className={cn(
+                            "flex items-center gap-2 text-sm font-semibold",
+                            isNight ? "text-indigo-200" : "text-slate-700"
+                          )}>
+                            <Tag className={cn("h-4 w-4", isNight ? "text-indigo-300" : "text-slate-500")} />
+                            Tags quick filter
+                            <span className={cn("text-xs font-normal", isNight ? "text-indigo-300/80" : "text-slate-500")}>
+                              {tagStats.length} tracked
+                            </span>
+                          </div>
+                          <span className={cn(
+                            "text-xs font-medium",
+                            isNight ? "text-indigo-300" : "text-indigo-600"
+                          )}>
+                            {tagPaneOpen ? "Hide" : "Show"}
+                          </span>
+                        </button>
+                        {tagPaneOpen ? (
+                          <div className={cn(
+                            "flex flex-wrap gap-2 border-t px-4 py-4",
+                            isNight ? "border-indigo-400/20" : "border-slate-200"
+                          )}>
+                            {tagStats.slice(0, 60).map((tag) => (
+                              <button
+                                key={tag.tag}
+                                type="button"
+                                className={cn(
+                                  "rounded-full border px-3 py-1 text-[11px] font-medium transition",
+                                  isNight
+                                    ? "border-indigo-400/30 bg-indigo-500/20 text-indigo-200 hover:border-indigo-300 hover:bg-indigo-500/30 hover:text-indigo-100"
+                                    : "border-slate-200 text-slate-600 hover:border-indigo-200 hover:text-indigo-600"
+                                )}
+                                onClick={() => handleAddTagToQuery(tag.tag)}
+                              >
+                                #{tag.tag}{" "}
+                                <span className={cn("text-[10px]", isNight ? "text-indigo-300/70" : "text-slate-400")}>({tag.count})</span>
+                              </button>
+                            ))}
+                            {hasTagFilters ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={handleClearTagFilters}
+                                className={cn(
+                                  isNight ? "text-indigo-200 hover:text-indigo-100 hover:bg-indigo-500/20" : ""
+                                )}
+                              >
+                                Clear tag filters
+                              </Button>
+                            ) : null}
+                          </div>
                         ) : null}
                       </div>
                     ) : null}
-                  </div>
-                ) : null}
-                {weeklyDigest ? (
-                  <div className={cn(
-                    "rounded-3xl border p-4",
-                    isNight
-                      ? "border-indigo-400/30 bg-indigo-500/10"
-                      : "border-indigo-200 bg-indigo-50/60"
-                  )}>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className={cn(
-                      "flex items-center gap-2",
-                      isNight ? "text-indigo-200" : "text-indigo-700"
-                    )}>
-                      <CalendarDays className={cn("h-5 w-5", isNight ? "text-indigo-300" : "")} />
-                      <div className="text-sm font-semibold uppercase tracking-wide">
-                        Weekly digest
-                      </div>
-                    </div>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className={cn(
-                        "px-0",
-                        isNight ? "text-indigo-300 hover:text-indigo-200" : "text-indigo-600"
-                      )}
-                      onClick={() => setDigestExpanded((prev) => !prev)}
-                    >
-                      {digestExpanded ? "Hide details" : "View highlights"}
-                    </Button>
-                  </div>
-                  <div className={cn(
-                    "mt-2 text-sm",
-                    isNight ? "text-indigo-200" : "text-indigo-700"
-                  )}>
-                    {weeklyDigest.total} saved link{weeklyDigest.total === 1 ? "" : "s"} in the last 7 days.
-                  </div>
-                  {weeklyDigest.topTags.length ? (
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {weeklyDigest.topTags.map((tag) => (
-                        <Badge
-                          key={tag.tag}
-                          variant="outline"
-                          className={cn(
-                            "text-[11px] uppercase tracking-wide",
-                            isNight
-                              ? "border-indigo-400/30 bg-indigo-500/20 text-indigo-200"
-                              : "border-indigo-200 bg-white/80 text-indigo-600"
-                          )}
-                        >
-                          <Tag className="mr-1 h-3 w-3" />#{tag.tag} · {tag.count}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : null}
-                  {digestExpanded && weeklyDigest.highlights.length ? (
-                    <ul className={cn(
-                      "mt-3 space-y-2 text-sm",
-                      isNight ? "text-indigo-200" : "text-indigo-700"
-                    )}>
-                      {weeklyDigest.highlights.map((item) => (
-                        <li key={item.id} className="flex items-start gap-2">
-                          <ListChecks className={cn("mt-0.5 h-4 w-4 flex-shrink-0", isNight ? "text-indigo-300" : "")} />
-                          <div>
-                            <div className="font-medium">
-                              {item.url ? (
-                                <Link href={item.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">
-                                  {item.title}
-                                </Link>
-                              ) : (
-                                item.title
-                              )}
-                            </div>
-                            <div className={cn(
-                              "text-xs",
-                              isNight ? "text-indigo-300/80" : "text-indigo-500"
-                            )}>
-                              Saved {new Date(item.createdAt).toLocaleDateString()}
+                    {weeklyDigest ? (
+                      <div className={cn(
+                        "rounded-3xl border p-4",
+                        isNight
+                          ? "border-indigo-400/30 bg-indigo-500/10"
+                          : "border-indigo-200 bg-indigo-50/60"
+                      )}>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className={cn(
+                            "flex items-center gap-2",
+                            isNight ? "text-indigo-200" : "text-indigo-700"
+                          )}>
+                            <CalendarDays className={cn("h-5 w-5", isNight ? "text-indigo-300" : "")} />
+                            <div className="text-sm font-semibold uppercase tracking-wide">
+                              Weekly digest
                             </div>
                           </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-              ) : null}
-              <Separator className="my-5" />
-              {loading ? (
-                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-100/80 px-4 py-6 text-sm text-slate-600">
-                  <Spinner size="sm" />
-                  <span>Aligning your Orbit…</span>
-                </div>
-              ) : error ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50/70 px-4 py-4 text-sm text-rose-600">
-                  {error}
-                </div>
-              ) : visibleLinks.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-slate-200 bg-slate-100/50 p-10 text-center text-slate-500">
-                  <Inbox className="h-8 w-8 text-slate-400" />
-                  <div>
-                    {filter === "all" ? (
-                      <p className="text-base font-medium">
-                        Nothing here yet — share your first link!
-                      </p>
-                    ) : (
-                      <p className="text-base font-medium">
-                        No {emptyStateLabel} links right now.
-                      </p>
-                    )}
-                    <p className="mt-2 text-sm">
-                      Open an article or video on your phone, tap share, and pick Toodl Share.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <TooltipProvider>
-                  <div className="space-y-2">
-                    {visibleLinks.map((link) => {
-                      const busy = busyIds[link.id];
-                      const hasUrl = Boolean(link.url);
-                      const isImageOrPdf = link.contentType === "image" || link.contentType === "pdf";
-                      const lessonPayload = link.sourceApp === "orbit-lesson" ? (link.lessonPayload as OrbitLesson | null) : null;
-                      const isLesson = Boolean(lessonPayload);
-                      const descriptionExpanded = expandedDescriptions.has(link.id);
-                      const tagsExpanded = expandedTags.has(link.id);
-                      const displayTags = link.tags || [];
-                      const maxVisibleTags = 2;
-                      const visibleTags = tagsExpanded ? displayTags : displayTags.slice(0, maxVisibleTags);
-                      const remainingTags = displayTags.length - maxVisibleTags;
-                      const descriptionText = isLesson && lessonPayload?.overview ? lessonPayload.overview : link.description;
-                      const descriptionPreview = descriptionText ? descriptionText.slice(0, 120) : null;
-                      const showDescriptionExpand = descriptionText ? descriptionText.length > 120 : false;
-                      const timestamp = new Date(link.createdAt).toLocaleString();
-                      const tooltipText = `${timestamp}${link.sourceApp ? ` · via ${link.sourceApp}` : ""}`;
-                      
-                      return (
-                        <article
-                          key={link.id}
-                          onClick={(event) => {
-                            if (isImageOrPdf && hasUrl && link.url) {
-                              event.preventDefault();
-                              window.open(link.url, "_blank", "noopener,noreferrer");
-                            } else {
-                              handleLinkCardClick(event, link);
-                            }
-                          }}
-                          className={cn(
-                            "flex items-start gap-3 rounded-2xl border px-3 py-2 shadow-sm transition",
-                            isNight
-                              ? "border-white/15 bg-slate-900/60 shadow-slate-900/50"
-                              : "border-slate-200 bg-white shadow-slate-200",
-                            link.contentType === "note"
-                              ? isNight
-                                ? "cursor-pointer hover:border-indigo-400/50 hover:shadow-md"
-                                : "cursor-pointer hover:border-indigo-200 hover:shadow-md"
-                              : isNight
-                              ? "hover:border-indigo-400/30"
-                              : "hover:border-indigo-100",
-                            selectedNoteId === link.id && link.contentType === "note"
-                              ? isNight
-                                ? "border-indigo-400/50 bg-indigo-500/20 shadow-md"
-                                : "border-indigo-300 bg-indigo-50/60 shadow-md"
-                              : ""
-                          )}
-                        >
-                          <div className="flex-1 min-w-0 space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {hasUrl && !isImageOrPdf ? (
-                                <>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Link
-                                        href={link.url ?? "#"}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
-                                        className={cn(
-                                          "text-sm font-semibold truncate",
-                                          isNight 
-                                            ? "text-indigo-300 hover:text-indigo-200 hover:underline" 
-                                            : "text-indigo-600 hover:underline"
-                                        )}
-                                      >
-                                        {link.title || link.url}
-                                      </Link>
-                                    </TooltipTrigger>
-                                    <TooltipContent className={cn(
-                                      isNight ? "bg-slate-800 text-white" : ""
-                                    )}>
-                                      <p className="max-w-xs break-all">{link.url}</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Clock className={cn(
-                                        "h-3 w-3 flex-shrink-0",
-                                        isNight ? "text-slate-400" : "text-slate-400"
-                                      )} />
-                                    </TooltipTrigger>
-                                    <TooltipContent className={cn(
-                                      isNight ? "bg-slate-800 text-white" : ""
-                                    )}>
-                                      <p>{tooltipText}</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </>
-                              ) : (
-                                <>
-                                  <h3 className={cn(
-                                    "text-sm font-semibold truncate",
-                                    isNight ? "text-white" : "text-slate-900"
-                                  )}>
-                                    {link.title || link.url}
-                                  </h3>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Clock className={cn(
-                                        "h-3 w-3 flex-shrink-0",
-                                        isNight ? "text-slate-400" : "text-slate-400"
-                                      )} />
-                                    </TooltipTrigger>
-                                    <TooltipContent className={cn(
-                                      isNight ? "bg-slate-800 text-white" : ""
-                                    )}>
-                                      <p>{tooltipText}</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </>
-                              )}
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className={cn(
+                              "px-0",
+                              isNight ? "text-indigo-300 hover:text-indigo-200" : "text-indigo-600"
+                            )}
+                            onClick={() => setDigestExpanded((prev) => !prev)}
+                          >
+                            {digestExpanded ? "Hide details" : "View highlights"}
+                          </Button>
+                        </div>
+                        <div className={cn(
+                          "mt-2 text-sm",
+                          isNight ? "text-indigo-200" : "text-indigo-700"
+                        )}>
+                          {weeklyDigest.total} saved link{weeklyDigest.total === 1 ? "" : "s"} in the last 7 days.
+                        </div>
+                        {weeklyDigest.topTags.length ? (
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            {weeklyDigest.topTags.map((tag) => (
                               <Badge
+                                key={tag.tag}
                                 variant="outline"
                                 className={cn(
-                                  "border text-[10px] uppercase tracking-wide px-1.5 py-0.5",
+                                  "text-[11px] uppercase tracking-wide",
                                   isNight
-                                    ? link.status === "new"
-                                      ? "bg-amber-500/20 text-amber-300 border-amber-400/30"
-                                      : link.status === "saved"
-                                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/30"
-                                      : "bg-slate-700/50 text-slate-300 border-slate-600/50"
-                                    : STATUS_ACCENT[link.status]
+                                    ? "border-indigo-400/30 bg-indigo-500/20 text-indigo-200"
+                                    : "border-indigo-200 bg-white/80 text-indigo-600"
                                 )}
                               >
-                                {STATUS_LABEL[link.status]} · {CONTENT_TYPE_LABEL[link.contentType] ?? "Link"}
+                                <Tag className="mr-1 h-3 w-3" />#{tag.tag} · {tag.count}
                               </Badge>
-                              {isLesson ? (
-                                <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    "border text-[10px] uppercase tracking-wide px-1.5 py-0.5",
-                                    isNight
-                                      ? "border-emerald-300/40 bg-emerald-500/15 text-emerald-200"
-                                      : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                  )}
-                                >
-                                  Lesson
-                                </Badge>
-                              ) : null}
-                            </div>
-                            {descriptionText && (
-                              <div>
-                                <p className={cn(
-                                  "text-xs whitespace-pre-line",
-                                  isNight ? "text-slate-300" : "text-slate-600"
-                                )}>
-                                  {descriptionExpanded ? descriptionText : descriptionPreview}
-                                  {!descriptionExpanded && showDescriptionExpand && "…"}
-                                </p>
-                                {showDescriptionExpand && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setExpandedDescriptions(prev => {
-                                        const next = new Set(prev);
-                                        if (next.has(link.id)) {
-                                          next.delete(link.id);
-                                        } else {
-                                          next.add(link.id);
-                                        }
-                                        return next;
-                                      });
-                                    }}
-                                    className={cn(
-                                      "text-[10px] mt-0.5 hover:underline",
-                                      isNight ? "text-indigo-300" : "text-indigo-600"
-                                    )}
-                                  >
-                                    {descriptionExpanded ? "Show less" : "Show more"}
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                            {displayTags.length > 0 && (
-                              <div className="flex flex-wrap items-center gap-1">
-                                {visibleTags.map((tag) => (
-                                  <Badge
-                                    key={tag}
-                                    variant="outline"
-                                    className={cn(
-                                      "text-xs px-2 py-0.5",
-                                      isNight
-                                        ? "border-indigo-400/30 bg-indigo-500/10 text-indigo-200"
-                                        : "border-slate-200"
-                                    )}
-                                  >
-                                    #{tag}
-                                  </Badge>
-                                ))}
-                                {remainingTags > 0 && !tagsExpanded && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setExpandedTags(prev => {
-                                        const next = new Set(prev);
-                                        next.add(link.id);
-                                        return next;
-                                      });
-                                    }}
-                                    className={cn(
-                                      "text-xs px-2 py-0.5 rounded border",
-                                      isNight
-                                        ? "border-indigo-400/30 bg-indigo-500/10 text-indigo-200"
-                                        : "border-slate-200 text-slate-600"
-                                    )}
-                                  >
-                                    +{remainingTags}
-                                  </button>
-                                )}
-                              </div>
-                            )}
+                            ))}
                           </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            {isLesson ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className={cn(
-                                      "h-7 w-7",
-                                      isNight
-                                        ? "bg-emerald-500/20 text-emerald-200 hover:bg-emerald-400/30"
-                                        : "text-emerald-700 hover:bg-emerald-50"
-                                    )}
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      if (lessonPayload) {
-                                        setSelectedLesson(lessonPayload);
-                                      }
-                                    }}
-                                  >
-                                    <BookOpen className="h-3.5 w-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Open lesson</TooltipContent>
-                              </Tooltip>
-                            ) : link.contentType === "note" ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className={cn(
-                                      "h-7 w-7",
-                                      isNight
-                                        ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400"
-                                        : ""
-                                    )}
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setSelectedNoteId(link.id);
-                                    }}
-                                  >
-                                    <FileText className="h-3.5 w-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Open note</TooltipContent>
-                              </Tooltip>
-                            ) : hasUrl ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7"
-                                    asChild={!isImageOrPdf}
-                                    onClick={isImageOrPdf && link.url ? (e) => {
-                                      e.stopPropagation();
-                                      if (link.url) {
-                                        window.open(link.url, "_blank", "noopener,noreferrer");
-                                      }
-                                    } : undefined}
-                                  >
-                                    {isImageOrPdf ? (
-                                      <span>
-                                        {link.contentType === "image" ? (
-                                          <ImageIcon className="h-3.5 w-3.5" />
-                                        ) : (
-                                          <FileText className="h-3.5 w-3.5" />
-                                        )}
-                                      </span>
-                                    ) : (
-                                      <Link href={link.url ?? "#"} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                                        <ExternalLink className="h-3.5 w-3.5" />
+                        ) : null}
+                        {digestExpanded && weeklyDigest.highlights.length ? (
+                          <ul className={cn(
+                            "mt-3 space-y-2 text-sm",
+                            isNight ? "text-indigo-200" : "text-indigo-700"
+                          )}>
+                            {weeklyDigest.highlights.map((item) => (
+                              <li key={item.id} className="flex items-start gap-2">
+                                <ListChecks className={cn("mt-0.5 h-4 w-4 flex-shrink-0", isNight ? "text-indigo-300" : "")} />
+                                <div>
+                                  <div className="font-medium">
+                                    {item.url ? (
+                                      <Link href={item.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">
+                                        {item.title}
                                       </Link>
+                                    ) : (
+                                      item.title
                                     )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Open {link.contentType === "image" ? "image" : link.contentType === "pdf" ? "PDF" : "link"}</TooltipContent>
-                              </Tooltip>
-                            ) : null}
-                            {link.status !== "saved" ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleStatusChange(link, "saved");
-                                    }}
-                                    disabled={busy}
-                                  >
-                                    <Check className="h-3.5 w-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Mark saved</TooltipContent>
-                              </Tooltip>
-                            ) : (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleStatusChange(link, "new");
-                                    }}
-                                    disabled={busy}
-                                  >
-                                    <Bookmark className="h-3.5 w-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Move to queue</TooltipContent>
-                              </Tooltip>
-                            )}
-                            {link.status !== "archived" ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleStatusChange(link, "archived");
-                                    }}
-                                    disabled={busy}
-                                  >
-                                    <Archive className="h-3.5 w-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Archive</TooltipContent>
-                              </Tooltip>
-                            ) : (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleStatusChange(link, "saved");
-                                    }}
-                                    disabled={busy}
-                                  >
-                                    <RefreshCcw className="h-3.5 w-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Restore</TooltipContent>
-                              </Tooltip>
-                            )}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete(link);
-                                  }}
-                                  disabled={busy}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Delete</TooltipContent>
-                            </Tooltip>
-                            {busy ? <Spinner size="sm" className="h-4 w-4" /> : null}
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                </TooltipProvider>
-              )}
-            </CardContent>
-            </Card>
+                                  </div>
+                                  <div className={cn(
+                                    "text-xs",
+                                    isNight ? "text-indigo-300/80" : "text-indigo-500"
+                                  )}>
+                                    Saved {new Date(item.createdAt).toLocaleDateString()}
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <Separator className="my-5" />
+                    {loading ? (
+                      <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-100/80 px-4 py-6 text-sm text-slate-600">
+                        <Spinner size="sm" />
+                        <span>Aligning your Orbit…</span>
+                      </div>
+                    ) : error ? (
+                      <div className="rounded-2xl border border-rose-200 bg-rose-50/70 px-4 py-4 text-sm text-rose-600">
+                        {error}
+                      </div>
+                    ) : visibleLinks.length === 0 ? (
+                      <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-slate-200 bg-slate-100/50 p-10 text-center text-slate-500">
+                        <Inbox className="h-8 w-8 text-slate-400" />
+                        <div>
+                          {filter === "all" ? (
+                            <p className="text-base font-medium">
+                              Nothing here yet — share your first link!
+                            </p>
+                          ) : (
+                            <p className="text-base font-medium">
+                              No {emptyStateLabel} links right now.
+                            </p>
+                          )}
+                          <p className="mt-2 text-sm">
+                            Open an article or video on your phone, tap share, and pick Toodl Share.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <TooltipProvider>
+                        <div className="space-y-2">
+                          {visibleLinks.map((link) => {
+                            const busy = busyIds[link.id];
+                            const hasUrl = Boolean(link.url);
+                            const isImageOrPdf = link.contentType === "image" || link.contentType === "pdf";
+                            const lessonPayload = link.sourceApp === "orbit-lesson" ? (link.lessonPayload as OrbitLesson | null) : null;
+                            const isLesson = Boolean(lessonPayload);
+                            const descriptionExpanded = expandedDescriptions.has(link.id);
+                            const tagsExpanded = expandedTags.has(link.id);
+                            const displayTags = link.tags || [];
+                            const maxVisibleTags = 2;
+                            const visibleTags = tagsExpanded ? displayTags : displayTags.slice(0, maxVisibleTags);
+                            const remainingTags = displayTags.length - maxVisibleTags;
+                            const descriptionText = isLesson && lessonPayload?.overview ? lessonPayload.overview : link.description;
+                            const descriptionPreview = descriptionText ? descriptionText.slice(0, 120) : null;
+                            const showDescriptionExpand = descriptionText ? descriptionText.length > 120 : false;
+                            const timestamp = new Date(link.createdAt).toLocaleString();
+                            const tooltipText = `${timestamp}${link.sourceApp ? ` · via ${link.sourceApp}` : ""}`;
+
+                            return (
+                              <article
+                                key={link.id}
+                                onClick={(event) => {
+                                  if (isImageOrPdf && hasUrl && link.url) {
+                                    event.preventDefault();
+                                    window.open(link.url, "_blank", "noopener,noreferrer");
+                                  } else {
+                                    handleLinkCardClick(event, link);
+                                  }
+                                }}
+                                className={cn(
+                                  "flex items-start gap-3 rounded-2xl border px-3 py-2 shadow-sm transition",
+                                  isNight
+                                    ? "border-white/15 bg-slate-900/60 shadow-slate-900/50"
+                                    : "border-slate-200 bg-white shadow-slate-200",
+                                  link.contentType === "note"
+                                    ? isNight
+                                      ? "cursor-pointer hover:border-indigo-400/50 hover:shadow-md"
+                                      : "cursor-pointer hover:border-indigo-200 hover:shadow-md"
+                                    : isNight
+                                      ? "hover:border-indigo-400/30"
+                                      : "hover:border-indigo-100",
+                                  selectedNoteId === link.id && link.contentType === "note"
+                                    ? isNight
+                                      ? "border-indigo-400/50 bg-indigo-500/20 shadow-md"
+                                      : "border-indigo-300 bg-indigo-50/60 shadow-md"
+                                    : ""
+                                )}
+                              >
+                                <div className="flex-1 min-w-0 space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {hasUrl && !isImageOrPdf ? (
+                                      <>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Link
+                                              href={link.url ?? "#"}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              onClick={(e) => e.stopPropagation()}
+                                              className={cn(
+                                                "text-sm font-semibold truncate",
+                                                isNight
+                                                  ? "text-indigo-300 hover:text-indigo-200 hover:underline"
+                                                  : "text-indigo-600 hover:underline"
+                                              )}
+                                            >
+                                              {link.title || link.url}
+                                            </Link>
+                                          </TooltipTrigger>
+                                          <TooltipContent className={cn(
+                                            isNight ? "bg-slate-800 text-white" : ""
+                                          )}>
+                                            <p className="max-w-xs break-all">{link.url}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Clock className={cn(
+                                              "h-3 w-3 flex-shrink-0",
+                                              isNight ? "text-slate-400" : "text-slate-400"
+                                            )} />
+                                          </TooltipTrigger>
+                                          <TooltipContent className={cn(
+                                            isNight ? "bg-slate-800 text-white" : ""
+                                          )}>
+                                            <p>{tooltipText}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <h3 className={cn(
+                                          "text-sm font-semibold truncate",
+                                          isNight ? "text-white" : "text-slate-900"
+                                        )}>
+                                          {link.title || link.url}
+                                        </h3>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Clock className={cn(
+                                              "h-3 w-3 flex-shrink-0",
+                                              isNight ? "text-slate-400" : "text-slate-400"
+                                            )} />
+                                          </TooltipTrigger>
+                                          <TooltipContent className={cn(
+                                            isNight ? "bg-slate-800 text-white" : ""
+                                          )}>
+                                            <p>{tooltipText}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </>
+                                    )}
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        "border text-[10px] uppercase tracking-wide px-1.5 py-0.5",
+                                        isNight
+                                          ? link.status === "new"
+                                            ? "bg-amber-500/20 text-amber-300 border-amber-400/30"
+                                            : link.status === "saved"
+                                              ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/30"
+                                              : "bg-slate-700/50 text-slate-300 border-slate-600/50"
+                                          : STATUS_ACCENT[link.status]
+                                      )}
+                                    >
+                                      {STATUS_LABEL[link.status]} · {CONTENT_TYPE_LABEL[link.contentType] ?? "Link"}
+                                    </Badge>
+                                    {isLesson ? (
+                                      <Badge
+                                        variant="outline"
+                                        className={cn(
+                                          "border text-[10px] uppercase tracking-wide px-1.5 py-0.5",
+                                          isNight
+                                            ? "border-emerald-300/40 bg-emerald-500/15 text-emerald-200"
+                                            : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                        )}
+                                      >
+                                        Lesson
+                                      </Badge>
+                                    ) : null}
+                                  </div>
+                                  {descriptionText && (
+                                    <div>
+                                      <p className={cn(
+                                        "text-xs whitespace-pre-line",
+                                        isNight ? "text-slate-300" : "text-slate-600"
+                                      )}>
+                                        {descriptionExpanded ? descriptionText : descriptionPreview}
+                                        {!descriptionExpanded && showDescriptionExpand && "…"}
+                                      </p>
+                                      {showDescriptionExpand && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedDescriptions(prev => {
+                                              const next = new Set(prev);
+                                              if (next.has(link.id)) {
+                                                next.delete(link.id);
+                                              } else {
+                                                next.add(link.id);
+                                              }
+                                              return next;
+                                            });
+                                          }}
+                                          className={cn(
+                                            "text-[10px] mt-0.5 hover:underline",
+                                            isNight ? "text-indigo-300" : "text-indigo-600"
+                                          )}
+                                        >
+                                          {descriptionExpanded ? "Show less" : "Show more"}
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                  {displayTags.length > 0 && (
+                                    <div className="flex flex-wrap items-center gap-1">
+                                      {visibleTags.map((tag) => (
+                                        <Badge
+                                          key={tag}
+                                          variant="outline"
+                                          className={cn(
+                                            "text-xs px-2 py-0.5",
+                                            isNight
+                                              ? "border-indigo-400/30 bg-indigo-500/10 text-indigo-200"
+                                              : "border-slate-200"
+                                          )}
+                                        >
+                                          #{tag}
+                                        </Badge>
+                                      ))}
+                                      {remainingTags > 0 && !tagsExpanded && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedTags(prev => {
+                                              const next = new Set(prev);
+                                              next.add(link.id);
+                                              return next;
+                                            });
+                                          }}
+                                          className={cn(
+                                            "text-xs px-2 py-0.5 rounded border",
+                                            isNight
+                                              ? "border-indigo-400/30 bg-indigo-500/10 text-indigo-200"
+                                              : "border-slate-200 text-slate-600"
+                                          )}
+                                        >
+                                          +{remainingTags}
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  {isLesson ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className={cn(
+                                            "h-7 w-7",
+                                            isNight
+                                              ? "bg-emerald-500/20 text-emerald-200 hover:bg-emerald-400/30"
+                                              : "text-emerald-700 hover:bg-emerald-50"
+                                          )}
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            if (lessonPayload) {
+                                              setSelectedLesson(lessonPayload);
+                                            }
+                                          }}
+                                        >
+                                          <BookOpen className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Open lesson</TooltipContent>
+                                    </Tooltip>
+                                  ) : link.contentType === "note" ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className={cn(
+                                            "h-7 w-7",
+                                            isNight
+                                              ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400"
+                                              : ""
+                                          )}
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            setSelectedNoteId(link.id);
+                                          }}
+                                        >
+                                          <FileText className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Open note</TooltipContent>
+                                    </Tooltip>
+                                  ) : hasUrl ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-7 w-7"
+                                          asChild={!isImageOrPdf}
+                                          onClick={isImageOrPdf && link.url ? (e) => {
+                                            e.stopPropagation();
+                                            if (link.url) {
+                                              window.open(link.url, "_blank", "noopener,noreferrer");
+                                            }
+                                          } : undefined}
+                                        >
+                                          {isImageOrPdf ? (
+                                            <span>
+                                              {link.contentType === "image" ? (
+                                                <ImageIcon className="h-3.5 w-3.5" />
+                                              ) : (
+                                                <FileText className="h-3.5 w-3.5" />
+                                              )}
+                                            </span>
+                                          ) : (
+                                            <Link href={link.url ?? "#"} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                              <ExternalLink className="h-3.5 w-3.5" />
+                                            </Link>
+                                          )}
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Open {link.contentType === "image" ? "image" : link.contentType === "pdf" ? "PDF" : "link"}</TooltipContent>
+                                    </Tooltip>
+                                  ) : null}
+                                  {link.status !== "saved" ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-7 w-7"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleStatusChange(link, "saved");
+                                          }}
+                                          disabled={busy}
+                                        >
+                                          <Check className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Mark saved</TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-7 w-7"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleStatusChange(link, "new");
+                                          }}
+                                          disabled={busy}
+                                        >
+                                          <Bookmark className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Move to queue</TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  {link.status !== "archived" ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-7 w-7"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleStatusChange(link, "archived");
+                                          }}
+                                          disabled={busy}
+                                        >
+                                          <Archive className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Archive</TooltipContent>
+                                    </Tooltip>
+                                  ) : (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-7 w-7"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleStatusChange(link, "saved");
+                                          }}
+                                          disabled={busy}
+                                        >
+                                          <RefreshCcw className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Restore</TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDelete(link);
+                                        }}
+                                        disabled={busy}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Delete</TooltipContent>
+                                  </Tooltip>
+                                  {busy ? <Spinner size="sm" className="h-4 w-4" /> : null}
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </TooltipProvider>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </>
@@ -2025,7 +2058,7 @@ export function ScratchPadExperience() {
                               "rounded-lg border px-3 py-2",
                               isNight ? "border-white/10 text-indigo-100" : "border-slate-200 text-slate-700",
                               answer === item.correctAnswer &&
-                                (isNight ? "border-emerald-300/70 bg-emerald-500/10" : "border-emerald-200 bg-emerald-50")
+                              (isNight ? "border-emerald-300/70 bg-emerald-500/10" : "border-emerald-200 bg-emerald-50")
                             )}
                           >
                             {answer}
