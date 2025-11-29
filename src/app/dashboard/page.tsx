@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { BookmarkPlus, ChevronLeft, ChevronRight, ExternalLink, Search, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
-import Image from "next/image";
+
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
@@ -13,7 +13,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ReflectionsTile } from "@/components/reflections/ReflectionsTile";
+import { ReflectionsExperience } from "@/components/reflections/ReflectionsExperience";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
 
@@ -201,6 +208,7 @@ export default function DailyDashboardPage() {
   const [reflectionPhotoName, setReflectionPhotoName] = useState<string | null>(null);
   const [reflectionBusy, setReflectionBusy] = useState(false);
   const [reflectionStatus, setReflectionStatus] = useState<string | null>(null);
+  const [showReflectionsExperience, setShowReflectionsExperience] = useState(false);
 
   const [splitTotals, setSplitTotals] = useState<CurrencySummary[]>([]);
   const [splitLoading, setSplitLoading] = useState(false);
@@ -219,9 +227,6 @@ export default function DailyDashboardPage() {
   const [insightVotes, setInsightVotes] = useState<Record<string, InsightVoteDirection>>({});
   const [insightMessages, setInsightMessages] = useState<Record<string, string>>({});
   const [savingInsightId, setSavingInsightId] = useState<string | null>(null);
-  const [reflectionStreakDays, setReflectionStreakDays] = useState(0);
-  const [reflectionStreakLoading, setReflectionStreakLoading] = useState(false);
-  const [lastReflectionAt, setLastReflectionAt] = useState<string | null>(null);
   const [splitSources, setSplitSources] = useState<Array<{ group: Group; expenses: Expense[] }>>([]);
   const [budgetEntries, setBudgetEntries] = useState<BudgetLedgerEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -512,78 +517,6 @@ export default function DailyDashboardPage() {
 
   useEffect(() => {
     if (!user?.uid) {
-      setReflectionStreakDays(0);
-      setLastReflectionAt(null);
-      setReflectionStreakLoading(false);
-      return;
-    }
-    let cancelled = false;
-    const loadReflectionStreak = async () => {
-      setReflectionStreakLoading(true);
-      try {
-        const lookbackDays = 10;
-        const today = new Date();
-        const dateKeys = Array.from({ length: lookbackDays }, (_, offset) => {
-          const date = new Date(today);
-          date.setDate(today.getDate() - offset);
-          return getFlowDateKey(date);
-        });
-
-        const plans = await Promise.all(
-          dateKeys.map((key, index) =>
-            index === 0 && flowPlan
-              ? Promise.resolve(flowPlan)
-              : fetchFlowPlanSnapshot(user.uid, key)
-          )
-        );
-        if (cancelled) {
-          return;
-        }
-        let streak = 0;
-        let started = false;
-        let latestReflection: string | null = null;
-
-        for (let index = 0; index < dateKeys.length; index += 1) {
-          const plan = plans[index];
-          const reflections = plan?.reflections ?? [];
-          const hasReflections = reflections.length > 0;
-          if (!latestReflection && hasReflections) {
-            latestReflection = reflections[0]?.createdAt ?? plan?.updatedAt ?? null;
-          }
-          if (!started && index === 0 && !hasReflections) {
-            continue;
-          }
-          if (hasReflections) {
-            started = true;
-            streak += 1;
-          } else if (started) {
-            break;
-          }
-        }
-
-        if (!cancelled) {
-          setReflectionStreakDays(streak);
-          setLastReflectionAt(latestReflection);
-        }
-      } catch (error) {
-        console.error("Failed to load reflection streak", error);
-        if (!cancelled) {
-          setReflectionStreakDays(0);
-        }
-      } finally {
-        if (!cancelled) {
-          setReflectionStreakLoading(false);
-        }
-      }
-    };
-    void loadReflectionStreak();
-    return () => {
-      cancelled = true;
-    };
-  }, [flowPlan, user?.uid]);
-
-  useEffect(() => {
-    if (!user?.uid) {
       setBudgetPulse(null);
       setBudgetError(null);
       setBudgetEntries([]);
@@ -667,14 +600,7 @@ export default function DailyDashboardPage() {
   const timelineMoments = useMemo(() => buildTimeline(flowPlan), [flowPlan]);
   const reflections = flowPlan?.reflections ?? EMPTY_REFLECTIONS;
   const latestReflection = reflections[0] ?? null;
-  const latestPhotoReflection = useMemo(
-    () => reflections.find((reflection) => reflection.photoUrl),
-    [reflections]
-  );
-
   const primarySummary = splitTotals[0] ?? null;
-  const isNearEndOfDay = useMemo(() => new Date().getHours() >= 18, []);
-  const journalPrompt = isNearEndOfDay ? "Wrap the day with a quick journal entry." : null;
   const searchTokens = useMemo(() => normaliseQueryTokens(searchQuery), [searchQuery]);
   const searchableItems = useMemo(() => {
     const items: SearchResultItem[] = [];
@@ -1362,19 +1288,19 @@ export default function DailyDashboardPage() {
                   </Button>
                 </CardContent>
               </Card>
-              <ReflectionStreakCard
-                dark={isNight}
-                loading={reflectionStreakLoading}
-                streak={reflectionStreakDays}
-                lastReflectionAt={lastReflectionAt}
-                photoUrl={latestPhotoReflection?.photoUrl ?? null}
-                photoNote={latestPhotoReflection?.note ?? null}
-                showJournalCTA={isNearEndOfDay}
-                ctaText={journalPrompt}
-                onOpenJournal={() => router.push("/journal")}
+              <ReflectionsTile
+                user={user}
+                onOpenExperience={() => setShowReflectionsExperience(true)}
               />
             </div>
           )}
+
+          <Dialog open={showReflectionsExperience} onOpenChange={setShowReflectionsExperience}>
+            <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden">
+              <ReflectionsExperience user={user} onClose={() => setShowReflectionsExperience(false)} />
+            </DialogContent>
+          </Dialog>
+
 
           {(shouldShow("pulse") || shouldShow("split")) && (
             <div className={cn("grid gap-6", shouldShow("pulse") && shouldShow("split") ? "lg:grid-cols-2" : "grid-cols-1")}>
@@ -1425,6 +1351,7 @@ export default function DailyDashboardPage() {
           )}
         </div>
       )}
+
     </>
   );
 }
@@ -2381,165 +2308,7 @@ function WeeklyDigestCard({
   );
 }
 
-const formatRelativeDayDistance = (timestamp?: string | null) => {
-  if (!timestamp) {
-    return null;
-  }
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-  if (diffDays === 0) {
-    return "today";
-  }
-  if (diffDays === 1) {
-    return "yesterday";
-  }
-  return `${diffDays} days ago`;
-};
 
-function ReflectionStreakCard({
-  streak,
-  lastReflectionAt,
-  loading,
-  dark,
-  onOpenJournal,
-  photoUrl,
-  photoNote,
-  showJournalCTA,
-  ctaText,
-}: {
-  streak: number;
-  lastReflectionAt: string | null;
-  loading: boolean;
-  dark: boolean;
-  onOpenJournal: () => void;
-  photoUrl: string | null;
-  photoNote: string | null;
-  showJournalCTA: boolean;
-  ctaText: string | null;
-}) {
-  const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
-  const tone = dark ? "text-indigo-200" : "text-slate-600";
-  const accent = dark ? "text-white" : "text-slate-900";
-  const relative = formatRelativeDayDistance(lastReflectionAt);
-  const lastEntryText = relative
-    ? relative === "today"
-      ? "You logged a reflection today."
-      : relative === "yesterday"
-        ? "Your last reflection was logged yesterday."
-        : `Your last reflection was logged ${relative}.`
-    : "Log a reflection to start your streak.";
-
-  return (
-    <Card
-      className={cn(
-        "rounded-[28px] p-6 shadow-sm",
-        dark ? "border-white/15 bg-slate-900/60 text-white" : "border border-slate-200 bg-white/95 text-slate-900"
-      )}
-    >
-      <CardHeader className="p-0">
-        <p className={cn("text-xs font-semibold uppercase tracking-[0.35em]", tone)}>
-          Reflection streak
-        </p>
-        <CardTitle className={cn("text-xl", accent)}>Keep the loop alive</CardTitle>
-      </CardHeader>
-      <CardContent className="mt-4 space-y-4">
-        {loading ? (
-          <div className={cn("flex items-center gap-3 text-sm", tone)}>
-            <Spinner size="sm" className="text-current" />
-            Checking your Flow streak...
-          </div>
-        ) : (
-          <>
-            <div>
-              <div className="flex items-baseline gap-2">
-                <p className={cn("text-4xl font-bold", accent)}>{streak}</p>
-                <span className={cn("text-xs font-semibold uppercase tracking-[0.3em]", tone)}>
-                  day streak
-                </span>
-              </div>
-            </div>
-            <p className={cn("text-sm", tone)}>{lastEntryText}</p>
-            {photoUrl ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setPhotoPreviewOpen(true)}
-                  className={cn(
-                    "w-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 rounded-2xl",
-                    dark ? "focus-visible:ring-white focus-visible:ring-offset-slate-900" : "focus-visible:ring-indigo-500 focus-visible:ring-offset-white"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "overflow-hidden rounded-2xl border",
-                      dark ? "border-white/10 bg-black/40" : "border-slate-200 bg-slate-50"
-                    )}
-                  >
-                    <div className="relative flex h-40 w-full items-center justify-center">
-                      <Image
-                        src={photoUrl}
-                        alt="Latest reflection photo"
-                        fill
-                        sizes="(max-width: 768px) 100vw, 320px"
-                        className="object-contain"
-                        unoptimized
-                      />
-                    </div>
-                  </div>
-                  <p className={cn("mt-2 text-xs", tone)}>
-                    Tap to see the full photo.
-                  </p>
-                </button>
-                <Dialog open={photoPreviewOpen} onOpenChange={setPhotoPreviewOpen}>
-                  <DialogContent className="max-w-3xl border-none bg-slate-900/80 p-4 text-white shadow-2xl">
-                    <DialogHeader className="sr-only">
-                      <DialogTitle>Reflection photo preview</DialogTitle>
-                    </DialogHeader>
-                    <div className="relative h-[70vh] w-full">
-                      <Image
-                        src={photoUrl}
-                        alt="Full reflection photo"
-                        fill
-                        sizes="(max-width: 1200px) 90vw, 800px"
-                        className="object-contain"
-                        unoptimized
-                      />
-                    </div>
-                    {photoNote ? (
-                      <p className="mt-4 text-sm text-white/90">{photoNote}</p>
-                    ) : null}
-                  </DialogContent>
-                </Dialog>
-              </>
-            ) : (
-              <p className={cn("text-sm italic", tone)}>
-                Add a photo to your next reflection to light up this space.
-              </p>
-            )}
-            {showJournalCTA ? (
-              <Button
-                className={cn(
-                  "w-full font-semibold",
-                  dark
-                    ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
-                    : "bg-indigo-600 text-white hover:bg-indigo-500"
-                )}
-                onClick={onOpenJournal}
-              >
-                {ctaText ?? "Open journal"}
-              </Button>
-            ) : null}
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
 
 function DailyWorkSummaryCard({
   summary,

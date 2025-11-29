@@ -116,3 +116,26 @@ export const appendFlowReflection = async (
     updatedAt: new Date().toISOString(),
   });
 };
+
+import { query, where, getDocs } from "firebase/firestore";
+
+export const getFlowPlansInRange = async (
+  userId: string,
+  startDate: string,
+  endDate: string
+): Promise<FlowPlan[]> => {
+  if (!userId) return [];
+
+  const ref = flowPlansCollection(userId);
+  const q = query(
+    ref,
+    where("__name__", ">=", startDate),
+    where("__name__", "<=", endDate)
+  );
+
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...(doc.data() as Omit<FlowPlan, "id">),
+  }));
+};
