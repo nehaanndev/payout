@@ -1375,12 +1375,9 @@ export default function DailyDashboardPage() {
                   lastReflectionAt={lastReflectionAt}
                   loading={reflectionStreakLoading}
                   dark={isNight}
-                  onOpenJournal={() => router.push("/orbit")}
                   onViewHistory={() => setShowReflectionsExperience(true)}
                   photoUrl={latestReflection?.photoUrl ?? null}
                   photoNote={latestReflection?.note ?? null}
-                  showJournalCTA={true}
-                  ctaText={journalPrompt}
                 />
               </div>
             )}
@@ -2429,23 +2426,17 @@ function ReflectionStreakCard({
   lastReflectionAt,
   loading,
   dark,
-  onOpenJournal,
   onViewHistory,
   photoUrl,
   photoNote,
-  showJournalCTA,
-  ctaText,
 }: {
   streak: number;
   lastReflectionAt: string | null;
   loading: boolean;
   dark: boolean;
-  onOpenJournal: () => void;
   onViewHistory: () => void;
   photoUrl: string | null;
   photoNote: string | null;
-  showJournalCTA: boolean;
-  ctaText: string | null;
 }) {
   const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
   const tone = dark ? "text-indigo-200" : "text-slate-600";
@@ -2551,24 +2542,10 @@ function ReflectionStreakCard({
               </p>
             )}
             <div className="space-y-2">
-              {showJournalCTA ? (
-                <Button
-                  className={cn(
-                    "w-full font-semibold text-white shadow-lg shadow-indigo-500/30",
-                    dark
-                      ? "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:brightness-110"
-                      : "bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 hover:brightness-105"
-                  )}
-                  onClick={onOpenJournal}
-                >
-                  {ctaText ?? "Open journal"}
-                </Button>
-              ) : null}
               <Button
-                variant="ghost"
                 className={cn(
-                  "w-full",
-                  dark ? "text-indigo-200 hover:text-white hover:bg-white/10" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                  "w-full text-white",
+                  dark ? "bg-indigo-500 hover:bg-indigo-400" : "bg-indigo-600 hover:bg-indigo-500"
                 )}
                 onClick={onViewHistory}
               >
