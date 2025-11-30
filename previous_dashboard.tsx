@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
-import { BookmarkPlus, ChevronLeft, ChevronRight, ExternalLink, Search, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
-
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { BookmarkPlus, ExternalLink, Search, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
+import Image from "next/image";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,17 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ReflectionsExperience } from "@/components/reflections/ReflectionsExperience";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
-
-import { auth } from "@/lib/firebase";
+import { AppUserMenu } from "@/components/AppUserMenu";
+import { auth, signOut } from "@/lib/firebase";
 import {
   ensureFlowPlan,
   fetchFlowPlanSnapshot,
@@ -59,23 +52,18 @@ import type {
   DailySummaryPayload,
   InsightVoteDirection,
   OrbitInsightCard,
-  WorkTaskHighlight,
-  OrbitLearningLesson,
 } from "@/types/orbit";
-import { OnboardingWizard, type ToodlIntent } from "@/components/onboarding/OnboardingWizard";
 
 const THEMES = {
   morning: {
     id: "morning",
     label: "Morning",
-    emoji: "☀️",
     gradient: "from-amber-50 via-white to-emerald-50",
     hero: "bg-gradient-to-br from-amber-100/40 via-white to-emerald-100/30",
   },
   night: {
     id: "night",
     label: "Night",
-    emoji: "🌙",
     gradient: "from-slate-900 via-slate-800 to-slate-900",
     hero: "bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900",
   },
@@ -186,8 +174,6 @@ const formatBudgetAmount = (value: number, currency: CurrencyCode | null | undef
   }
 };
 
-const normalizeTaskTitle = (title: string) => title.trim().toLowerCase();
-
 
 export default function DailyDashboardPage() {
   const hour = new Date().getHours();
@@ -208,10 +194,6 @@ export default function DailyDashboardPage() {
   const [reflectionPhotoName, setReflectionPhotoName] = useState<string | null>(null);
   const [reflectionBusy, setReflectionBusy] = useState(false);
   const [reflectionStatus, setReflectionStatus] = useState<string | null>(null);
-  const [showReflectionsExperience, setShowReflectionsExperience] = useState(false);
-  const [reflectionStreakDays, setReflectionStreakDays] = useState(0);
-  const [lastReflectionAt, setLastReflectionAt] = useState<string | null>(null);
-  const [reflectionStreakLoading, setReflectionStreakLoading] = useState(true);
 
   const [splitTotals, setSplitTotals] = useState<CurrencySummary[]>([]);
   const [splitLoading, setSplitLoading] = useState(false);
@@ -230,38 +212,12 @@ export default function DailyDashboardPage() {
   const [insightVotes, setInsightVotes] = useState<Record<string, InsightVoteDirection>>({});
   const [insightMessages, setInsightMessages] = useState<Record<string, string>>({});
   const [savingInsightId, setSavingInsightId] = useState<string | null>(null);
+  const [reflectionStreakDays, setReflectionStreakDays] = useState(0);
+  const [reflectionStreakLoading, setReflectionStreakLoading] = useState(false);
+  const [lastReflectionAt, setLastReflectionAt] = useState<string | null>(null);
   const [splitSources, setSplitSources] = useState<Array<{ group: Group; expenses: Expense[] }>>([]);
   const [budgetEntries, setBudgetEntries] = useState<BudgetLedgerEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [anchorAddState, setAnchorAddState] = useState<Record<string, "adding" | "added">>({});
-
-  // Onboarding / Intent State
-  const [intent, setIntent] = useState<ToodlIntent | null>(null);
-  const [showWizard, setShowWizard] = useState(false);
-  const [wizardChecked, setWizardChecked] = useState(false);
-
-  const shouldShow = useCallback((feature: "split" | "pulse" | "flow" | "orbit") => {
-    if (!intent) return false;
-    if (intent === "all") return true;
-    return intent === feature;
-  }, [intent]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem("toodl_intent") as ToodlIntent | null;
-    if (stored) {
-      setIntent(stored);
-    } else {
-      setShowWizard(true);
-    }
-    setWizardChecked(true);
-  }, []);
-
-  const handleWizardComplete = (selected: ToodlIntent) => {
-    setIntent(selected);
-    setShowWizard(false);
-    window.localStorage.setItem("toodl_intent", selected);
-  };
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -289,10 +245,6 @@ export default function DailyDashboardPage() {
     });
     return () => unsubscribe();
   }, []);
-
-  useEffect(() => {
-    setAnchorAddState({});
-  }, [user?.uid]);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -476,6 +428,49 @@ export default function DailyDashboardPage() {
   }, [user]);
 
   useEffect(() => {
+    if (!user || !isSunday) {
+      setWeeklySummary(null);
+      setWeeklyLoading(false);
+      setWeeklyError(null);
+      return;
+    }
+    let cancelled = false;
+    setWeeklyLoading(true);
+    setWeeklyError(null);
+    const loadWeekly = async () => {
+      try {
+        const today = new Date();
+        const dateKeys = Array.from({ length: 7 }, (_, offset) => {
+          const date = new Date(today);
+          date.setDate(today.getDate() - offset);
+          return getFlowDateKey(date);
+        });
+        const results = await Promise.all(
+          dateKeys.map((key) => fetchFlowPlanSnapshot(user.uid, key))
+        );
+        if (cancelled) {
+          return;
+        }
+        const nonNullPlans = results.filter((plan): plan is FlowPlan => Boolean(plan));
+        setWeeklySummary(buildWeeklyDigest(nonNullPlans));
+      } catch (error) {
+        console.error("Failed to load weekly summary", error);
+        if (!cancelled) {
+          setWeeklyError("We couldn't build this week's summary.");
+        }
+      } finally {
+        if (!cancelled) {
+          setWeeklyLoading(false);
+        }
+      }
+    };
+    void loadWeekly();
+    return () => {
+      cancelled = true;
+    };
+  }, [isSunday, user]);
+
+  useEffect(() => {
     if (!user?.uid) {
       setReflectionStreakDays(0);
       setLastReflectionAt(null);
@@ -550,49 +545,6 @@ export default function DailyDashboardPage() {
       cancelled = true;
     };
   }, [flowPlan, user?.uid]);
-
-  useEffect(() => {
-    if (!user || !isSunday) {
-      setWeeklySummary(null);
-      setWeeklyLoading(false);
-      setWeeklyError(null);
-      return;
-    }
-    let cancelled = false;
-    setWeeklyLoading(true);
-    setWeeklyError(null);
-    const loadWeekly = async () => {
-      try {
-        const today = new Date();
-        const dateKeys = Array.from({ length: 7 }, (_, offset) => {
-          const date = new Date(today);
-          date.setDate(today.getDate() - offset);
-          return getFlowDateKey(date);
-        });
-        const results = await Promise.all(
-          dateKeys.map((key) => fetchFlowPlanSnapshot(user.uid, key))
-        );
-        if (cancelled) {
-          return;
-        }
-        const nonNullPlans = results.filter((plan): plan is FlowPlan => Boolean(plan));
-        setWeeklySummary(buildWeeklyDigest(nonNullPlans));
-      } catch (error) {
-        console.error("Failed to load weekly summary", error);
-        if (!cancelled) {
-          setWeeklyError("We couldn't build this week's summary.");
-        }
-      } finally {
-        if (!cancelled) {
-          setWeeklyLoading(false);
-        }
-      }
-    };
-    void loadWeekly();
-    return () => {
-      cancelled = true;
-    };
-  }, [isSunday, user]);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -679,9 +631,14 @@ export default function DailyDashboardPage() {
   const timelineMoments = useMemo(() => buildTimeline(flowPlan), [flowPlan]);
   const reflections = flowPlan?.reflections ?? EMPTY_REFLECTIONS;
   const latestReflection = reflections[0] ?? null;
-  const isNearEndOfDay = hour >= 18;
-  const journalPrompt = isNearEndOfDay ? "Wrap the day with a quick journal entry." : "Log a thought";
+  const latestPhotoReflection = useMemo(
+    () => reflections.find((reflection) => reflection.photoUrl),
+    [reflections]
+  );
+
   const primarySummary = splitTotals[0] ?? null;
+  const isNearEndOfDay = useMemo(() => new Date().getHours() >= 18, []);
+  const journalPrompt = isNearEndOfDay ? "Wrap the day with a quick journal entry." : null;
   const searchTokens = useMemo(() => normaliseQueryTokens(searchQuery), [searchQuery]);
   const searchableItems = useMemo(() => {
     const items: SearchResultItem[] = [];
@@ -889,9 +846,16 @@ export default function DailyDashboardPage() {
 
   const palette = THEMES[theme];
   const greetingName = user?.displayName?.split(" ")[0] ?? "friend";
+  const userDisplayName = user?.displayName ?? user?.email ?? "You";
 
-
-
+  const handleSignOut = useCallback(async () => {
+    try {
+      await signOut(auth);
+      router.replace("/");
+    } catch (error) {
+      console.error("Failed to sign out", error);
+    }
+  }, [router]);
 
   const handleSearchClear = useCallback(() => {
     setSearchQuery("");
@@ -918,75 +882,6 @@ export default function DailyDashboardPage() {
       window.open(url, "_blank", "noopener,noreferrer");
     }
   }, []);
-
-  const handleAddAnchorToFlow = useCallback(
-    (task: WorkTaskHighlight) => {
-      if (!user || !flowPlan) {
-        return;
-      }
-      const key = normalizeTaskTitle(task.title);
-      if (!key || anchorAddState[key] === "adding" || anchorAddState[key] === "added") {
-        return;
-      }
-      const alreadyInFlow =
-        flowPlan.tasks?.some(
-          (existing) => normalizeTaskTitle(existing.title) === key
-        ) ?? false;
-      if (alreadyInFlow) {
-        setAnchorAddState((prev) => ({ ...prev, [key]: "added" }));
-        return;
-      }
-      setAnchorAddState((prev) => ({ ...prev, [key]: "adding" }));
-      const nowIso = new Date().toISOString();
-      setFlowPlan((prev) => {
-        if (!prev) {
-          return prev;
-        }
-        const sequence = (prev.tasks?.length ?? 0) + 1;
-        const nextTask: FlowTask = {
-          id: generateId(),
-          title: task.title,
-          type: "priority",
-          category: "work",
-          estimateMinutes: 45,
-          sequence,
-          status: "pending",
-          notes: task.note ?? null,
-          scheduledStart: null,
-          scheduledEnd: null,
-          createdAt: nowIso,
-          updatedAt: nowIso,
-        };
-        const updated = {
-          ...prev,
-          tasks: [...prev.tasks, nextTask],
-          updatedAt: nowIso,
-        } satisfies FlowPlan;
-        void persistFlowPlan(updated);
-        return updated;
-      });
-      setAnchorAddState((prev) => ({ ...prev, [key]: "added" }));
-    },
-    [anchorAddState, flowPlan, persistFlowPlan, user]
-  );
-
-  const anchorStatusLookup = useCallback(
-    (task: WorkTaskHighlight) => {
-      const key = normalizeTaskTitle(task.title);
-      if (!key) {
-        return null;
-      }
-      const alreadyInFlow =
-        flowPlan?.tasks?.some(
-          (existing) => normalizeTaskTitle(existing.title) === key
-        ) ?? false;
-      if (alreadyInFlow) {
-        return "added";
-      }
-      return anchorAddState[key] ?? null;
-    },
-    [anchorAddState, flowPlan]
-  );
 
   const handleInsightVote = useCallback(
     async (insight: OrbitInsightCard, direction: InsightVoteDirection) => {
@@ -1076,375 +971,300 @@ export default function DailyDashboardPage() {
   );
 
   return (
-    <>
-      {/* Onboarding Wizard Overlay */}
-      {showWizard && <OnboardingWizard onComplete={handleWizardComplete} />}
-
-      {/* Main Content - Only show if wizard is checked and (not showing wizard OR wizard is done) */}
-      {wizardChecked && !showWizard && (
-        <div className={cn("min-h-screen pb-24 transition-colors duration-700", palette.gradient)}>
-          {/* Header & Search */}
-          <header
-            className={cn(
-              "relative z-10 rounded-[32px] border border-white/40 p-6 shadow-lg backdrop-blur",
-              palette.hero,
-              theme === "night" ? "text-white" : "text-slate-900"
-            )}
-          >
+    <div className={cn("min-h-screen w-full bg-gradient-to-b px-4 py-10", palette.gradient)}>
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
+        <header
+          className={cn(
+            "relative z-10 rounded-[32px] border border-white/40 p-6 shadow-lg backdrop-blur",
+            palette.hero,
+            theme === "night" ? "text-white" : "text-slate-900"
+          )}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-xs font-semibold uppercase tracking-[0.4em] text-current/70">
                 Ritual dashboard
               </span>
-            </div>
-
-            <div className={cn(
-              "absolute bottom-2 right-4 flex gap-1 rounded-full border p-0.5",
-              theme === "night"
-                ? "border-white/30 bg-white/10"
-                : "border-slate-200 bg-slate-50/80"
-            )}>
-              {Object.values(THEMES).map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() => setTheme(option.id)}
-                  className={cn(
-                    "flex items-center justify-center rounded-full px-2 py-1 text-[10px] transition-all",
-                    theme === option.id
-                      ? theme === "night"
-                        ? "bg-white/20 text-white shadow-sm"
-                        : "bg-white text-slate-900 shadow-sm"
-                      : theme === "night"
-                        ? "text-white/60 hover:text-white/80"
-                        : "text-slate-400 hover:text-slate-600"
-                  )}
-                  title={option.label}
-                >
-                  <span className="text-sm leading-none">{option.emoji}</span>
-                </button>
-              ))}
-            </div>
-            <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h1 className={cn("text-3xl font-bold", theme === "night" && "text-white")}>Hey {greetingName}, keep the loop kind.</h1>
-                <p className={cn("text-base", theme === "night" ? "text-indigo-100" : "text-slate-600")}>
-                  See → Do → Feel → Reflect without bouncing tabs.
-                </p>
+              <div className="flex gap-2 rounded-full border border-white/40 bg-white/20 p-1 text-xs font-semibold text-white">
+                {Object.values(THEMES).map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => setTheme(option.id)}
+                    className={cn(
+                      "rounded-full px-3 py-1",
+                      theme === option.id ? "bg-white/80 text-slate-900" : "text-white/80"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
               </div>
             </div>
-          </header>
-
-          <div
-            className={cn(
-              "rounded-[28px] border p-6 shadow-lg backdrop-blur",
-              isNight
-                ? "border-white/10 bg-slate-900/50 text-white"
-                : "border-white/70 bg-white/90 text-slate-900"
-            )}
-          >
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-500">
-                  Search anything
-                </p>
-                <p className={cn("text-sm", isNight ? "text-indigo-100" : "text-slate-600")}>
-                  Find Orbit saves, Flow anchors, Split expenses, and Pulse entries by tag.
-                </p>
-              </div>
-              <div className="relative w-full md:max-w-md">
-                <Search
-                  className={cn(
-                    "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2",
-                    isNight ? "text-white/60" : "text-slate-500"
-                  )}
-                />
-                <Input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder={searchPlaceholder}
-                  disabled={searchDisabled}
-                  aria-label="Search by tags"
-                  className={cn(
-                    "pl-9",
-                    isNight
-                      ? "border-white/15 bg-white/10 text-white placeholder:text-white/40"
-                      : "border-slate-200 bg-white"
-                  )}
-                />
-              </div>
-            </div>
-            {isSearchActive ? (
-              <div className="mt-4">
-                <SearchResultsPane
-                  query={searchQuery}
-                  results={filteredSearchResults}
-                  loading={searchLoading}
-                  errors={searchErrors}
-                  onClear={handleSearchClear}
-                  onNavigate={handleResultNavigate}
-                  onOpenExternal={handleResultOpenExternal}
-                  isNight={isNight}
-                />
-              </div>
+            {user ? (
+              <AppUserMenu
+                product="dashboard"
+                displayName={userDisplayName}
+                avatarSrc={user.photoURL}
+                onSignOut={handleSignOut}
+                dark={isNight}
+              />
             ) : null}
           </div>
+          <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className={cn("text-3xl font-bold", theme === "night" && "text-white")}>Hey {greetingName}, keep the loop kind.</h1>
+              <p className={cn("text-base", theme === "night" ? "text-indigo-100" : "text-slate-600")}>
+                See → Do → Feel → Reflect without bouncing tabs.
+              </p>
+            </div>
+          </div>
+        </header>
 
-          {shouldShow("flow") && (
-            isMorning ? (
-              <>
-                {flowLoading ? (
-                  <SkeletonBanner label="Loading Flow insights" />
-                ) : flowPlan ? (
-                  <FlowCards
-                    isMorning={isMorning}
-                    isNight={isNight}
-                    upcomingTasks={upcomingTasks}
-                    completedTasks={completedTasks}
-                    totalTasks={flowPlan.tasks?.length ?? 0}
-                    latestReflection={latestReflection}
-                    onAddJournal={() => router.push("/journal")}
-                    onReflect={() => router.push("/flow")}
-                    onOpenFlow={() => router.push("/flow")}
-                  />
-                ) : (
-                  <SkeletonBanner label={flowError ?? "Sign in to see Flow insights"} />
-                )}
-                <div className="space-y-6">
-                  <DailyWorkSummaryCard summary={dailySummary} loading={dailySummaryLoading} isNight={isNight} />
-                  <DailyRecommendationCard
-                    summary={dailySummary}
-                    loading={dailySummaryLoading}
-                    isNight={isNight}
-                    onAddAnchor={handleAddAnchorToFlow}
-                    anchorStatusLookup={anchorStatusLookup}
-                    canAddAnchors={Boolean(user && flowPlan)}
-                  />
-                  {dailySummary?.learningLesson ? (
-                    <LearningLessonCard lesson={dailySummary.learningLesson} isNight={isNight} userId={user?.uid} />
-                  ) : (
-                    <InsightCarousel
-                      insights={dailySummary?.insights ?? []}
-                      loading={dailySummaryLoading}
-                      isNight={isNight}
-                      votes={insightVotes}
-                      messages={insightMessages}
-                      savingInsightId={savingInsightId}
-                      onVote={handleInsightVote}
-                      onSave={handleInsightSave}
-                      canInteract={Boolean(user)}
-                    />
-                  )}
-                </div>
-              </>
-            ) : flowLoading ? (
-              <SkeletonBanner label="Loading Flow insights" />
-            ) : flowPlan ? (
-              <FlowCards
-                isMorning={isMorning}
-                isNight={isNight}
-                upcomingTasks={upcomingTasks}
-                completedTasks={completedTasks}
-                totalTasks={flowPlan.tasks?.length ?? 0}
-                latestReflection={latestReflection}
-                onAddJournal={() => router.push("/journal")}
-                onReflect={() => router.push("/flow")}
-                onOpenFlow={() => router.push("/flow")}
-              />
-            ) : (
-              <SkeletonBanner label={flowError ?? "Sign in to see Flow insights"} />
-            )
+        <div
+          className={cn(
+            "rounded-[28px] border p-6 shadow-lg backdrop-blur",
+            isNight
+              ? "border-white/10 bg-slate-900/50 text-white"
+              : "border-white/70 bg-white/90 text-slate-900"
           )}
-
-          {shouldShow("flow") && (
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Card
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-500">
+                Search anything
+              </p>
+              <p className={cn("text-sm", isNight ? "text-indigo-100" : "text-slate-600")}>
+                Find Orbit saves, Flow anchors, Split expenses, and Pulse entries by tag.
+              </p>
+            </div>
+            <div className="relative w-full md:max-w-md">
+              <Search
                 className={cn(
-                  "rounded-[28px] p-6 shadow-sm",
+                  "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2",
+                  isNight ? "text-white/60" : "text-slate-500"
+                )}
+              />
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={searchPlaceholder}
+                disabled={searchDisabled}
+                aria-label="Search by tags"
+                className={cn(
+                  "pl-9",
                   isNight
-                    ? "border-white/15 bg-slate-900/60 text-white"
-                    : "border border-indigo-200 bg-indigo-50/70 text-slate-900"
+                    ? "border-white/15 bg-white/10 text-white placeholder:text-white/40"
+                    : "border-slate-200 bg-white"
+                )}
+              />
+            </div>
+          </div>
+          {isSearchActive ? (
+            <div className="mt-4">
+              <SearchResultsPane
+                query={searchQuery}
+                results={filteredSearchResults}
+                loading={searchLoading}
+                errors={searchErrors}
+                onClear={handleSearchClear}
+                onNavigate={handleResultNavigate}
+                onOpenExternal={handleResultOpenExternal}
+                isNight={isNight}
+              />
+            </div>
+          ) : null}
+        </div>
+
+        {isMorning ? (
+          <div className="space-y-6">
+            <DailyWorkSummaryCard summary={dailySummary} loading={dailySummaryLoading} isNight={isNight} />
+            <DailyRecommendationCard summary={dailySummary} loading={dailySummaryLoading} isNight={isNight} />
+            <InsightCarousel
+              insights={dailySummary?.insights ?? []}
+              loading={dailySummaryLoading}
+              isNight={isNight}
+              votes={insightVotes}
+              messages={insightMessages}
+              savingInsightId={savingInsightId}
+              onVote={handleInsightVote}
+              onSave={handleInsightSave}
+              canInteract={Boolean(user)}
+            />
+          </div>
+        ) : null}
+
+        {flowLoading ? (
+          <SkeletonBanner label="Loading Flow insights" />
+        ) : flowPlan ? (
+          <FlowCards
+            isMorning={isMorning}
+            upcomingTasks={upcomingTasks}
+            completedTasks={completedTasks}
+            totalTasks={flowPlan.tasks?.length ?? 0}
+            latestReflection={latestReflection}
+            onAddJournal={() => router.push("/journal")}
+            onReflect={() => router.push("/flow")}
+          />
+        ) : (
+          <SkeletonBanner label={flowError ?? "Sign in to see Flow insights"} />
+        )}
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card
+            className={cn(
+              "rounded-[28px] p-6 shadow-sm",
+              isNight
+                ? "border-white/15 bg-slate-900/60 text-white"
+                : "border border-indigo-200 bg-indigo-50/70 text-slate-900"
+            )}
+          >
+            <CardHeader className="p-0">
+              <p
+                className={cn(
+                  "text-xs font-semibold uppercase tracking-[0.35em]",
+                  isNight ? "text-indigo-200" : "text-indigo-500"
                 )}
               >
-                <CardHeader className="p-0">
-                  <p
+                Mood + photo
+              </p>
+              <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-indigo-900")}>
+                Drop a feeling and a photo
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="mt-4 space-y-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <label
                     className={cn(
                       "text-xs font-semibold uppercase tracking-[0.35em]",
-                      isNight ? "text-indigo-200" : "text-indigo-500"
+                      isNight ? "text-indigo-100" : "text-indigo-500"
                     )}
                   >
-                    Mood + photo
-                  </p>
-                  <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-indigo-900")}>
-                    Drop a feeling and a photo
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="mt-4 space-y-4">
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div>
-                      <label
-                        className={cn(
-                          "text-xs font-semibold uppercase tracking-[0.35em]",
-                          isNight ? "text-indigo-100" : "text-indigo-500"
-                        )}
-                      >
-                        Mood
-                      </label>
-                      <select
-                        value={reflectionMood}
-                        onChange={(event) => setReflectionMood(event.target.value)}
-                        className={cn(
-                          "mt-2 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none",
-                          isNight
-                            ? "border-white/30 bg-slate-900/50 text-white focus:border-indigo-200"
-                            : "border-indigo-200 bg-white text-slate-700 focus:border-indigo-300"
-                        )}
-                      >
-                        {FLOW_MOOD_OPTIONS.map((option) => (
-                          <option key={option.id} value={option.id}>
-                            {option.emoji} {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label
-                        className={cn(
-                          "text-xs font-semibold uppercase tracking-[0.35em]",
-                          isNight ? "text-indigo-100" : "text-indigo-500"
-                        )}
-                      >
-                        Photo
-                      </label>
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className={cn(
-                          "mt-2 cursor-pointer text-sm",
-                          isNight
-                            ? "border-white/30 bg-slate-900/50 text-white"
-                            : "border-indigo-200"
-                        )}
-                        onChange={handlePhotoChange}
-                      />
-                      <p className={cn("mt-1 text-xs", isNight ? "text-indigo-200" : "text-indigo-500")}>
-                        {reflectionPhotoName
-                          ? `Attached: ${reflectionPhotoName}`
-                          : "Optional — shows up in Flow reflections."}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <label
-                      className={cn(
-                        "text-xs font-semibold uppercase tracking-[0.35em]",
-                        isNight ? "text-indigo-100" : "text-indigo-500"
-                      )}
-                    >
-                      Reflection
-                    </label>
-                    <Textarea
-                      className={cn(
-                        "mt-2 min-h-[100px]",
-                        isNight
-                          ? "border-white/30 bg-slate-900/40 text-white placeholder:text-slate-400"
-                          : "border-indigo-200"
-                      )}
-                      placeholder="What moment stands out?"
-                      value={reflectionNote}
-                      onChange={(event) => setReflectionNote(event.target.value)}
-                    />
-                  </div>
-                  {reflectionStatus ? (
-                    <p className={cn("text-sm", isNight ? "text-indigo-200" : "text-indigo-700")}>{reflectionStatus}</p>
-                  ) : null}
-                  <Button
+                    Mood
+                  </label>
+                  <select
+                    value={reflectionMood}
+                    onChange={(event) => setReflectionMood(event.target.value)}
                     className={cn(
-                      "text-white",
-                      isNight ? "bg-indigo-500 hover:bg-indigo-400" : "bg-indigo-600 hover:bg-indigo-500"
+                      "mt-2 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none",
+                      isNight
+                        ? "border-white/30 bg-slate-900/50 text-white focus:border-indigo-200"
+                        : "border-indigo-200 bg-white text-slate-700 focus:border-indigo-300"
                     )}
-                    onClick={handleReflectionSubmit}
-                    disabled={reflectionBusy}
                   >
-                    {reflectionBusy ? <Spinner size="sm" className="text-white" /> : "Sync to Flow"}
-                  </Button>
-                </CardContent>
-              </Card>
-              <ReflectionStreakCard
-                streak={reflectionStreakDays}
-                lastReflectionAt={lastReflectionAt}
-                loading={reflectionStreakLoading}
-                dark={isNight}
-                onOpenJournal={() => router.push("/orbit")}
-                onViewHistory={() => setShowReflectionsExperience(true)}
-                photoUrl={latestReflection?.photoUrl ?? null}
-                photoNote={latestReflection?.note ?? null}
-                showJournalCTA={true}
-                ctaText={journalPrompt}
-              />
-            </div>
-          )}
-
-          <Dialog open={showReflectionsExperience} onOpenChange={setShowReflectionsExperience}>
-            <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden flex flex-col">
-              <DialogHeader className="sr-only">
-                <DialogTitle>Reflections History</DialogTitle>
-              </DialogHeader>
-              <ReflectionsExperience user={user} onClose={() => setShowReflectionsExperience(false)} />
-            </DialogContent>
-          </Dialog>
-
-
-          {(shouldShow("pulse") || shouldShow("split")) && (
-            <div className={cn("grid gap-6", shouldShow("pulse") && shouldShow("split") ? "lg:grid-cols-2" : "grid-cols-1")}>
-              {shouldShow("pulse") && (
-                <BudgetPulseCard
-                  loading={budgetLoading}
-                  error={budgetError}
-                  summary={budgetPulse}
-                  onOpenBudget={() => router.push("/budget")}
-                  dark={isNight}
+                    {FLOW_MOOD_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.emoji} {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label
+                    className={cn(
+                      "text-xs font-semibold uppercase tracking-[0.35em]",
+                      isNight ? "text-indigo-100" : "text-indigo-500"
+                    )}
+                  >
+                    Photo
+                  </label>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className={cn(
+                      "mt-2 cursor-pointer text-sm",
+                      isNight
+                        ? "border-white/30 bg-slate-900/50 text-white"
+                        : "border-indigo-200"
+                    )}
+                    onChange={handlePhotoChange}
+                  />
+                  <p className={cn("mt-1 text-xs", isNight ? "text-indigo-200" : "text-indigo-500")}>
+                    {reflectionPhotoName
+                      ? `Attached: ${reflectionPhotoName}`
+                      : "Optional — shows up in Flow reflections."}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <label
+                  className={cn(
+                    "text-xs font-semibold uppercase tracking-[0.35em]",
+                    isNight ? "text-indigo-100" : "text-indigo-500"
+                  )}
+                >
+                  Reflection
+                </label>
+                <Textarea
+                  className={cn(
+                    "mt-2 min-h-[100px]",
+                    isNight
+                      ? "border-white/30 bg-slate-900/40 text-white placeholder:text-slate-400"
+                      : "border-indigo-200"
+                  )}
+                  placeholder="What moment stands out?"
+                  value={reflectionNote}
+                  onChange={(event) => setReflectionNote(event.target.value)}
                 />
-              )}
-
-              {shouldShow("split") && (
-                <GroupSummaryCard
-                  loading={splitLoading}
-                  error={splitError}
-                  summaries={splitTotals}
-                  primary={primarySummary}
-                  onAddExpense={() => router.push("/split")}
-                  dark={isNight}
-                />
-              )}
-            </div>
-          )}
-
-          {isSunday && shouldShow("flow") ? (
-            <WeeklyDigestCard
-              summary={weeklySummary}
-              loading={weeklyLoading}
-              error={weeklyError}
-              moments={timelineMoments}
-            />
-          ) : null}
-
-          {intent !== "all" && (
-            <div className="pt-8 pb-4 text-center">
-              <p className="text-sm text-slate-500 mb-3">Looking for more tools?</p>
+              </div>
+              {reflectionStatus ? (
+                <p className={cn("text-sm", isNight ? "text-indigo-200" : "text-indigo-700")}>{reflectionStatus}</p>
+              ) : null}
               <Button
-                variant="outline"
-                onClick={() => handleWizardComplete("all")}
-                className="rounded-full border-slate-200 text-slate-600 hover:bg-slate-50"
+                className={cn(
+                  "text-white",
+                  isNight ? "bg-indigo-500 hover:bg-indigo-400" : "bg-indigo-600 hover:bg-indigo-500"
+                )}
+                onClick={handleReflectionSubmit}
+                disabled={reflectionBusy}
               >
-                <Sparkles className="mr-2 h-4 w-4" />
-                Show all features
+                {reflectionBusy ? <Spinner size="sm" className="text-white" /> : "Sync to Flow"}
               </Button>
-            </div>
-          )}
+            </CardContent>
+          </Card>
+          <ReflectionStreakCard
+            dark={isNight}
+            loading={reflectionStreakLoading}
+            streak={reflectionStreakDays}
+            lastReflectionAt={lastReflectionAt}
+            photoUrl={latestPhotoReflection?.photoUrl ?? null}
+            photoNote={latestPhotoReflection?.note ?? null}
+            showJournalCTA={isNearEndOfDay}
+            ctaText={journalPrompt}
+            onOpenJournal={() => router.push("/journal")}
+          />
         </div>
-      )}
 
-    </>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <BudgetPulseCard
+            loading={budgetLoading}
+            error={budgetError}
+            summary={budgetPulse}
+            onOpenBudget={() => router.push("/budget")}
+            dark={isNight}
+          />
+
+          <GroupSummaryCard
+            loading={splitLoading}
+            error={splitError}
+            summaries={splitTotals}
+            primary={primarySummary}
+            onAddExpense={() => router.push("/split")}
+            dark={isNight}
+          />
+        </div>
+
+        {isSunday ? (
+          <WeeklyDigestCard
+            summary={weeklySummary}
+            loading={weeklyLoading}
+            error={weeklyError}
+            moments={timelineMoments}
+          />
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -1600,24 +1420,20 @@ function SearchResultsPane({
 
 function FlowCards({
   isMorning,
-  isNight,
   upcomingTasks,
   completedTasks,
   totalTasks,
   latestReflection,
   onAddJournal,
   onReflect,
-  onOpenFlow,
 }: {
   isMorning: boolean;
-  isNight: boolean;
   upcomingTasks: FlowTask[];
   completedTasks: number;
   totalTasks: number;
   latestReflection: FlowReflection | null;
   onAddJournal: () => void;
   onReflect: () => void;
-  onOpenFlow: () => void;
 }) {
   const openToodlMind = () => {
     if (typeof window !== "undefined") {
@@ -1630,14 +1446,12 @@ function FlowCards({
       <Card className="relative overflow-hidden rounded-[28px] border-none bg-white/90 p-6 shadow-lg">
         <span className="pointer-events-none absolute -top-10 right-4 h-28 w-28 rounded-full bg-gradient-to-br from-amber-300 via-yellow-200 to-orange-200 opacity-70 animate-dashboard-sun" />
         <span className="pointer-events-none absolute -top-8 right-0 h-36 w-36 rounded-full bg-amber-200/30 blur-3xl animate-dashboard-sun-glow" />
-        <CardHeader className="flex flex-col gap-3 p-0">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-500">Morning calm</p>
-            <CardTitle className="text-2xl text-slate-900">Good morning.</CardTitle>
-            <p className="text-sm text-slate-500">
-              {upcomingTasks.length ? "Here's how Flow lined up your next anchors." : "Add a task in Flow to start the day."}
-            </p>
-          </div>
+        <CardHeader className="p-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-500">Morning calm</p>
+          <CardTitle className="text-2xl text-slate-900">Good morning.</CardTitle>
+          <p className="text-sm text-slate-500">
+            {upcomingTasks.length ? "Here's how Flow lined up your next anchors." : "Add a task in Flow to start the day."}
+          </p>
         </CardHeader>
         <CardContent className="mt-4 grid gap-4 sm:grid-cols-2">
           <Highlight
@@ -1665,20 +1479,6 @@ function FlowCards({
             value={latestReflection?.note ?? "Drop a quick reflection to keep the loop alive."}
           />
         </CardContent>
-        <div className="mt-2 flex justify-end">
-          <Button
-            variant="outline"
-            className={cn(
-              "px-5 text-sm font-semibold",
-              isNight
-                ? "border-transparent bg-emerald-500/90 text-slate-900 hover:bg-emerald-400"
-                : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-            )}
-            onClick={onOpenFlow}
-          >
-            Open Flow
-          </Button>
-        </div>
         <div className="mt-6 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-500 via-indigo-500/90 to-violet-500 p-4 text-white shadow-lg shadow-indigo-200/60">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
@@ -1708,12 +1508,12 @@ function FlowCards({
     ? `${completedTasks}/${totalTasks} tasks finished`
     : "Nothing planned yet.";
   return (
-    <Card className="relative overflow-hidden rounded-[28px] border-none bg-slate-900 text-white">
-      {!isMorning ? (
-        <>
-          <span className="pointer-events-none absolute -top-12 right-4 h-32 w-32 rounded-full bg-gradient-to-br from-amber-200 via-yellow-100 to-white opacity-80 animate-dashboard-moon" />
-          <span className="pointer-events-none absolute -top-10 right-0 h-40 w-40 rounded-full bg-amber-200/25 blur-3xl animate-dashboard-moon-glow" />
-        </>
+      <Card className="relative overflow-hidden rounded-[28px] border-none bg-slate-900 text-white">
+        {!isMorning ? (
+          <>
+            <span className="pointer-events-none absolute -top-12 right-4 h-32 w-32 rounded-full bg-gradient-to-br from-amber-200 via-yellow-100 to-white opacity-80 animate-dashboard-moon" />
+            <span className="pointer-events-none absolute -top-10 right-0 h-40 w-40 rounded-full bg-amber-200/25 blur-3xl animate-dashboard-moon-glow" />
+          </>
       ) : null}
       <CardHeader>
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Evening reflection</p>
@@ -2400,8 +2200,6 @@ function WeeklyDigestCard({
   );
 }
 
-
-
 const formatRelativeDayDistance = (timestamp?: string | null) => {
   if (!timestamp) {
     return null;
@@ -2428,7 +2226,6 @@ function ReflectionStreakCard({
   loading,
   dark,
   onOpenJournal,
-  onViewHistory,
   photoUrl,
   photoNote,
   showJournalCTA,
@@ -2439,7 +2236,6 @@ function ReflectionStreakCard({
   loading: boolean;
   dark: boolean;
   onOpenJournal: () => void;
-  onViewHistory: () => void;
   photoUrl: string | null;
   photoNote: string | null;
   showJournalCTA: boolean;
@@ -2548,31 +2344,19 @@ function ReflectionStreakCard({
                 Add a photo to your next reflection to light up this space.
               </p>
             )}
-            <div className="space-y-2">
-              {showJournalCTA ? (
-                <Button
-                  className={cn(
-                    "w-full font-semibold text-white shadow-lg shadow-indigo-500/30",
-                    dark
-                      ? "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:brightness-110"
-                      : "bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 hover:brightness-105"
-                  )}
-                  onClick={onOpenJournal}
-                >
-                  {ctaText ?? "Open journal"}
-                </Button>
-              ) : null}
+            {showJournalCTA ? (
               <Button
-                variant="ghost"
                 className={cn(
-                  "w-full",
-                  dark ? "text-indigo-200 hover:text-white hover:bg-white/10" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                  "w-full font-semibold text-white shadow-lg shadow-indigo-500/30",
+                  dark
+                    ? "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:brightness-110"
+                    : "bg-gradient-to-r from-indigo-600 via-purple-500 to-pink-500 hover:brightness-105"
                 )}
-                onClick={onViewHistory}
+                onClick={onOpenJournal}
               >
-                View History
+                {ctaText ?? "Open journal"}
               </Button>
-            </div>
+            ) : null}
           </>
         )}
       </CardContent>
@@ -2660,16 +2444,10 @@ function DailyRecommendationCard({
   summary,
   loading,
   isNight,
-  onAddAnchor,
-  anchorStatusLookup,
-  canAddAnchors = false,
 }: {
   summary: DailySummaryPayload | null;
   loading: boolean;
   isNight: boolean;
-  onAddAnchor?: (task: WorkTaskHighlight) => void;
-  anchorStatusLookup?: (task: WorkTaskHighlight) => "adding" | "added" | null;
-  canAddAnchors?: boolean;
 }) {
   const tone = isNight ? "text-indigo-200" : "text-indigo-600";
   const accent = isNight ? "text-white" : "text-slate-900";
@@ -2724,37 +2502,7 @@ function DailyRecommendationCard({
                 tasks={summary.pendingWork}
                 emptyText="No carryovers queued up - add one thing you want to complete."
                 isNight={isNight}
-                actionRenderer={
-                  onAddAnchor
-                    ? (task) => {
-                      const status = anchorStatusLookup?.(task);
-                      const isAdded = status === "added";
-                      const isAdding = status === "adding";
-                      const disabled = !canAddAnchors || isAdded || isAdding;
-                      return (
-                        <Button
-                          size="sm"
-                          variant={isNight ? "secondary" : "outline"}
-                          disabled={disabled}
-                          onClick={() => onAddAnchor(task)}
-                          className={cn(
-                            "text-xs font-semibold",
-                            disabled &&
-                            (isNight
-                              ? "bg-white/5 text-indigo-200 border-white/15"
-                              : "bg-slate-100 text-slate-500 border-slate-200")
-                          )}
-                        >
-                          {isAdding ? "Adding..." : isAdded ? "Task added" : canAddAnchors ? "Add to Flow" : "Sign in to add"}
-                        </Button>
-                      );
-                    }
-                    : undefined
-                }
               />
-              {!canAddAnchors ? (
-                <p className={cn("mt-2 text-xs", tone)}>Sign in to push these tasks into Flow.</p>
-              ) : null}
             </div>
           </>
         ) : (
@@ -2787,30 +2535,6 @@ function InsightCarousel({
   canInteract: boolean;
 }) {
   const tone = isNight ? "text-indigo-200" : "text-slate-600";
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [insights.length]);
-
-  const totalInsights = insights.length;
-  const currentInsight =
-    totalInsights > 0 ? insights[activeIndex % totalInsights] : null;
-
-  const handlePrevious = () => {
-    if (totalInsights < 2) {
-      return;
-    }
-    setActiveIndex((prev) => (prev - 1 + totalInsights) % totalInsights);
-  };
-
-  const handleNext = () => {
-    if (totalInsights < 2) {
-      return;
-    }
-    setActiveIndex((prev) => (prev + 1) % totalInsights);
-  };
-
   return (
     <Card
       className={cn(
@@ -2837,135 +2561,110 @@ function InsightCarousel({
             <Spinner size="sm" className="text-current" />
             Researching new developments...
           </div>
-        ) : currentInsight ? (
-          <div className="space-y-4">
-            {totalInsights > 1 ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-                <p className={cn(tone, "font-medium")}>Swipe left or use the arrows to see the next card.</p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="icon"
-                    variant={isNight ? "secondary" : "outline"}
-                    className="h-8 w-8 rounded-full"
-                    onClick={handlePrevious}
-                    aria-label="Previous insight"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className={cn("text-xs font-semibold", tone)}>
-                    {activeIndex + 1} / {totalInsights}
-                  </span>
-                  <Button
-                    size="icon"
-                    variant={isNight ? "secondary" : "outline"}
-                    className="h-8 w-8 rounded-full"
-                    onClick={handleNext}
-                    aria-label="Next insight"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <p className={cn("text-xs font-medium", tone)}>Swipe left to revisit this spark anytime today.</p>
-            )}
-            <article
-              key={currentInsight.id}
-              className={cn(
-                "rounded-2xl border p-5",
-                isNight ? "border-white/10 bg-slate-900/80" : "border-slate-200 bg-slate-50"
-              )}
-            >
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-indigo-400">
-                <span>{currentInsight.type}</span>
-                <span className="text-indigo-200/60">•</span>
-                <span>{currentInsight.topic}</span>
-              </div>
-              <h3 className={cn("mt-2 text-lg font-semibold", isNight ? "text-white" : "text-slate-900")}>
-                {currentInsight.title}
-              </h3>
-              <p className={cn("mt-1 text-sm font-medium", tone)}>{currentInsight.summary}</p>
-              <div className="mt-3 space-y-3 text-sm leading-relaxed">
-                {currentInsight.paragraphs.map((paragraph, index) => (
-                  <p key={index} className={isNight ? "text-indigo-100" : "text-slate-700"}>
-                    {paragraph}
-                  </p>
-                ))}
-              </div>
-              {currentInsight.referenceUrl ? (
-                <button
+        ) : insights.length ? (
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {insights.map((insight) => {
+              const vote = votes[insight.id];
+              return (
+                <article
+                  key={insight.id}
                   className={cn(
-                    "mt-3 inline-flex items-center gap-1 text-xs font-semibold",
-                    isNight ? "text-indigo-200" : "text-indigo-600"
+                    "min-w-[300px] max-w-sm flex-shrink-0 snap-center rounded-2xl border p-5",
+                    isNight ? "border-white/10 bg-slate-900/80" : "border-slate-200 bg-slate-50"
                   )}
-                  onClick={() => {
-                    if (typeof window !== "undefined") {
-                      window.open(currentInsight.referenceUrl ?? "", "_blank", "noopener,noreferrer");
-                    }
-                  }}
                 >
-                  Read source
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </button>
-              ) : null}
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={!canInteract}
-                  className={cn(
-                    "gap-1 rounded-full border px-3",
-                    isNight
-                      ? "border-white/15 text-indigo-100 hover:bg-white/10"
-                      : "border-indigo-100 text-indigo-700 hover:bg-indigo-50",
-                    votes[currentInsight.id] === "more" && (isNight ? "bg-white/10" : "bg-indigo-50")
-                  )}
-                  onClick={() => onVote(currentInsight, "more")}
-                >
-                  <ThumbsUp className="h-3.5 w-3.5" />
-                  More like this
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={!canInteract}
-                  className={cn(
-                    "gap-1 rounded-full border px-3",
-                    isNight
-                      ? "border-white/15 text-indigo-100 hover:bg-white/10"
-                      : "border-indigo-100 text-indigo-700 hover:bg-indigo-50",
-                    votes[currentInsight.id] === "less" && (isNight ? "bg-white/10" : "bg-indigo-50")
-                  )}
-                  onClick={() => onVote(currentInsight, "less")}
-                >
-                  <ThumbsDown className="h-3.5 w-3.5" />
-                  Less of this
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={!canInteract || savingInsightId === currentInsight.id}
-                  className={cn(
-                    "gap-1 rounded-full border px-3",
-                    isNight ? "border-white/20 text-white hover:bg-white/10" : "border-slate-200 text-slate-800"
-                  )}
-                  onClick={() => onSave(currentInsight)}
-                >
-                  {savingInsightId === currentInsight.id ? (
-                    <Spinner size="sm" className="text-current" />
-                  ) : (
-                    <BookmarkPlus className="h-3.5 w-3.5" />
-                  )}
-                  Save to Orbit
-                </Button>
-              </div>
-              {messages[currentInsight.id] ? (
-                <p className={cn("mt-2 text-xs", tone)}>{messages[currentInsight.id]}</p>
-              ) : null}
-              {!canInteract ? (
-                <p className={cn("mt-2 text-xs italic", tone)}>Sign in to vote or save.</p>
-              ) : null}
-            </article>
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-indigo-400">
+                    <span>{insight.type}</span>
+                    <span className="text-indigo-200/60">•</span>
+                    <span>{insight.topic}</span>
+                  </div>
+                  <h3 className={cn("mt-2 text-lg font-semibold", isNight ? "text-white" : "text-slate-900")}>
+                    {insight.title}
+                  </h3>
+                  <p className={cn("mt-1 text-sm font-medium", tone)}>{insight.summary}</p>
+                  <div className="mt-3 space-y-3 text-sm leading-relaxed">
+                    {insight.paragraphs.map((paragraph, index) => (
+                      <p key={index} className={isNight ? "text-indigo-100" : "text-slate-700"}>
+                        {paragraph}
+                      </p>
+                    ))}
+                  </div>
+                  {insight.referenceUrl ? (
+                    <button
+                      className={cn(
+                        "mt-3 inline-flex items-center gap-1 text-xs font-semibold",
+                        isNight ? "text-indigo-200" : "text-indigo-600"
+                      )}
+                      onClick={() => {
+                        if (typeof window !== "undefined") {
+                          window.open(insight.referenceUrl ?? "", "_blank", "noopener,noreferrer");
+                        }
+                      }}
+                    >
+                      Read source
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!canInteract}
+                      className={cn(
+                        "gap-1 rounded-full border px-3",
+                        isNight
+                          ? "border-white/15 text-indigo-100 hover:bg-white/10"
+                          : "border-indigo-100 text-indigo-700 hover:bg-indigo-50",
+                        vote === "more" && (isNight ? "bg-white/10" : "bg-indigo-50")
+                      )}
+                      onClick={() => onVote(insight, "more")}
+                    >
+                      <ThumbsUp className="h-3.5 w-3.5" />
+                      More like this
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!canInteract}
+                      className={cn(
+                        "gap-1 rounded-full border px-3",
+                        isNight
+                          ? "border-white/15 text-indigo-100 hover:bg-white/10"
+                          : "border-indigo-100 text-indigo-700 hover:bg-indigo-50",
+                        vote === "less" && (isNight ? "bg-white/10" : "bg-indigo-50")
+                      )}
+                      onClick={() => onVote(insight, "less")}
+                    >
+                      <ThumbsDown className="h-3.5 w-3.5" />
+                      Less of this
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!canInteract || savingInsightId === insight.id}
+                      className={cn(
+                        "gap-1 rounded-full border px-3",
+                        isNight ? "border-white/20 text-white hover:bg-white/10" : "border-slate-200 text-slate-800"
+                      )}
+                      onClick={() => onSave(insight)}
+                    >
+                      {savingInsightId === insight.id ? (
+                        <Spinner size="sm" className="text-current" />
+                      ) : (
+                        <BookmarkPlus className="h-3.5 w-3.5" />
+                      )}
+                      Save to Orbit
+                    </Button>
+                  </div>
+                  {messages[insight.id] ? (
+                    <p className={cn("mt-2 text-xs", tone)}>{messages[insight.id]}</p>
+                  ) : null}
+                  {!canInteract ? (
+                    <p className={cn("mt-2 text-xs italic", tone)}>Sign in to vote or save.</p>
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
         ) : (
           <p className={cn("text-sm", tone)}>
@@ -2977,234 +2676,16 @@ function InsightCarousel({
   );
 }
 
-function LearningLessonCard({
-  lesson,
-  isNight,
-  userId,
-}: {
-  lesson: OrbitLearningLesson;
-  isNight: boolean;
-  userId: string | null | undefined;
-}) {
-  const tone = isNight ? "text-indigo-200" : "text-slate-600";
-  const [open, setOpen] = useState(false);
-  const quizItems = lesson.quiz ?? [];
-  const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [quizResponses, setQuizResponses] = useState<
-    Record<number, { selected: string; isCorrect: boolean }>
-  >({});
-
-  const handleAnswerSelect = (questionIndex: number, answer: string, correctAnswer: string) => {
-    const isCorrect =
-      answer.trim().toLowerCase() === (correctAnswer ?? "").trim().toLowerCase();
-    setQuizResponses((prev) => ({
-      ...prev,
-      [questionIndex]: { selected: answer, isCorrect },
-    }));
-  };
-
-  const handleSaveLesson = async () => {
-    if (!userId) {
-      setSaveMessage("Sign in to save lessons to Orbit.");
-      return;
-    }
-    setSaving(true);
-    setSaveMessage(null);
-    try {
-      const response = await fetch("/api/orbit/lesson-save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          topic: lesson.title,
-          lesson,
-        }),
-      });
-      const payload = await response.json();
-      if (!response.ok || payload?.error) {
-        throw new Error(payload?.error ?? "Failed to save lesson");
-      }
-      setSaveMessage("Saved to Orbit lessons.");
-    } catch (error) {
-      console.error("Failed to save lesson to Orbit", error);
-      setSaveMessage(
-        error instanceof Error ? error.message : "Couldn't save this lesson. Try again."
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-  return (
-    <Card
-      className={cn(
-        "rounded-[28px] p-6 shadow-sm",
-        isNight ? "border-white/15 bg-slate-900/70 text-white" : "border-emerald-200 bg-white/95 text-slate-900"
-      )}
-    >
-      <CardHeader className="p-0">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p
-              className={cn(
-                "text-xs font-semibold uppercase tracking-[0.35em]",
-                isNight ? "text-emerald-200" : "text-emerald-600"
-              )}
-            >
-              Learning mode
-            </p>
-            <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-slate-900")}>
-              Day {lesson.day} / {lesson.totalDays}: {lesson.title}
-            </CardTitle>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant={isNight ? "secondary" : "outline"}
-              className={cn(
-                "text-sm font-semibold",
-                isNight
-                  ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
-                  : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-              )}
-              onClick={() => setOpen(true)}
-            >
-              Open lesson
-            </Button>
-            <Button
-              size="sm"
-              variant={isNight ? "secondary" : "outline"}
-              onClick={handleSaveLesson}
-              disabled={saving}
-              className={cn(
-                "gap-2 text-sm font-semibold",
-                isNight
-                  ? "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400 border-transparent disabled:opacity-50"
-                  : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-              )}
-            >
-              {saving ? "Saving…" : "Save to Orbit lessons"}
-            </Button>
-          </div>
-        </div>
-        <p className={cn("mt-2 text-sm", tone)}>{lesson.overview}</p>
-        {saveMessage ? <p className={cn("mt-1 text-xs", tone)}>{saveMessage}</p> : null}
-      </CardHeader>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          className={cn(
-            "max-w-3xl border-none p-6",
-            isNight ? "bg-slate-900/90 text-white" : "bg-white/95 text-slate-900"
-          )}
-        >
-          <DialogHeader className="p-0">
-            <DialogTitle className={cn("text-xl font-semibold", isNight ? "text-white" : "text-slate-900")}>
-              {lesson.title}
-            </DialogTitle>
-          </DialogHeader>
-          <p className={cn("text-sm", tone)}>
-            Day {lesson.day} of {lesson.totalDays} · {lesson.overview}
-          </p>
-          <div className="mt-4 space-y-3 text-sm leading-relaxed">
-            {lesson.paragraphs.map((paragraph, index) => (
-              <p key={index} className={isNight ? "text-indigo-100" : "text-slate-700"}>
-                {paragraph}
-              </p>
-            ))}
-            {lesson.code && lesson.code.length ? (
-              <div className="space-y-2">
-                {lesson.code.map((block, codeIdx) => (
-                  <pre
-                    key={codeIdx}
-                    className={cn(
-                      "overflow-auto rounded-xl border px-4 py-3 text-xs font-mono",
-                      isNight
-                        ? "border-white/10 bg-slate-900/80 text-emerald-100"
-                        : "border-slate-200 bg-slate-50 text-emerald-700"
-                    )}
-                  >
-                    {block}
-                  </pre>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          {quizItems.length ? (
-            <div className="mt-6 space-y-3 rounded-2xl border border-dashed border-emerald-200/60 p-4">
-              <p className={cn("text-xs font-semibold uppercase tracking-[0.35em]", tone)}>Quick quiz</p>
-              {quizItems.map((item, idx) => (
-                <div key={idx} className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
-                  <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>
-                    {item.question}
-                  </p>
-                  <div className="space-y-2 text-sm">
-                    {item.answers.map((answer, answerIdx) => {
-                      const response = quizResponses[idx];
-                      const selected = response?.selected === answer;
-                      const isCorrect = response?.isCorrect ?? false;
-                      const correctAnswer = item.correctAnswer ?? "";
-                      const isRightAnswer =
-                        (answer ?? "").trim().toLowerCase() === correctAnswer.trim().toLowerCase();
-                      return (
-                        <button
-                          key={answerIdx}
-                          type="button"
-                          onClick={() => handleAnswerSelect(idx, answer, correctAnswer)}
-                          className={cn(
-                            "w-full rounded-lg border px-3 py-2 text-left transition",
-                            isNight
-                              ? "border-white/15 text-indigo-100 hover:border-emerald-300/60"
-                              : "border-slate-200 text-slate-700 hover:border-emerald-300/60",
-                            selected && isCorrect && (isNight ? "border-emerald-300/80 bg-emerald-500/10" : "border-emerald-400 bg-emerald-50"),
-                            selected && !isCorrect && (isNight ? "border-red-300/80 bg-red-500/10" : "border-red-300 bg-red-50"),
-                            !selected && response && isRightAnswer && (isNight ? "border-emerald-200/60" : "border-emerald-300")
-                          )}
-                        >
-                          {answer}
-                        </button>
-                      );
-                    })}
-                    {quizResponses[idx] ? (
-                      <p
-                        className={cn(
-                          "text-xs font-semibold",
-                          quizResponses[idx].isCorrect
-                            ? isNight
-                              ? "text-emerald-200"
-                              : "text-emerald-700"
-                            : isNight
-                              ? "text-red-200"
-                              : "text-red-700"
-                        )}
-                      >
-                        {quizResponses[idx].isCorrect
-                          ? "Correct!"
-                          : `Not quite. Correct answer: ${item.correctAnswer}`}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-    </Card>
-  );
-}
-
 function WorkTaskListSection({
   label,
   tasks,
   emptyText,
   isNight,
-  actionRenderer,
 }: {
   label: string;
   tasks: DailySummaryPayload["completedWork"];
   emptyText: string;
   isNight: boolean;
-  actionRenderer?: (task: DailySummaryPayload["completedWork"][number], index: number) => ReactNode;
 }) {
   const tone = isNight ? "text-indigo-200" : "text-slate-600";
   return (
@@ -3225,7 +2706,6 @@ function WorkTaskListSection({
                 <p className={cn("text-xs", tone)}>
                   {task.note?.trim() ? task.note : task.status.replace(/_/g, " ")}
                 </p>
-                {actionRenderer ? <div className="mt-2">{actionRenderer(task, index)}</div> : null}
               </div>
             </li>
           ))}
