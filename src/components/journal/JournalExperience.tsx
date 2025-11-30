@@ -1236,24 +1236,48 @@ const JournalExperience = () => {
               : "bg-white/85 shadow-rose-200/50"
           )}>
             <h2 className={cn("font-serif text-3xl font-semibold", themeUtils.text.primary(isNight))}>
-              We couldn&apos;t open that journal.
+              Invalid Journal ID
             </h2>
             <p className={cn("mt-4 text-lg", themeUtils.text.secondary(isNight))}>
-              The share link might be mistyped or no longer available. Want to
-              spin up a fresh notebook?
+              The share link might be mistyped, private, or no longer available.
             </p>
-            <div className="mt-8 flex justify-center">
-              <Button
-                onClick={handleStartFresh}
-                className={cn(
-                  "px-6 py-2 text-base font-semibold transition",
-                  isNight
-                    ? "bg-rose-500/90 text-slate-900 shadow-lg shadow-rose-400/40 hover:bg-rose-400 border-transparent"
-                    : "bg-rose-500 text-white shadow-lg shadow-rose-400/40 hover:bg-rose-400"
-                )}
-              >
-                Start a new journal
-              </Button>
+
+            <div className="mt-8 space-y-6">
+              <div className={cn(
+                "rounded-2xl border p-6",
+                isNight ? "border-white/10 bg-white/5" : "border-slate-200 bg-slate-50/50"
+              )}>
+                <h3 className={cn("text-lg font-semibold", themeUtils.text.primary(isNight))}>
+                  Start your own journal
+                </h3>
+                <p className={cn("mt-2 text-sm", themeUtils.text.secondary(isNight))}>
+                  Sign in to create your journals for FREE. Reflect on your day, track your mood, and keep your memories safe.
+                </p>
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                  <Button onClick={() => handleSignIn("google")} className="gap-2">
+                    Continue with Google
+                  </Button>
+                  <Button variant="outline" onClick={() => handleSignIn("microsoft")}>
+                    Microsoft
+                  </Button>
+                  <Button variant="outline" onClick={() => handleSignIn("facebook")}>
+                    Facebook
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex justify-center">
+                <Button
+                  variant="ghost"
+                  onClick={handleStartFresh}
+                  className={cn(
+                    "text-sm hover:bg-transparent hover:underline",
+                    themeUtils.text.muted(isNight)
+                  )}
+                >
+                  Go to Journal Home
+                </Button>
+              </div>
             </div>
           </Card>
         </div>
