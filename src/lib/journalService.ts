@@ -35,6 +35,7 @@ export const createJournalDocument = async (member?: JournalMember) => {
     shareCode: journalRef.id,
     createdAt: nowIso,
     updatedAt: nowIso,
+    isPublic: false,
   };
 
   await setDoc(journalRef, {
@@ -94,6 +95,18 @@ export const ensureMemberOnJournal = async (
   await updateDoc(ref, {
     memberIds: arrayUnion(member.id),
     members: arrayUnion(member),
+    serverUpdatedAt: serverTimestamp(),
+    updatedAt: new Date().toISOString(),
+  });
+};
+
+export const updateJournalPublicStatus = async (
+  journalId: string,
+  isPublic: boolean
+) => {
+  const ref = doc(db, "journals", journalId);
+  await updateDoc(ref, {
+    isPublic,
     serverUpdatedAt: serverTimestamp(),
     updatedAt: new Date().toISOString(),
   });
@@ -172,6 +185,19 @@ export const fetchJournalEntryByDate = async (
   }
   const entriesRef = collection(db, "journals", journalId, "entries");
   const q = query(entriesRef, where("entryDate", "==", entryDate), limit(1));
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) {
+    return null;
+  }
+  const docSnap = snapshot.docs[0];
+  return { id: docSnap.id, ...(docSnap.data() as Omit<JournalEntry, "id">) };
+};
+
+export const fetchLatestJournalEntry = async (
+  journalId: string
+): Promise<JournalEntry | null> => {
+  const entriesRef = collection(db, "journals", journalId, "entries");
+  const q = query(entriesRef, orderBy("entryDate", "desc"), limit(1));
   const snapshot = await getDocs(q);
   if (snapshot.empty) {
     return null;
