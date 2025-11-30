@@ -2090,7 +2090,10 @@ export function ScratchPadExperience() {
         </DialogContent>
       </Dialog>
       <Dialog open={showReflections} onOpenChange={setShowReflections}>
-        <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden">
+        <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Reflections History</DialogTitle>
+          </DialogHeader>
           <ReflectionsExperience user={user} onClose={() => setShowReflections(false)} />
         </DialogContent>
       </Dialog>

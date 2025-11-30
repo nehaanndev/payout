@@ -89,7 +89,7 @@ export function ReflectionsExperience({ user, onClose }: ReflectionsExperiencePr
     };
 
     return (
-        <div className={cn("flex flex-col h-full", isNight ? "text-slate-100" : "text-slate-900")}>
+        <div className={cn("flex flex-col h-full flex-1 min-h-0", isNight ? "text-slate-100" : "text-slate-900")}>
             <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">Reflections</h2>
@@ -121,8 +121,8 @@ export function ReflectionsExperience({ user, onClose }: ReflectionsExperiencePr
                 </div>
             </div>
 
-            <ScrollArea className="flex-1 p-6">
-                <div className="space-y-8 max-w-3xl mx-auto">
+            <ScrollArea className="flex-1 min-h-0">
+                <div className="space-y-8 max-w-3xl mx-auto p-6">
                     {loading ? (
                         Array.from({ length: 3 }).map((_, i) => (
                             <div key={i} className="flex gap-4">

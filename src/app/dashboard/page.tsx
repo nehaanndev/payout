@@ -1296,7 +1296,10 @@ export default function DailyDashboardPage() {
           )}
 
           <Dialog open={showReflectionsExperience} onOpenChange={setShowReflectionsExperience}>
-            <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden">
+            <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden flex flex-col">
+              <DialogHeader className="sr-only">
+                <DialogTitle>Reflections History</DialogTitle>
+              </DialogHeader>
               <ReflectionsExperience user={user} onClose={() => setShowReflectionsExperience(false)} />
             </DialogContent>
           </Dialog>
