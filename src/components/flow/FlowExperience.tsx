@@ -1191,6 +1191,53 @@ export function FlowExperience() {
                     )}>
                       Keep the rhythm steady. We&apos;ll nudge you if anything drifts off tempo.
                     </p>
+                    {settings ? (
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        <div className={cn(
+                          "flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium",
+                          isNight ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-300" : "border-indigo-100 bg-indigo-50 text-indigo-700"
+                        )}>
+                          <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                          Work planned: {Math.floor(
+                            (plan?.tasks
+                              .filter((t) => t.category === "work" && t.status !== "skipped")
+                              .reduce((acc, t) => acc + t.estimateMinutes, 0) || 0) / 60
+                          )}h {
+                            ((plan?.tasks
+                              .filter((t) => t.category === "work" && t.status !== "skipped")
+                              .reduce((acc, t) => acc + t.estimateMinutes, 0) || 0) % 60)
+                          }m
+                        </div>
+                        <div className={cn(
+                          "flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium",
+                          isNight ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-emerald-100 bg-emerald-50 text-emerald-700"
+                        )}>
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Free time: {(() => {
+                            const start = parseTimeStringToDate(activeDate, settings.sleepEnd);
+                            const end = parseTimeStringToDate(activeDate, settings.sleepStart);
+                            // If sleep start is earlier than sleep end (e.g. 23:00 vs 07:00), it's same day.
+                            // If sleep start is smaller (e.g. 01:00) but meant to be next day, we need to handle that.
+                            // Usually sleepStart is bedtime (e.g. 23:00) and sleepEnd is wake up (e.g. 07:00).
+                            // Active day is sleepEnd to sleepStart.
+                            let activeMinutes = (end.getTime() - start.getTime()) / 1000 / 60;
+                            if (activeMinutes < 0) {
+                              activeMinutes += 24 * 60;
+                            }
+
+                            const committedMinutes = plan?.tasks
+                              .filter((t) =>
+                                (t.category === "work" || t.category === "home" || t.category === "wellness") &&
+                                t.status !== "skipped"
+                              )
+                              .reduce((acc, t) => acc + t.estimateMinutes, 0) ?? 0;
+
+                            const freeMinutes = Math.max(0, activeMinutes - committedMinutes);
+                            return `${Math.floor(freeMinutes / 60)}h ${Math.floor(freeMinutes % 60)}m`;
+                          })()}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm shadow-sm">
