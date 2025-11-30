@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth, signOut } from "@/lib/firebase";
 import { AppSidebar } from "./AppSidebar";
+import { MobileNav } from "./MobileNav";
 import { cn } from "@/lib/utils";
 
 import { ensureUserProfile } from "@/lib/userService";
@@ -49,7 +50,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 tier={userProfile?.tier}
                 onSignOut={handleSignOut}
             />
-            <div className={cn("transition-all duration-300", "pl-16")}>
+            <MobileNav
+                user={user}
+                tier={userProfile?.tier}
+                onSignOut={handleSignOut}
+            />
+            <div className={cn("transition-all duration-300", "pl-0 md:pl-16")}>
                 {children}
             </div>
         </div>
