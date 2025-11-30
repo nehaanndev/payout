@@ -7,12 +7,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
+import { STRIPE_PAYMENT_LINK } from "@/lib/constants";
 
 interface UpgradeDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    featureName: string;
-    limitDescription: string;
+    featureName?: string;
+    limitDescription?: string;
 }
 
 export function UpgradeDialog({
@@ -21,17 +22,24 @@ export function UpgradeDialog({
     featureName,
     limitDescription,
 }: UpgradeDialogProps) {
+    const handleUpgrade = () => {
+        window.open(STRIPE_PAYMENT_LINK, "_blank");
+        onOpenChange(false);
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Sparkles className="h-5 w-5 text-amber-500" />
-                        Unlock Unlimited {featureName}
+                        {featureName ? `Unlock Unlimited ${featureName}` : "Unlock the Full Potential of Toodl"}
                     </DialogTitle>
                     <DialogDescription className="pt-2">
-                        You&apos;ve reached the limit for {limitDescription} on the free plan.
-                        Upgrade to Plus to remove all limits and support the development of Toodl.
+                        {limitDescription
+                            ? `You've reached the limit for ${limitDescription} on the free plan.`
+                            : "Get unlimited access to all Toodl features and support development."}
+                        {" "}Upgrade to Plus to remove all limits.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="flex flex-col gap-4 py-4">
@@ -50,7 +58,10 @@ export function UpgradeDialog({
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
                         Maybe later
                     </Button>
-                    <Button className="bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600">
+                    <Button
+                        onClick={handleUpgrade}
+                        className="bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600"
+                    >
                         Upgrade to Plus
                     </Button>
                 </div>
