@@ -37,7 +37,14 @@ import {
   findJournalForMember,
   fetchJournalEntryByDate,
 } from "@/lib/journalService";
-import { auth, onAuthStateChanged } from "@/lib/firebase";
+import {
+  auth,
+  onAuthStateChanged,
+  provider,
+  microsoftProvider,
+  facebookProvider,
+  signInWithPopup,
+} from "@/lib/firebase";
 import { generateId } from "@/lib/id";
 import { cn } from "@/lib/utils";
 import type { User } from "@/lib/firebase";
@@ -377,6 +384,23 @@ const JournalExperience = () => {
     []
   );
   const { theme, setTheme, isNight } = useToodlTheme(initialTheme);
+
+  const handleSignIn = useCallback(
+    async (providerType: "google" | "microsoft" | "facebook") => {
+      try {
+        const selectedProvider =
+          providerType === "microsoft"
+            ? microsoftProvider
+            : providerType === "facebook"
+              ? facebookProvider
+              : provider;
+        await signInWithPopup(auth, selectedProvider);
+      } catch (error) {
+        console.error("Sign-in failed", error);
+      }
+    },
+    []
+  );
 
   const groupedLibraryEntries = useMemo(() => {
     if (!libraryEntries.length) {
@@ -955,7 +979,7 @@ const JournalExperience = () => {
     );
   }
 
-  if (authChecked && !user) {
+  if (authChecked && (!user || user.isAnonymous)) {
     return (
       <div className={cn(
         "relative min-h-screen overflow-hidden px-4 py-10",
@@ -973,45 +997,30 @@ const JournalExperience = () => {
             dark={isNight}
             theme={theme}
             onThemeChange={setTheme}
-            actions={
-              <Button
-                className={cn(
-                  isNight
-                    ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
-                    : "bg-primary text-white hover:bg-payoutHover"
-                )}
-                onClick={() => router.push("/split")}
-              >
-                Sign in
-              </Button>
-            }
             userSlot={undefined}
           />
-          <div className="flex min-h-[40vh] items-center justify-center">
-            <Card className={cn(
-              "max-w-md space-y-6 border-none p-8 text-center shadow-2xl backdrop-blur-xl",
-              isNight
-                ? "bg-slate-900/80 shadow-slate-900/50"
-                : "bg-white/80 shadow-rose-200/40"
-            )}>
-              <h1 className={cn("text-2xl font-bold tracking-tight", themeUtils.text.primary(isNight))}>
-                Sign-in required
-              </h1>
-              <p className={cn("text-sm leading-relaxed", themeUtils.text.secondary(isNight))}>
-                Toodl Story is private to your account. Please sign in to
-                continue, then come back to capture your stories.
-              </p>
-              <Button
-                className={cn(
-                  "w-full",
-                  isNight
-                    ? "bg-indigo-500/90 text-slate-900 hover:bg-indigo-400 border-transparent"
-                    : "bg-primary text-white hover:bg-payoutHover"
-                )}
-                onClick={() => router.push("/split")}
-              >
-                Go to sign-in
-              </Button>
+          <div className="flex items-center justify-center">
+            <Card className="flex w-full max-w-md flex-col items-center gap-4 border-slate-200 bg-white/90 p-10 text-center shadow-xl shadow-slate-300/40 backdrop-blur">
+              <Sparkles className="h-10 w-10 text-rose-400" />
+              <div className="space-y-2">
+                <h2 className="text-2xl font-semibold text-slate-900">
+                  Capture your daily story
+                </h2>
+                <p className="text-sm text-slate-500">
+                  Sign in to start your journal. Reflect on your day, track your mood, and keep your memories safe.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Button onClick={() => handleSignIn("google")} className="gap-2">
+                  Continue with Google
+                </Button>
+                <Button variant="outline" onClick={() => handleSignIn("microsoft")}>
+                  Microsoft
+                </Button>
+                <Button variant="outline" onClick={() => handleSignIn("facebook")}>
+                  Facebook
+                </Button>
+              </div>
             </Card>
           </div>
         </div>

@@ -23,8 +23,9 @@ import {
   X,
   Upload,
   MoreHorizontal,
+  Sparkles,
 } from "lucide-react";
-import { User, onAuthStateChanged } from "firebase/auth";
+import { User } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,7 +77,14 @@ import {
   listBudgetsForMember,
   renameBudget,
 } from "@/lib/budgetService";
-import { auth } from "@/lib/firebase";
+import {
+  auth,
+  provider,
+  microsoftProvider,
+  facebookProvider,
+  signInWithPopup,
+  onAuthStateChanged,
+} from "@/lib/firebase";
 import { generateId } from "@/lib/id";
 import {
   BudgetDocument,
@@ -698,13 +706,35 @@ const BudgetExperience = () => {
   const [authChecked, setAuthChecked] = useState(false);
   const [member, setMember] = useState<BudgetMember | null>(null);
   const [budgetId, setBudgetId] = useState<string | null>(null);
+  const [budgetListError, setBudgetListError] = useState<string | null>(null);
+  const [budgetList, setBudgetList] = useState<BudgetDocument[]>([]);
+  const [budgetListLoading, setBudgetListLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+
+  const handleSignIn = useCallback(
+    async (providerType: "google" | "microsoft" | "facebook") => {
+      try {
+        const selectedProvider =
+          providerType === "microsoft"
+            ? microsoftProvider
+            : providerType === "facebook"
+              ? facebookProvider
+              : provider;
+        await signInWithPopup(auth, selectedProvider);
+      } catch (error) {
+        console.error("Sign-in failed", error);
+      }
+    },
+    []
+  );
+
+
+
   const [mode, setMode] = useState<Mode>("wizard");
   const [step, setStep] = useState<WizardStep>(0);
   const [state, setState] = useState<BudgetState>(defaultState);
   const [budgetDoc, setBudgetDoc] = useState<BudgetDocument | null>(null);
-  const [budgetList, setBudgetList] = useState<BudgetDocument[]>([]);
-  const [budgetListLoading, setBudgetListLoading] = useState(false);
-  const [budgetListError, setBudgetListError] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newBudgetName, setNewBudgetName] = useState("");
   const [creatingBudget, setCreatingBudget] = useState(false);
@@ -717,8 +747,6 @@ const BudgetExperience = () => {
   > | null>(null);
   const hasHydrated = useRef(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const docUpdatedAt = budgetDoc?.updatedAt ?? null;
   const docCreatedAt = budgetDoc?.createdAt ?? null;
   const [invalidBudget, setInvalidBudget] = useState(false);
@@ -2617,56 +2645,57 @@ const BudgetExperience = () => {
     );
   }
 
-  if (authChecked && !user) {
+
+  if (authChecked && (!user || user.isAnonymous)) {
     return (
       <div
         className={cn(
-          "relative min-h-screen px-4 py-10",
+          "min-h-screen w-full p-4 md:p-8",
           isNight
             ? "bg-slate-950 text-slate-100"
-            : "bg-gradient-to-br from-emerald-50 via-emerald-100/60 to-slate-50"
+            : "bg-gradient-to-b from-slate-50 to-white"
         )}
       >
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.65),transparent_60%)] opacity-60" />
-        <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-8">
+        <div className="mx-auto max-w-6xl space-y-6">
           <AppTopBar
             product="budget"
-            subheading="Sign in to reopen Pulse or hop over to another Toodl space."
+            heading="Pulse"
+            subheading="Sign in to track your finances."
             dark={isNight}
             theme={theme}
             onThemeChange={setTheme}
-            actions={
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  className="bg-emerald-600 text-white hover:bg-emerald-500"
-                  onClick={() => router.push("/split")}
-                >
-                  Sign in
+            userSlot={undefined}
+          />
+          <div className="flex items-center justify-center">
+            <Card className="flex w-full max-w-md flex-col items-center gap-4 border-slate-200 bg-white/90 p-10 text-center shadow-xl shadow-slate-300/40 backdrop-blur">
+              <Sparkles className="h-10 w-10 text-emerald-400" />
+              <div className="space-y-2">
+                <h2 className="text-2xl font-semibold text-slate-900">
+                  Track your finances
+                </h2>
+                <p className="text-sm text-slate-500">
+                  Sign in to manage your budget. Track income, expenses, and savings goals in one place.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Button onClick={() => handleSignIn("google")} className="gap-2">
+                  Continue with Google
+                </Button>
+                <Button variant="outline" onClick={() => handleSignIn("microsoft")}>
+                  Microsoft
+                </Button>
+                <Button variant="outline" onClick={() => handleSignIn("facebook")}>
+                  Facebook
                 </Button>
               </div>
-            }
-
-          />
-          <div className="flex flex-1 items-center justify-center">
-            <Card className="max-w-md flex-1 space-y-6 border-none bg-white/85 p-8 text-center shadow-2xl shadow-emerald-200/40 backdrop-blur-xl">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                Sign-in required
-              </h1>
-              <p className="text-sm leading-relaxed text-slate-600">
-                Pulse keeps your plans private to your account. Head to the landing page to sign in, then come back to manage your budgets.
-              </p>
-              <Button
-                className="w-full bg-emerald-600 text-white hover:bg-emerald-500"
-                onClick={() => router.push("/split")}
-              >
-                Go to sign-in
-              </Button>
             </Card>
           </div>
         </div>
       </div>
     );
   }
+
+
 
   if (!member) {
     return (
@@ -2846,6 +2875,8 @@ const BudgetExperience = () => {
       </div>
     );
   }
+
+
 
   return (
     <div

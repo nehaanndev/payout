@@ -696,16 +696,7 @@ export function FlowExperience() {
         return;
       }
 
-      if (type === "priority" && priorityCount >= 3) {
-        setErrors((prev) => [
-          ...prev,
-          {
-            id: generateId(),
-            message: "You’ve already queued three top priorities for today.",
-          },
-        ]);
-        return;
-      }
+
 
       const nowIso = new Date().toISOString();
       const nextSequence =
@@ -1425,11 +1416,11 @@ export function FlowExperience() {
                               Top priorities
                             </h3>
                             <p className="text-xs text-slate-500">
-                              Choose up to three moves that will shift the needle.
+                              Choose the moves that will shift the needle.
                             </p>
                           </div>
                           <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-600">
-                            {priorityCount}/3
+                            {priorityCount}
                           </span>
                         </div>
                         <div className="space-y-2">
@@ -1528,7 +1519,7 @@ export function FlowExperience() {
                         </div>
                         <Button
                           className="w-full bg-indigo-500 text-white hover:bg-indigo-400"
-                          disabled={!priorityDraft.title.trim() || priorityCount >= 3}
+                          disabled={!priorityDraft.title.trim()}
                           onClick={() => {
                             addTask("priority", priorityDraft);
                             setPriorityDraft((prev) => ({
