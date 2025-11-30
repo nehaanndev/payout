@@ -37,6 +37,7 @@ import {
   findJournalForMember,
   fetchJournalEntryByDate,
   updateJournalPublicStatus,
+  fetchLatestJournalEntry,
 } from "@/lib/journalService";
 import {
   auth,
@@ -693,6 +694,21 @@ const JournalExperience = () => {
 
         const publicStatus = doc.isPublic ?? false;
         setIsPublic(publicStatus);
+
+        if (!member && publicStatus) {
+          const today = new Date().toISOString().slice(0, 10);
+          let entry = await fetchJournalEntryByDate(journalId, today);
+          if (!entry) {
+            entry = await fetchLatestJournalEntry(journalId);
+          }
+          if (entry) {
+            setAnswers({ ...entry.answers });
+            setEntryMode(entry.entryType ?? "daily");
+            setSelectedMood(entry.mood ?? null);
+            setLastSavedAt(entry.updatedAt);
+            setHasUnsavedChanges(false);
+          }
+        }
 
         if (member) {
           const isOwnerCheck = doc.ownerIds?.includes(member.id) ?? false;

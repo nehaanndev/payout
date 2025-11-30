@@ -192,3 +192,16 @@ export const fetchJournalEntryByDate = async (
   const docSnap = snapshot.docs[0];
   return { id: docSnap.id, ...(docSnap.data() as Omit<JournalEntry, "id">) };
 };
+
+export const fetchLatestJournalEntry = async (
+  journalId: string
+): Promise<JournalEntry | null> => {
+  const entriesRef = collection(db, "journals", journalId, "entries");
+  const q = query(entriesRef, orderBy("entryDate", "desc"), limit(1));
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) {
+    return null;
+  }
+  const docSnap = snapshot.docs[0];
+  return { id: docSnap.id, ...(docSnap.data() as Omit<JournalEntry, "id">) };
+};
