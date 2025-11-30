@@ -1227,10 +1227,10 @@ export function FlowExperience() {
 
                             const committedMinutes = plan?.tasks
                               .filter((t) =>
-                                (t.category === "work" || t.category === "home" || t.category === "wellness") &&
+                                t.category !== "play" &&
                                 t.status !== "skipped"
                               )
-                              .reduce((acc, t) => acc + t.estimateMinutes, 0) ?? 0;
+                              .reduce((acc, t) => acc + t.estimateMinutes, 0) || 0;
 
                             const freeMinutes = Math.max(0, activeMinutes - committedMinutes);
                             return `${Math.floor(freeMinutes / 60)}h ${Math.floor(freeMinutes % 60)}m`;
