@@ -35,6 +35,7 @@ export const createJournalDocument = async (member?: JournalMember) => {
     shareCode: journalRef.id,
     createdAt: nowIso,
     updatedAt: nowIso,
+    isPublic: false,
   };
 
   await setDoc(journalRef, {
@@ -94,6 +95,18 @@ export const ensureMemberOnJournal = async (
   await updateDoc(ref, {
     memberIds: arrayUnion(member.id),
     members: arrayUnion(member),
+    serverUpdatedAt: serverTimestamp(),
+    updatedAt: new Date().toISOString(),
+  });
+};
+
+export const updateJournalPublicStatus = async (
+  journalId: string,
+  isPublic: boolean
+) => {
+  const ref = doc(db, "journals", journalId);
+  await updateDoc(ref, {
+    isPublic,
     serverUpdatedAt: serverTimestamp(),
     updatedAt: new Date().toISOString(),
   });

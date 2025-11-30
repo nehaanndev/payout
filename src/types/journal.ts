@@ -31,6 +31,7 @@ export type JournalDocument = {
   shareCode: string;
   createdAt: string;
   updatedAt: string;
+  isPublic?: boolean;
 };
 
 export type JournalEntry = {
