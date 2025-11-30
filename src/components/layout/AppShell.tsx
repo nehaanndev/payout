@@ -16,8 +16,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [isAnon, setIsAnon] = useState(false);
 
     useEffect(() => {
+        // Check for anonymous user
+        const anonMember = typeof window !== "undefined" ? window.localStorage.getItem("anon_member") : null;
+        if (anonMember) {
+            setIsAnon(true);
+        }
+
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             setUser(currentUser);
             if (currentUser) {
@@ -32,7 +39,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }, []);
 
     const handleSignOut = async () => {
-        await signOut(auth);
+        if (user) {
+            await signOut(auth);
+        }
+
+        // Clear all local storage data
+        if (typeof window !== "undefined") {
+            window.localStorage.removeItem("anon_member");
+            window.localStorage.removeItem("user_avatar");
+            window.localStorage.removeItem("user_name");
+            window.localStorage.removeItem("user_id");
+            window.localStorage.removeItem("toodl_intent");
+        }
+
+        setIsAnon(false);
         router.push("/");
     };
 
@@ -47,11 +67,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="min-h-screen">
             <AppSidebar
                 user={user}
+                isAnon={isAnon}
                 tier={userProfile?.tier}
                 onSignOut={handleSignOut}
             />
             <MobileNav
                 user={user}
+                isAnon={isAnon}
                 tier={userProfile?.tier}
                 onSignOut={handleSignOut}
             />
