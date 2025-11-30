@@ -703,7 +703,7 @@ const BudgetExperience = () => {
     () => (new Date().getHours() < 17 ? "morning" : "night"),
     []
   );
-  const { theme, setTheme, isNight } = useToodlTheme(initialTheme);
+  const { isNight } = useToodlTheme(initialTheme);
 
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -2681,8 +2681,6 @@ const BudgetExperience = () => {
             heading="Pulse"
             subheading="Sign in to track your finances."
             dark={isNight}
-            theme={theme}
-            onThemeChange={setTheme}
             userSlot={undefined}
           />
           <div className="flex items-center justify-center">
@@ -2803,8 +2801,6 @@ const BudgetExperience = () => {
             heading="Pulse"
             subheading="Pick a workspace to open or start a fresh one for a new goal."
             dark={isNight}
-            theme={theme}
-            onThemeChange={setTheme}
             userSlot={userSlot}
           />
           <Card className="border-none bg-white/85 p-6 shadow-xl shadow-emerald-200/40 backdrop-blur">
@@ -2910,8 +2906,6 @@ const BudgetExperience = () => {
           heading={headingNode}
           subheading={lastUpdatedMessage ?? undefined}
           dark={isNight}
-          theme={theme}
-          onThemeChange={setTheme}
           userSlot={userSlot}
         />
         <div

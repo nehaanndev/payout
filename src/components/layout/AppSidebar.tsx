@@ -11,6 +11,8 @@ import {
     Wallet,
     Workflow,
     Globe,
+    Moon,
+    Sun,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
@@ -28,7 +30,7 @@ type AppSidebarProps = {
 
 export function AppSidebar({ user, isAnon = false, tier = 'free', onSignOut }: AppSidebarProps) {
     const pathname = usePathname();
-    const { isNight } = useToodlTheme();
+    const { isNight, setTheme } = useToodlTheme();
 
     const NAV_ITEMS = [
         {
@@ -122,6 +124,18 @@ export function AppSidebar({ user, isAnon = false, tier = 'free', onSignOut }: A
             </div>
 
             <div className="flex flex-col items-center gap-4">
+                <button
+                    onClick={() => setTheme(isNight ? "morning" : "night")}
+                    className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-xl transition-colors",
+                        isNight
+                            ? "text-slate-400 hover:bg-slate-100 hover:text-slate-900"
+                            : "text-slate-500 hover:bg-white/5 hover:text-white"
+                    )}
+                    title={isNight ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                >
+                    {isNight ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                </button>
                 {(user || isAnon) && (
                     <>
                         <div className={cn(

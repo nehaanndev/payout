@@ -221,7 +221,7 @@ export function ScratchPadExperience() {
     () => (new Date().getHours() < 17 ? "morning" : "night"),
     []
   );
-  const { theme, setTheme, isNight } = useToodlTheme(initialTheme);
+  const { isNight } = useToodlTheme(initialTheme);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (current) => {
@@ -897,8 +897,6 @@ export function ScratchPadExperience() {
           heading="Orbit"
           subheading="Collect sparks, links, and notes. Organize them when you're ready."
           dark={isNight}
-          theme={theme}
-          onThemeChange={setTheme}
           actions={
             <Button
               variant="outline"
