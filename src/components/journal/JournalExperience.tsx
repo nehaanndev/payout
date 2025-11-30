@@ -385,7 +385,6 @@ const BlogPostView = ({
           heading="Story"
           subheading="A shared reflection."
           dark={isNight}
-          theme={isNight ? "night" : "morning"}
         />
 
         <Card className={cn(
@@ -516,7 +515,7 @@ const JournalExperience = () => {
     () => (new Date().getHours() < 17 ? "morning" : "night"),
     []
   );
-  const { theme, setTheme, isNight } = useToodlTheme(initialTheme);
+  const { isNight } = useToodlTheme(initialTheme);
 
   const handleSignIn = useCallback(
     async (providerType: "google" | "microsoft" | "facebook") => {
@@ -1184,8 +1183,6 @@ const JournalExperience = () => {
             product="journal"
             subheading="Sign in to unlock Story or hop to another Toodl app."
             dark={isNight}
-            theme={theme}
-            onThemeChange={setTheme}
             userSlot={undefined}
           />
           <div className="flex items-center justify-center">
@@ -1331,8 +1328,6 @@ const JournalExperience = () => {
           heading="Story"
           subheading="Capture the story behind the numbers, one guided reflection at a time."
           dark={isNight}
-          theme={theme}
-          onThemeChange={setTheme}
           userSlot={user ? userSlot : undefined}
         />
         <div className={cn(

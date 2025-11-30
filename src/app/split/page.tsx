@@ -90,7 +90,7 @@ export default function Home() {
     () => (new Date().getHours() < 17 ? "morning" : "night"),
     []
   );
-  const { theme, setTheme, isNight } = useToodlTheme(initialTheme);
+  const { isNight } = useToodlTheme(initialTheme);
 
   // Memoize the onParams callback to prevent infinite loops
   const handleParamsChange = useCallback((params: ReadonlyURLSearchParams) => {
@@ -370,9 +370,6 @@ export default function Home() {
               heading="Split"
               subheading="Invite your crew, log purchases, and keep every tab honest."
               dark={isNight}
-              theme={theme}
-              onThemeChange={setTheme}
-
             />
             <div
               className={cn(

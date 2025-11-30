@@ -521,7 +521,7 @@ export function FlowExperience() {
     () => (new Date().getHours() < 17 ? "morning" : "night"),
     []
   );
-  const { theme, setTheme, isNight } = useToodlTheme(initialTheme);
+  const { isNight } = useToodlTheme(initialTheme);
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -1084,8 +1084,6 @@ export function FlowExperience() {
           heading="Flow"
           subheading="Design your day, weave priorities with pause, and stay on tempo."
           dark={isNight}
-          theme={theme}
-          onThemeChange={setTheme}
           actions={undefined}
           userSlot={user ? userSlot : undefined}
         />
