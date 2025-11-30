@@ -16,7 +16,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
-import { AppUserMenu } from "@/components/AppUserMenu";
+// import { AppUserMenu } from "@/components/AppUserMenu";
 import { auth, signOut } from "@/lib/firebase";
 import {
   ensureFlowPlan,
@@ -510,7 +510,7 @@ export default function DailyDashboardPage() {
           if (!latestReflection && hasReflections) {
             latestReflection =
               reflections[0]?.createdAt ??
-              reflections[0]?.updatedAt ??
+
               plan?.updatedAt ??
               null;
           }
@@ -1000,7 +1000,7 @@ export default function DailyDashboardPage() {
                 ))}
               </div>
             </div>
-            {user ? (
+            {/* {user ? (
               <AppUserMenu
                 product="dashboard"
                 displayName={userDisplayName}
@@ -1008,7 +1008,7 @@ export default function DailyDashboardPage() {
                 onSignOut={handleSignOut}
                 dark={isNight}
               />
-            ) : null}
+            ) : null} */}
           </div>
           <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -1508,12 +1508,12 @@ function FlowCards({
     ? `${completedTasks}/${totalTasks} tasks finished`
     : "Nothing planned yet.";
   return (
-      <Card className="relative overflow-hidden rounded-[28px] border-none bg-slate-900 text-white">
-        {!isMorning ? (
-          <>
-            <span className="pointer-events-none absolute -top-12 right-4 h-32 w-32 rounded-full bg-gradient-to-br from-amber-200 via-yellow-100 to-white opacity-80 animate-dashboard-moon" />
-            <span className="pointer-events-none absolute -top-10 right-0 h-40 w-40 rounded-full bg-amber-200/25 blur-3xl animate-dashboard-moon-glow" />
-          </>
+    <Card className="relative overflow-hidden rounded-[28px] border-none bg-slate-900 text-white">
+      {!isMorning ? (
+        <>
+          <span className="pointer-events-none absolute -top-12 right-4 h-32 w-32 rounded-full bg-gradient-to-br from-amber-200 via-yellow-100 to-white opacity-80 animate-dashboard-moon" />
+          <span className="pointer-events-none absolute -top-10 right-0 h-40 w-40 rounded-full bg-amber-200/25 blur-3xl animate-dashboard-moon-glow" />
+        </>
       ) : null}
       <CardHeader>
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Evening reflection</p>
