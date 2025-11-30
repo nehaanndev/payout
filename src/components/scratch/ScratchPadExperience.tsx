@@ -38,6 +38,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ReflectionsExperience } from "@/components/reflections/ReflectionsExperience";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -197,6 +198,7 @@ export function ScratchPadExperience() {
   const [linksOnly, setLinksOnly] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<OrbitLesson | null>(null);
+  const [showReflections, setShowReflections] = useState(false);
   const [noteEditorBody, setNoteEditorBody] = useState("");
   const [noteEditorTags, setNoteEditorTags] = useState("");
   const [noteEditorBusy, setNoteEditorBusy] = useState(false);
@@ -863,7 +865,16 @@ export function ScratchPadExperience() {
           dark={isNight}
           theme={theme}
           onThemeChange={setTheme}
-          actions={undefined}
+          actions={
+            <Button
+              variant="outline"
+              className={cn(isNight ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "")}
+              onClick={() => setShowReflections(true)}
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Reflections
+            </Button>
+          }
           userSlot={user ? userSlot : undefined}
         />
         {user && showInterestWizard ? (
@@ -2076,6 +2087,14 @@ export function ScratchPadExperience() {
               ) : null}
             </>
           ) : null}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showReflections} onOpenChange={setShowReflections}>
+        <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Reflections History</DialogTitle>
+          </DialogHeader>
+          <ReflectionsExperience user={user} onClose={() => setShowReflections(false)} />
         </DialogContent>
       </Dialog>
     </div>

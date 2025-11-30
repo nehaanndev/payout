@@ -5,7 +5,6 @@ import { BookmarkPlus, ChevronLeft, ChevronRight, ExternalLink, Search, Sparkles
 
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ReflectionsTile } from "@/components/reflections/ReflectionsTile";
 import { ReflectionsExperience } from "@/components/reflections/ReflectionsExperience";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
@@ -209,9 +209,6 @@ export default function DailyDashboardPage() {
   const [reflectionBusy, setReflectionBusy] = useState(false);
   const [reflectionStatus, setReflectionStatus] = useState<string | null>(null);
   const [showReflectionsExperience, setShowReflectionsExperience] = useState(false);
-  const [reflectionStreakDays, setReflectionStreakDays] = useState(0);
-  const [lastReflectionAt, setLastReflectionAt] = useState<string | null>(null);
-  const [reflectionStreakLoading, setReflectionStreakLoading] = useState(true);
 
   const [splitTotals, setSplitTotals] = useState<CurrencySummary[]>([]);
   const [splitLoading, setSplitLoading] = useState(false);
@@ -476,82 +473,6 @@ export default function DailyDashboardPage() {
   }, [user]);
 
   useEffect(() => {
-    if (!user?.uid) {
-      setReflectionStreakDays(0);
-      setLastReflectionAt(null);
-      setReflectionStreakLoading(false);
-      return;
-    }
-    let cancelled = false;
-    const loadReflectionStreak = async () => {
-      setReflectionStreakLoading(true);
-      try {
-        const lookbackDays = 10;
-        const today = new Date();
-        const dateKeys = Array.from({ length: lookbackDays }, (_, offset) => {
-          const date = new Date(today);
-          date.setDate(today.getDate() - offset);
-          return getFlowDateKey(date);
-        });
-
-        const plans = await Promise.all(
-          dateKeys.map((key, index) =>
-            index === 0 && flowPlan
-              ? Promise.resolve(flowPlan)
-              : fetchFlowPlanSnapshot(user.uid, key)
-          )
-        );
-        if (cancelled) {
-          return;
-        }
-        let streak = 0;
-        let started = false;
-        let latestReflection: string | null = null;
-
-        for (let index = 0; index < dateKeys.length; index += 1) {
-          const plan = plans[index];
-          const reflections = plan?.reflections ?? [];
-          const hasReflections = reflections.length > 0;
-          if (!latestReflection && hasReflections) {
-            latestReflection =
-              reflections[0]?.createdAt ??
-              reflections[0]?.updatedAt ??
-              plan?.updatedAt ??
-              null;
-          }
-          if (!started && index === 0 && !hasReflections) {
-            continue;
-          }
-          if (hasReflections) {
-            started = true;
-            streak += 1;
-          } else if (started) {
-            break;
-          }
-        }
-
-        if (!cancelled) {
-          setReflectionStreakDays(streak);
-          setLastReflectionAt(latestReflection);
-        }
-      } catch (error) {
-        console.error("Failed to load reflection streak", error);
-        if (!cancelled) {
-          setReflectionStreakDays(0);
-        }
-      } finally {
-        if (!cancelled) {
-          setReflectionStreakLoading(false);
-        }
-      }
-    };
-    void loadReflectionStreak();
-    return () => {
-      cancelled = true;
-    };
-  }, [flowPlan, user?.uid]);
-
-  useEffect(() => {
     if (!user || !isSunday) {
       setWeeklySummary(null);
       setWeeklyLoading(false);
@@ -679,8 +600,6 @@ export default function DailyDashboardPage() {
   const timelineMoments = useMemo(() => buildTimeline(flowPlan), [flowPlan]);
   const reflections = flowPlan?.reflections ?? EMPTY_REFLECTIONS;
   const latestReflection = reflections[0] ?? null;
-  const isNearEndOfDay = hour >= 18;
-  const journalPrompt = isNearEndOfDay ? "Wrap the day with a quick journal entry." : "Log a thought";
   const primarySummary = splitTotals[0] ?? null;
   const searchTokens = useMemo(() => normaliseQueryTokens(searchQuery), [searchQuery]);
   const searchableItems = useMemo(() => {
@@ -1083,256 +1002,227 @@ export default function DailyDashboardPage() {
       {/* Main Content - Only show if wizard is checked and (not showing wizard OR wizard is done) */}
       {wizardChecked && !showWizard && (
         <div className={cn("min-h-screen pb-24 transition-colors duration-700", palette.gradient)}>
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8">
-            {/* Header & Search */}
-            <header
-              className={cn(
-                "relative z-10 rounded-[32px] border border-white/40 p-6 shadow-lg backdrop-blur",
-                palette.hero,
-                theme === "night" ? "text-white" : "text-slate-900"
-              )}
-            >
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-xs font-semibold uppercase tracking-[0.4em] text-current/70">
-                  Ritual dashboard
-                </span>
-              </div>
-
-              <div className={cn(
-                "absolute bottom-2 right-4 flex gap-1 rounded-full border p-0.5",
-                theme === "night"
-                  ? "border-white/30 bg-white/10"
-                  : "border-slate-200 bg-slate-50/80"
-              )}>
-                {Object.values(THEMES).map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => setTheme(option.id)}
-                    className={cn(
-                      "flex items-center justify-center rounded-full px-2 py-1 text-[10px] transition-all",
-                      theme === option.id
-                        ? theme === "night"
-                          ? "bg-white/20 text-white shadow-sm"
-                          : "bg-white text-slate-900 shadow-sm"
-                        : theme === "night"
-                          ? "text-white/60 hover:text-white/80"
-                          : "text-slate-400 hover:text-slate-600"
-                    )}
-                    title={option.label}
-                  >
-                    <span className="text-sm leading-none">{option.emoji}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <h1 className={cn("text-3xl font-bold", theme === "night" && "text-white")}>Hey {greetingName}, keep the loop kind.</h1>
-                  <p className={cn("text-base", theme === "night" ? "text-indigo-100" : "text-slate-600")}>
-                    See → Do → Feel → Reflect without bouncing tabs.
-                  </p>
-                </div>
-              </div>
-            </header>
-
-            <div
-              className={cn(
-                "rounded-[28px] border p-6 shadow-lg backdrop-blur",
-                isNight
-                  ? "border-white/10 bg-slate-900/50 text-white"
-                  : "border-white/70 bg-white/90 text-slate-900"
-              )}
-            >
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-500">
-                    Search anything
-                  </p>
-                  <p className={cn("text-sm", isNight ? "text-indigo-100" : "text-slate-600")}>
-                    Find Orbit saves, Flow anchors, Split expenses, and Pulse entries by tag.
-                  </p>
-                </div>
-                <div className="relative w-full md:max-w-md">
-                  <Search
-                    className={cn(
-                      "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2",
-                      isNight ? "text-white/60" : "text-slate-500"
-                    )}
-                  />
-                  <Input
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder={searchPlaceholder}
-                    disabled={searchDisabled}
-                    aria-label="Search by tags"
-                    className={cn(
-                      "pl-9",
-                      isNight
-                        ? "border-white/15 bg-white/10 text-white placeholder:text-white/40"
-                        : "border-slate-200 bg-white"
-                    )}
-                  />
-                </div>
-              </div>
-              {isSearchActive ? (
-                <div className="mt-4">
-                  <SearchResultsPane
-                    query={searchQuery}
-                    results={filteredSearchResults}
-                    loading={searchLoading}
-                    errors={searchErrors}
-                    onClear={handleSearchClear}
-                    onNavigate={handleResultNavigate}
-                    onOpenExternal={handleResultOpenExternal}
-                    isNight={isNight}
-                  />
-                </div>
-              ) : null}
+          {/* Header & Search */}
+          <header
+            className={cn(
+              "relative z-10 rounded-[32px] border border-white/40 p-6 shadow-lg backdrop-blur",
+              palette.hero,
+              theme === "night" ? "text-white" : "text-slate-900"
+            )}
+          >
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-xs font-semibold uppercase tracking-[0.4em] text-current/70">
+                Ritual dashboard
+              </span>
             </div>
 
-            {shouldShow("flow") && (
-              isMorning ? (
-                <>
-                  {flowLoading ? (
-                    <SkeletonBanner label="Loading Flow insights" />
-                  ) : flowPlan ? (
-                    <FlowCards
-                      isMorning={isMorning}
-                      isNight={isNight}
-                      upcomingTasks={upcomingTasks}
-                      completedTasks={completedTasks}
-                      totalTasks={flowPlan.tasks?.length ?? 0}
-                      latestReflection={latestReflection}
-                      onAddJournal={() => router.push("/journal")}
-                      onReflect={() => router.push("/flow")}
-                      onOpenFlow={() => router.push("/flow")}
-                    />
-                  ) : (
-                    <SkeletonBanner label={flowError ?? "Sign in to see Flow insights"} />
+            <div className={cn(
+              "absolute bottom-2 right-4 flex gap-1 rounded-full border p-0.5",
+              theme === "night"
+                ? "border-white/30 bg-white/10"
+                : "border-slate-200 bg-slate-50/80"
+            )}>
+              {Object.values(THEMES).map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => setTheme(option.id)}
+                  className={cn(
+                    "flex items-center justify-center rounded-full px-2 py-1 text-[10px] transition-all",
+                    theme === option.id
+                      ? theme === "night"
+                        ? "bg-white/20 text-white shadow-sm"
+                        : "bg-white text-slate-900 shadow-sm"
+                      : theme === "night"
+                        ? "text-white/60 hover:text-white/80"
+                        : "text-slate-400 hover:text-slate-600"
                   )}
-                  <div className="space-y-6">
-                    <DailyWorkSummaryCard summary={dailySummary} loading={dailySummaryLoading} isNight={isNight} />
-                    <DailyRecommendationCard
-                      summary={dailySummary}
+                  title={option.label}
+                >
+                  <span className="text-sm leading-none">{option.emoji}</span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h1 className={cn("text-3xl font-bold", theme === "night" && "text-white")}>Hey {greetingName}, keep the loop kind.</h1>
+                <p className={cn("text-base", theme === "night" ? "text-indigo-100" : "text-slate-600")}>
+                  See → Do → Feel → Reflect without bouncing tabs.
+                </p>
+              </div>
+            </div>
+          </header>
+
+          <div
+            className={cn(
+              "rounded-[28px] border p-6 shadow-lg backdrop-blur",
+              isNight
+                ? "border-white/10 bg-slate-900/50 text-white"
+                : "border-white/70 bg-white/90 text-slate-900"
+            )}
+          >
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-500">
+                  Search anything
+                </p>
+                <p className={cn("text-sm", isNight ? "text-indigo-100" : "text-slate-600")}>
+                  Find Orbit saves, Flow anchors, Split expenses, and Pulse entries by tag.
+                </p>
+              </div>
+              <div className="relative w-full md:max-w-md">
+                <Search
+                  className={cn(
+                    "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2",
+                    isNight ? "text-white/60" : "text-slate-500"
+                  )}
+                />
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder={searchPlaceholder}
+                  disabled={searchDisabled}
+                  aria-label="Search by tags"
+                  className={cn(
+                    "pl-9",
+                    isNight
+                      ? "border-white/15 bg-white/10 text-white placeholder:text-white/40"
+                      : "border-slate-200 bg-white"
+                  )}
+                />
+              </div>
+            </div>
+            {isSearchActive ? (
+              <div className="mt-4">
+                <SearchResultsPane
+                  query={searchQuery}
+                  results={filteredSearchResults}
+                  loading={searchLoading}
+                  errors={searchErrors}
+                  onClear={handleSearchClear}
+                  onNavigate={handleResultNavigate}
+                  onOpenExternal={handleResultOpenExternal}
+                  isNight={isNight}
+                />
+              </div>
+            ) : null}
+          </div>
+
+          {shouldShow("flow") && (
+            isMorning ? (
+              <>
+                {flowLoading ? (
+                  <SkeletonBanner label="Loading Flow insights" />
+                ) : flowPlan ? (
+                  <FlowCards
+                    isMorning={isMorning}
+                    isNight={isNight}
+                    upcomingTasks={upcomingTasks}
+                    completedTasks={completedTasks}
+                    totalTasks={flowPlan.tasks?.length ?? 0}
+                    latestReflection={latestReflection}
+                    onAddJournal={() => router.push("/journal")}
+                    onReflect={() => router.push("/flow")}
+                    onOpenFlow={() => router.push("/flow")}
+                  />
+                ) : (
+                  <SkeletonBanner label={flowError ?? "Sign in to see Flow insights"} />
+                )}
+                <div className="space-y-6">
+                  <DailyWorkSummaryCard summary={dailySummary} loading={dailySummaryLoading} isNight={isNight} />
+                  <DailyRecommendationCard
+                    summary={dailySummary}
+                    loading={dailySummaryLoading}
+                    isNight={isNight}
+                    onAddAnchor={handleAddAnchorToFlow}
+                    anchorStatusLookup={anchorStatusLookup}
+                    canAddAnchors={Boolean(user && flowPlan)}
+                  />
+                  {dailySummary?.learningLesson ? (
+                    <LearningLessonCard lesson={dailySummary.learningLesson} isNight={isNight} userId={user?.uid} />
+                  ) : (
+                    <InsightCarousel
+                      insights={dailySummary?.insights ?? []}
                       loading={dailySummaryLoading}
                       isNight={isNight}
-                      onAddAnchor={handleAddAnchorToFlow}
-                      anchorStatusLookup={anchorStatusLookup}
-                      canAddAnchors={Boolean(user && flowPlan)}
+                      votes={insightVotes}
+                      messages={insightMessages}
+                      savingInsightId={savingInsightId}
+                      onVote={handleInsightVote}
+                      onSave={handleInsightSave}
+                      canInteract={Boolean(user)}
                     />
-                    {dailySummary?.learningLesson ? (
-                      <LearningLessonCard lesson={dailySummary.learningLesson} isNight={isNight} userId={user?.uid} />
-                    ) : (
-                      <InsightCarousel
-                        insights={dailySummary?.insights ?? []}
-                        loading={dailySummaryLoading}
-                        isNight={isNight}
-                        votes={insightVotes}
-                        messages={insightMessages}
-                        savingInsightId={savingInsightId}
-                        onVote={handleInsightVote}
-                        onSave={handleInsightSave}
-                        canInteract={Boolean(user)}
-                      />
-                    )}
-                  </div>
-                </>
-              ) : flowLoading ? (
-                <SkeletonBanner label="Loading Flow insights" />
-              ) : flowPlan ? (
-                <FlowCards
-                  isMorning={isMorning}
-                  isNight={isNight}
-                  upcomingTasks={upcomingTasks}
-                  completedTasks={completedTasks}
-                  totalTasks={flowPlan.tasks?.length ?? 0}
-                  latestReflection={latestReflection}
-                  onAddJournal={() => router.push("/journal")}
-                  onReflect={() => router.push("/flow")}
-                  onOpenFlow={() => router.push("/flow")}
-                />
-              ) : (
-                <SkeletonBanner label={flowError ?? "Sign in to see Flow insights"} />
-              )
-            )}
-
-            {shouldShow("flow") && (
-              <div className="grid gap-6 lg:grid-cols-2">
-                <Card
-                  className={cn(
-                    "rounded-[28px] p-6 shadow-sm",
-                    isNight
-                      ? "border-white/15 bg-slate-900/60 text-white"
-                      : "border border-indigo-200 bg-indigo-50/70 text-slate-900"
                   )}
-                >
-                  <CardHeader className="p-0">
-                    <p
-                      className={cn(
-                        "text-xs font-semibold uppercase tracking-[0.35em]",
-                        isNight ? "text-indigo-200" : "text-indigo-500"
-                      )}
-                    >
-                      Mood + photo
-                    </p>
-                    <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-indigo-900")}>
-                      Drop a feeling and a photo
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="mt-4 space-y-4">
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <div>
-                        <label
-                          className={cn(
-                            "text-xs font-semibold uppercase tracking-[0.35em]",
-                            isNight ? "text-indigo-100" : "text-indigo-500"
-                          )}
-                        >
-                          Mood
-                        </label>
-                        <select
-                          value={reflectionMood}
-                          onChange={(event) => setReflectionMood(event.target.value)}
-                          className={cn(
-                            "mt-2 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none",
-                            isNight
-                              ? "border-white/30 bg-slate-900/50 text-white focus:border-indigo-200"
-                              : "border-indigo-200 bg-white text-slate-700 focus:border-indigo-300"
-                          )}
-                        >
-                          {FLOW_MOOD_OPTIONS.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.emoji} {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label
-                          className={cn(
-                            "text-xs font-semibold uppercase tracking-[0.35em]",
-                            isNight ? "text-indigo-100" : "text-indigo-500"
-                          )}
-                        >
-                          Photo
-                        </label>
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          className={cn(
-                            "mt-2 cursor-pointer text-sm",
-                            isNight
-                              ? "border-white/30 bg-slate-900/50 text-white"
-                              : "border-indigo-200"
-                          )}
-                          onChange={handlePhotoChange}
-                        />
-                        <p className={cn("mt-1 text-xs", isNight ? "text-indigo-200" : "text-indigo-500")}>
-                          {reflectionPhotoName
-                            ? `Attached: ${reflectionPhotoName}`
-                            : "Optional — shows up in Flow reflections."}
-                        </p>
-                      </div>
+                </div>
+              </>
+            ) : flowLoading ? (
+              <SkeletonBanner label="Loading Flow insights" />
+            ) : flowPlan ? (
+              <FlowCards
+                isMorning={isMorning}
+                isNight={isNight}
+                upcomingTasks={upcomingTasks}
+                completedTasks={completedTasks}
+                totalTasks={flowPlan.tasks?.length ?? 0}
+                latestReflection={latestReflection}
+                onAddJournal={() => router.push("/journal")}
+                onReflect={() => router.push("/flow")}
+                onOpenFlow={() => router.push("/flow")}
+              />
+            ) : (
+              <SkeletonBanner label={flowError ?? "Sign in to see Flow insights"} />
+            )
+          )}
+
+          {shouldShow("flow") && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card
+                className={cn(
+                  "rounded-[28px] p-6 shadow-sm",
+                  isNight
+                    ? "border-white/15 bg-slate-900/60 text-white"
+                    : "border border-indigo-200 bg-indigo-50/70 text-slate-900"
+                )}
+              >
+                <CardHeader className="p-0">
+                  <p
+                    className={cn(
+                      "text-xs font-semibold uppercase tracking-[0.35em]",
+                      isNight ? "text-indigo-200" : "text-indigo-500"
+                    )}
+                  >
+                    Mood + photo
+                  </p>
+                  <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-indigo-900")}>
+                    Drop a feeling and a photo
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="mt-4 space-y-4">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div>
+                      <label
+                        className={cn(
+                          "text-xs font-semibold uppercase tracking-[0.35em]",
+                          isNight ? "text-indigo-100" : "text-indigo-500"
+                        )}
+                      >
+                        Mood
+                      </label>
+                      <select
+                        value={reflectionMood}
+                        onChange={(event) => setReflectionMood(event.target.value)}
+                        className={cn(
+                          "mt-2 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none",
+                          isNight
+                            ? "border-white/30 bg-slate-900/50 text-white focus:border-indigo-200"
+                            : "border-indigo-200 bg-white text-slate-700 focus:border-indigo-300"
+                        )}
+                      >
+                        {FLOW_MOOD_OPTIONS.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.emoji} {option.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label
@@ -1341,105 +1231,124 @@ export default function DailyDashboardPage() {
                           isNight ? "text-indigo-100" : "text-indigo-500"
                         )}
                       >
-                        Reflection
+                        Photo
                       </label>
-                      <Textarea
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
                         className={cn(
-                          "mt-2 min-h-[100px]",
+                          "mt-2 cursor-pointer text-sm",
                           isNight
-                            ? "border-white/30 bg-slate-900/40 text-white placeholder:text-slate-400"
+                            ? "border-white/30 bg-slate-900/50 text-white"
                             : "border-indigo-200"
                         )}
-                        placeholder="What moment stands out?"
-                        value={reflectionNote}
-                        onChange={(event) => setReflectionNote(event.target.value)}
+                        onChange={handlePhotoChange}
                       />
+                      <p className={cn("mt-1 text-xs", isNight ? "text-indigo-200" : "text-indigo-500")}>
+                        {reflectionPhotoName
+                          ? `Attached: ${reflectionPhotoName}`
+                          : "Optional — shows up in Flow reflections."}
+                      </p>
                     </div>
-                    {reflectionStatus ? (
-                      <p className={cn("text-sm", isNight ? "text-indigo-200" : "text-indigo-700")}>{reflectionStatus}</p>
-                    ) : null}
-                    <Button
+                  </div>
+                  <div>
+                    <label
                       className={cn(
-                        "text-white",
-                        isNight ? "bg-indigo-500 hover:bg-indigo-400" : "bg-indigo-600 hover:bg-indigo-500"
+                        "text-xs font-semibold uppercase tracking-[0.35em]",
+                        isNight ? "text-indigo-100" : "text-indigo-500"
                       )}
-                      onClick={handleReflectionSubmit}
-                      disabled={reflectionBusy}
                     >
-                      {reflectionBusy ? <Spinner size="sm" className="text-white" /> : "Sync to Flow"}
-                    </Button>
-                  </CardContent>
-                </Card>
-                <ReflectionStreakCard
-                  streak={reflectionStreakDays}
-                  lastReflectionAt={lastReflectionAt}
-                  loading={reflectionStreakLoading}
-                  dark={isNight}
-                  onViewHistory={() => setShowReflectionsExperience(true)}
-                  photoUrl={latestReflection?.photoUrl ?? null}
-                  photoNote={latestReflection?.note ?? null}
-                />
-              </div>
-            )}
-
-            <Dialog open={showReflectionsExperience} onOpenChange={setShowReflectionsExperience}>
-              <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden flex flex-col">
-                <DialogHeader className="sr-only">
-                  <DialogTitle>Reflections History</DialogTitle>
-                </DialogHeader>
-                <ReflectionsExperience user={user} onClose={() => setShowReflectionsExperience(false)} />
-              </DialogContent>
-            </Dialog>
-
-
-            {(shouldShow("pulse") || shouldShow("split")) && (
-              <div className={cn("grid gap-6", shouldShow("pulse") && shouldShow("split") ? "lg:grid-cols-2" : "grid-cols-1")}>
-                {shouldShow("pulse") && (
-                  <BudgetPulseCard
-                    loading={budgetLoading}
-                    error={budgetError}
-                    summary={budgetPulse}
-                    onOpenBudget={() => router.push("/budget")}
-                    dark={isNight}
-                  />
-                )}
-
-                {shouldShow("split") && (
-                  <GroupSummaryCard
-                    loading={splitLoading}
-                    error={splitError}
-                    summaries={splitTotals}
-                    primary={primarySummary}
-                    onAddExpense={() => router.push("/split")}
-                    dark={isNight}
-                  />
-                )}
-              </div>
-            )}
-
-            {isSunday && shouldShow("flow") ? (
-              <WeeklyDigestCard
-                summary={weeklySummary}
-                loading={weeklyLoading}
-                error={weeklyError}
-                moments={timelineMoments}
+                      Reflection
+                    </label>
+                    <Textarea
+                      className={cn(
+                        "mt-2 min-h-[100px]",
+                        isNight
+                          ? "border-white/30 bg-slate-900/40 text-white placeholder:text-slate-400"
+                          : "border-indigo-200"
+                      )}
+                      placeholder="What moment stands out?"
+                      value={reflectionNote}
+                      onChange={(event) => setReflectionNote(event.target.value)}
+                    />
+                  </div>
+                  {reflectionStatus ? (
+                    <p className={cn("text-sm", isNight ? "text-indigo-200" : "text-indigo-700")}>{reflectionStatus}</p>
+                  ) : null}
+                  <Button
+                    className={cn(
+                      "text-white",
+                      isNight ? "bg-indigo-500 hover:bg-indigo-400" : "bg-indigo-600 hover:bg-indigo-500"
+                    )}
+                    onClick={handleReflectionSubmit}
+                    disabled={reflectionBusy}
+                  >
+                    {reflectionBusy ? <Spinner size="sm" className="text-white" /> : "Sync to Flow"}
+                  </Button>
+                </CardContent>
+              </Card>
+              <ReflectionsTile
+                user={user}
+                onOpenExperience={() => setShowReflectionsExperience(true)}
               />
-            ) : null}
+            </div>
+          )}
 
-            {intent !== "all" && (
-              <div className="pt-8 pb-4 text-center">
-                <p className="text-sm text-slate-500 mb-3">Looking for more tools?</p>
-                <Button
-                  variant="outline"
-                  onClick={() => handleWizardComplete("all")}
-                  className="rounded-full border-slate-200 text-slate-600 hover:bg-slate-50"
-                >
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Show all features
-                </Button>
-              </div>
-            )}
-          </div>
+          <Dialog open={showReflectionsExperience} onOpenChange={setShowReflectionsExperience}>
+            <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden">
+              <ReflectionsExperience user={user} onClose={() => setShowReflectionsExperience(false)} />
+            </DialogContent>
+          </Dialog>
+
+
+          {(shouldShow("pulse") || shouldShow("split")) && (
+            <div className={cn("grid gap-6", shouldShow("pulse") && shouldShow("split") ? "lg:grid-cols-2" : "grid-cols-1")}>
+              {shouldShow("pulse") && (
+                <BudgetPulseCard
+                  loading={budgetLoading}
+                  error={budgetError}
+                  summary={budgetPulse}
+                  onOpenBudget={() => router.push("/budget")}
+                  dark={isNight}
+                />
+              )}
+
+              {shouldShow("split") && (
+                <GroupSummaryCard
+                  loading={splitLoading}
+                  error={splitError}
+                  summaries={splitTotals}
+                  primary={primarySummary}
+                  onAddExpense={() => router.push("/split")}
+                  dark={isNight}
+                />
+              )}
+            </div>
+          )}
+
+          {isSunday && shouldShow("flow") ? (
+            <WeeklyDigestCard
+              summary={weeklySummary}
+              loading={weeklyLoading}
+              error={weeklyError}
+              moments={timelineMoments}
+            />
+          ) : null}
+
+          {intent !== "all" && (
+            <div className="pt-8 pb-4 text-center">
+              <p className="text-sm text-slate-500 mb-3">Looking for more tools?</p>
+              <Button
+                variant="outline"
+                onClick={() => handleWizardComplete("all")}
+                className="rounded-full border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                Show all features
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -2400,164 +2309,6 @@ function WeeklyDigestCard({
 }
 
 
-
-const formatRelativeDayDistance = (timestamp?: string | null) => {
-  if (!timestamp) {
-    return null;
-  }
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-  if (diffDays === 0) {
-    return "today";
-  }
-  if (diffDays === 1) {
-    return "yesterday";
-  }
-  return `${diffDays} days ago`;
-};
-
-function ReflectionStreakCard({
-  streak,
-  lastReflectionAt,
-  loading,
-  dark,
-  onViewHistory,
-  photoUrl,
-  photoNote,
-}: {
-  streak: number;
-  lastReflectionAt: string | null;
-  loading: boolean;
-  dark: boolean;
-  onViewHistory: () => void;
-  photoUrl: string | null;
-  photoNote: string | null;
-}) {
-  const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
-  const tone = dark ? "text-indigo-200" : "text-slate-600";
-  const accent = dark ? "text-white" : "text-slate-900";
-  const badgeTone = dark
-    ? "bg-white/10 text-indigo-100"
-    : "bg-indigo-100 text-indigo-700";
-  const streakLabel =
-    streak > 1 ? `${streak}-day run` : streak === 1 ? "1 day logged" : "No streak yet";
-  const relative = formatRelativeDayDistance(lastReflectionAt);
-  const lastEntryText = relative
-    ? `Last entry ${relative}.`
-    : "Log a reflection to start your streak.";
-
-  return (
-    <Card
-      className={cn(
-        "rounded-[28px] p-6 shadow-sm",
-        dark ? "border-white/15 bg-slate-900/60 text-white" : "border border-slate-200 bg-white/95 text-slate-900"
-      )}
-    >
-      <CardHeader className="p-0">
-        <p className={cn("text-xs font-semibold uppercase tracking-[0.35em]", tone)}>
-          Reflection streak
-        </p>
-        <CardTitle className={cn("text-xl", accent)}>Keep the loop alive</CardTitle>
-      </CardHeader>
-      <CardContent className="mt-4 space-y-4">
-        {loading ? (
-          <div className={cn("flex items-center gap-3 text-sm", tone)}>
-            <Spinner size="sm" className="text-current" />
-            Checking your Flow streak...
-          </div>
-        ) : (
-          <>
-            <div>
-              <div className="flex items-baseline gap-2">
-                <p className={cn("text-4xl font-bold", accent)}>{streak}</p>
-                <span className={cn("text-xs font-semibold uppercase tracking-[0.3em]", tone)}>
-                  day streak
-                </span>
-              </div>
-              <p className={cn("mt-1 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold", badgeTone)}>
-                {streakLabel}
-              </p>
-            </div>
-            <p className={cn("text-sm", tone)}>{lastEntryText}</p>
-            {photoUrl ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setPhotoPreviewOpen(true)}
-                  className={cn(
-                    "w-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 rounded-2xl",
-                    dark ? "focus-visible:ring-white focus-visible:ring-offset-slate-900" : "focus-visible:ring-indigo-500 focus-visible:ring-offset-white"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "overflow-hidden rounded-2xl border",
-                      dark ? "border-white/10 bg-black/40" : "border-slate-200 bg-slate-50"
-                    )}
-                  >
-                    <div className="relative flex h-40 w-full items-center justify-center">
-                      <Image
-                        src={photoUrl}
-                        alt="Latest reflection photo"
-                        fill
-                        sizes="(max-width: 768px) 100vw, 320px"
-                        className="object-contain"
-                        unoptimized
-                      />
-                    </div>
-                  </div>
-                  <p className={cn("mt-2 text-xs", tone)}>
-                    Tap to see the full photo.
-                  </p>
-                </button>
-                <Dialog open={photoPreviewOpen} onOpenChange={setPhotoPreviewOpen}>
-                  <DialogContent className="max-w-3xl border-none bg-slate-900/80 p-4 text-white shadow-2xl">
-                    <DialogHeader className="sr-only">
-                      <DialogTitle>Reflection photo preview</DialogTitle>
-                    </DialogHeader>
-                    <div className="relative h-[70vh] w-full">
-                      <Image
-                        src={photoUrl}
-                        alt="Full reflection photo"
-                        fill
-                        sizes="(max-width: 1200px) 90vw, 800px"
-                        className="object-contain"
-                        unoptimized
-                      />
-                    </div>
-                    {photoNote ? (
-                      <p className="mt-4 text-sm text-white/90">{photoNote}</p>
-                    ) : null}
-                  </DialogContent>
-                </Dialog>
-              </>
-            ) : (
-              <p className={cn("text-sm italic", tone)}>
-                Add a photo to your next reflection to light up this space.
-              </p>
-            )}
-            <div className="space-y-2">
-              <Button
-                className={cn(
-                  "w-full text-white",
-                  dark ? "bg-indigo-500 hover:bg-indigo-400" : "bg-indigo-600 hover:bg-indigo-500"
-                )}
-                onClick={onViewHistory}
-              >
-                View History
-              </Button>
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
 
 function DailyWorkSummaryCard({
   summary,
