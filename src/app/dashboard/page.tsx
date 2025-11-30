@@ -515,7 +515,7 @@ export default function DailyDashboardPage() {
           if (!latestReflection && hasReflections) {
             latestReflection =
               reflections[0]?.createdAt ??
-              reflections[0]?.updatedAt ??
+
               plan?.updatedAt ??
               null;
           }
@@ -679,8 +679,8 @@ export default function DailyDashboardPage() {
   const timelineMoments = useMemo(() => buildTimeline(flowPlan), [flowPlan]);
   const reflections = flowPlan?.reflections ?? EMPTY_REFLECTIONS;
   const latestReflection = reflections[0] ?? null;
-  const isNearEndOfDay = hour >= 18;
-  const journalPrompt = isNearEndOfDay ? "Wrap the day with a quick journal entry." : "Log a thought";
+
+
   const primarySummary = splitTotals[0] ?? null;
   const searchTokens = useMemo(() => normaliseQueryTokens(searchQuery), [searchQuery]);
   const searchableItems = useMemo(() => {

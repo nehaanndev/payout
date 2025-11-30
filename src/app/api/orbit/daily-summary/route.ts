@@ -124,9 +124,8 @@ const generateLearningRoadmap = async (
         },
         {
           role: "user",
-          content: `Create a ${totalLessons}-day learning roadmap for "${plan.topic}" at a ${
-            plan.depth
-          } depth. Keep days additive, avoid repeating angles, and ensure difficulty progresses.`,
+          content: `Create a ${totalLessons}-day learning roadmap for "${plan.topic}" at a ${plan.depth
+            } depth. Keep days additive, avoid repeating angles, and ensure difficulty progresses.`,
         },
       ],
       temperature: 0.3,
@@ -201,7 +200,7 @@ const buildFallbackLesson = (plan: OrbitLearningPlan): OrbitLearningLesson => {
     paragraphs: [
       `You chose "${plan.topic}" as your learning track. Today is Day ${nextDay} of ${totalLessons}.`,
       focus?.summary ??
-        "Take a moment to reflect on what stood out yesterday and jot one new takeaway.",
+      "Take a moment to reflect on what stood out yesterday and jot one new takeaway.",
       "When you're ready, tap Save to keep this lesson in Orbit.",
     ],
     code: undefined,
@@ -254,11 +253,10 @@ async function generateLearningLesson(
         },
         {
           role: "user",
-      content: `Create Day ${nextDay} of a ${plan.totalLessons}-day learning track on "${plan.topic}". Past lessons (avoid repeating them): ${pastContext.join(
-        " | "
-      ) || "none yet"}. Today's syllabus focus: ${syllabusFocus?.title ?? "continue the track"} — ${
-        syllabusFocus?.summary ?? "build on the topic with a new concept"
-      }. Upcoming focuses: ${upcomingFocus?.join(" | ") ?? "n/a"}.\nReturn JSON:\n{\n  "lesson": {\n    "title": "<headline for today tailored to today's focus>",\n    "overview": "<2-sentence overview>",\n    "paragraphs": ["<3-4 short paragraphs, 3 sentences max each; each paragraph should progress the idea>"],\n    "code": ["<optional preformatted snippet; include only if the topic benefits from code/config/command examples>"],\n    "quiz": [\n      {\n        "question": "<crisp question to reinforce recall>",\n        "answers": ["<brief correct answer>", "<optional distractor>", "<optional second distractor>"],\n        "correctAnswer": "<exact text of correct answer from answers>"\n      }\n    ]\n  }\n}\nTone: friendly, practical, avoid jargon. Keep within 250-300 words total. Quiz answers should be short phrases, not essays. Do not repeat prior quiz questions. Include code only when it clearly helps practice or implementation.`,
+          content: `Create Day ${nextDay} of a ${plan.totalLessons}-day learning track on "${plan.topic}". Past lessons (avoid repeating them): ${pastContext.join(
+            " | "
+          ) || "none yet"}. Today's syllabus focus: ${syllabusFocus?.title ?? "continue the track"} — ${syllabusFocus?.summary ?? "build on the topic with a new concept"
+            }. Upcoming focuses: ${upcomingFocus?.join(" | ") ?? "n/a"}.\nReturn JSON:\n{\n  "lesson": {\n    "title": "<headline for today tailored to today's focus>",\n    "overview": "<2-sentence overview>",\n    "paragraphs": ["<3-4 short paragraphs, 3 sentences max each; each paragraph should progress the idea>"],\n    "code": ["<optional preformatted snippet; include only if the topic benefits from code/config/command examples>"],\n    "quiz": [\n      {\n        "question": "<crisp question to reinforce recall>",\n        "answers": ["<brief correct answer>", "<optional distractor>", "<optional second distractor>"],\n        "correctAnswer": "<exact text of correct answer from answers>"\n      }\n    ]\n  }\n}\nTone: friendly, practical, avoid jargon. Keep within 250-300 words total. Quiz answers should be short phrases, not essays. Do not repeat prior quiz questions. Include code only when it clearly helps practice or implementation.`,
         },
       ],
       temperature: 0.4,
@@ -293,9 +291,9 @@ async function generateLearningLesson(
     : [];
   const codeBlocks = Array.isArray((lesson as Record<string, unknown>).code)
     ? ((lesson as Record<string, unknown>).code as unknown[])
-        .map((block) => String(block ?? ""))
-        .filter(Boolean)
-        .slice(0, 3)
+      .map((block) => String(block ?? ""))
+      .filter(Boolean)
+      .slice(0, 3)
     : [];
   const quizRaw: Array<{
     question?: unknown;
@@ -357,11 +355,11 @@ async function generatePersonalizedSummary(
 
   const fallbackOverview = completedWork.length
     ? [
-        `You wrapped ${completedWork.length} work task${completedWork.length === 1 ? "" : "s"} yesterday: ${completedWork
-          .map((task) => task.title)
-          .slice(0, 3)
-          .join(", ")}.`,
-      ]
+      `You wrapped ${completedWork.length} work task${completedWork.length === 1 ? "" : "s"} yesterday: ${completedWork
+        .map((task) => task.title)
+        .slice(0, 3)
+        .join(", ")}.`,
+    ]
     : ["No tracked work tasks finished yesterday, so today is a clean slate to set the tone."];
 
   const fallbackRecommendations = pendingWork.length
@@ -382,10 +380,10 @@ async function generatePersonalizedSummary(
 
   const flowSummary = yesterdayFlow
     ? {
-        totalTasks: yesterdayFlow.tasks?.length ?? 0,
-        completedTasks: (yesterdayFlow.tasks ?? []).filter((task) => task.status === "done").length,
-        reflections: yesterdayFlow.reflections?.length ?? 0,
-      }
+      totalTasks: yesterdayFlow.tasks?.length ?? 0,
+      completedTasks: (yesterdayFlow.tasks ?? []).filter((task) => task.status === "done").length,
+      reflections: yesterdayFlow.reflections?.length ?? 0,
+    }
     : null;
 
   const requestContext = {
@@ -477,8 +475,8 @@ async function generatePersonalizedSummary(
   const overview = overviewSource
     ? overviewSource.map((paragraph) => String(paragraph))
     : parsed?.overview
-    ? [String(parsed.overview)]
-    : fallbackOverview;
+      ? [String(parsed.overview)]
+      : fallbackOverview;
 
   const recommendationsSource = Array.isArray(parsed?.recommendations)
     ? (parsed.recommendations as unknown[])
@@ -503,8 +501,8 @@ async function generatePersonalizedSummary(
         rawParagraphs && rawParagraphs.length
           ? rawParagraphs.map((paragraph) => String(paragraph))
           : summaryText
-          ? [summaryText]
-          : [];
+            ? [summaryText]
+            : [];
       return {
         id:
           typeof raw.id === "string" && raw.id.length
@@ -563,7 +561,13 @@ export async function GET(request: NextRequest) {
     const existingDaily = await getDailySummary(userId, dateKey);
     if (existingDaily?.payload) {
       // If a learning plan is active but the cached payload lacks a lesson, generate one and override sparks
-      if (learningActive && !existingDaily.payload.learningLesson) {
+      // Also regenerate if the plan has been updated since the summary was created (e.g. user started a new topic)
+      const planUpdatedSinceSummary =
+        learningPlan &&
+        existingDaily.createdAt &&
+        new Date(learningPlan.updatedAt).getTime() > new Date(existingDaily.createdAt).getTime();
+
+      if (learningActive && (!existingDaily.payload.learningLesson || planUpdatedSinceSummary)) {
         const lesson =
           (await generateLearningLesson(learningPlan)) ?? buildFallbackLesson(learningPlan);
         if (lesson) {
@@ -617,7 +621,7 @@ export async function GET(request: NextRequest) {
       const primary = budgets[0];
       const monthKey = getBudgetMonthKey();
       const month = await fetchBudgetMonthSnapshot(primary.id, monthKey);
-      
+
       if (month?.entries) {
         const yesterdayExpenses = month.entries.filter((entry) => {
           const entryDate = new Date(entry.date);
