@@ -140,6 +140,7 @@ const TASK_TYPE_LABEL: Record<FlowTaskType, string> = {
   priority: "Top priority",
   chore: "Essential chore",
   flex: "Flex block",
+  reminder: "Reminder",
 };
 
 
@@ -510,6 +511,7 @@ export function FlowExperience() {
   const [editingTask, setEditingTask] = useState<FlowTask | null>(null);
   const [editStartTime, setEditStartTime] = useState<string>("");
   const [editDuration, setEditDuration] = useState<number>(30);
+  const [editType, setEditType] = useState<FlowTaskType>("flex");
   const [timelineOnly, setTimelineOnly] = useState(false);
   const [reflectionMoodId, setReflectionMoodId] = useState<string | null>(null);
   const [reflectionNote, setReflectionNote] = useState("");
@@ -909,6 +911,7 @@ export function FlowExperience() {
         return {
           ...task,
           estimateMinutes: duration,
+          type: editType,
           scheduledStart: startDate.toISOString(),
           scheduledEnd: endDate.toISOString(),
           updatedAt: nowIso,
@@ -921,7 +924,7 @@ export function FlowExperience() {
       };
     });
     setEditingTask(null);
-  }, [editDuration, editStartTime, editingTask, plan, startTime, updatePlan]);
+  }, [editDuration, editStartTime, editType, editingTask, plan, startTime, updatePlan]);
 
   const handleAddReflection = useCallback(() => {
     if (!plan || reflectionSaving) {
@@ -1228,6 +1231,7 @@ export function FlowExperience() {
                             const committedMinutes = plan?.tasks
                               .filter((t) =>
                                 t.category !== "play" &&
+                                t.type !== "reminder" &&
                                 t.status !== "skipped"
                               )
                               .reduce((acc, t) => acc + t.estimateMinutes, 0) || 0;
@@ -1983,6 +1987,7 @@ export function FlowExperience() {
                                                     toTimeInputValue(task.scheduledStart) || startTime
                                                   );
                                                   setEditDuration(task.estimateMinutes);
+                                                  setEditType(task.type);
                                                 }}
                                               >
                                                 <Pencil className="h-4 w-4" />
@@ -2379,6 +2384,24 @@ export function FlowExperience() {
                 value={editDuration}
                 onChange={(event) => setEditDuration(Number(event.target.value))}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-type">Type</Label>
+              <Select
+                value={editType}
+                onValueChange={(value) => setEditType(value as FlowTaskType)}
+              >
+                <SelectTrigger id="edit-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TASK_TYPE_LABEL).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter className="mt-6">

@@ -6,7 +6,7 @@ export type FlowCategory =
   | "play"
   | "growth";
 
-export type FlowTaskType = "priority" | "chore" | "flex";
+export type FlowTaskType = "priority" | "chore" | "flex" | "reminder";
 
 export type FlowTaskStatus =
   | "pending"
