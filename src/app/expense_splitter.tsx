@@ -18,6 +18,9 @@ import { Settlement } from '@/types/settlement';
 import { calculateRawBalancesMinor } from '@/lib/financeUtils';
 import { CurrencyCode } from '@/lib/currency_core';
 import { DEFAULT_CURRENCY, getGroupCurrency } from '@/lib/currency';
+import { getUserProfile, isUserPlus } from "@/lib/userService";
+import { UpgradeDialog } from "@/components/UpgradeDialog";
+import type { UserProfile } from "@/types/user";
 
 
 interface ExpenseSplitterProps {
@@ -41,15 +44,19 @@ export default function ExpenseSplitter({
   isNight = false,
   onTabStateChange,
 }: ExpenseSplitterProps) {
-const [loading, setLoading] = useState(true);
-const [activeTab, setActiveTab] = useState<'summary' | 'create'>('summary');
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState("");
+  const [upgradeLimit, setUpgradeLimit] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'summary' | 'create'>('summary');
   // only show the Create/Edit tab when the user has clicked "New Group" or loaded an existing one
-const [showCreateTab, setShowCreateTab] = useState(false);
+  const [showCreateTab, setShowCreateTab] = useState(false);
 
   // Notify parent of tab state changes
   // Use a ref to track the last state to avoid unnecessary updates
   const lastStateRef = React.useRef<{ activeTab: 'summary' | 'create'; showCreateTab: boolean } | null>(null);
-  
+
   useEffect(() => {
     const currentState = { activeTab, showCreateTab };
     // Only notify if state actually changed
@@ -63,49 +70,49 @@ const [showCreateTab, setShowCreateTab] = useState(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, showCreateTab]); // Don't include onTabStateChange to avoid loops
-const [savedGroups, setSavedGroups] = useState<Group[]>([]);
-const [activeGroupId, setActiveGroupId] = useState<string>('');
-const [activeGroup, setActiveGroup] = useState<Group | null>(null);
-const [groupName, setGroupName] = useState('');
-const [currency, setCurrency] = useState<CurrencyCode>(initialCurrency || DEFAULT_CURRENCY)
-const [members, setMembers] = useState<Member[]>([]);
-const [expenses, setExpenses] = useState<Expense[]>([]);
-const [splitMode, setSplitMode] = useState<'percentage' | 'weight'>('percentage');
-const [weightSplits, setWeightSplits] = useState<Record<string, number>>({});
-const [showExpenseForm, setShowExpenseForm] = useState(false);
-const [showReceiptUploader, setShowReceiptUploader] = useState(false);
-const [, setCurrentUser] = useState<Member | null>(null);
-const [showIdentityPrompt, setShowIdentityPrompt] = useState(false);
-const [currentExpense, setCurrentExpense] = useState<Omit<Expense, 'amount'> & { amount: string }>({
-  id: '',
-  description: '',
-  amount: '', // now a string
-  paidBy: '',
-  splits: {},
-  createdAt: new Date(),
-  amountMinor: 0,
-  splitsMinor: {},
-  tags: [],
-});
+  const [savedGroups, setSavedGroups] = useState<Group[]>([]);
+  const [activeGroupId, setActiveGroupId] = useState<string>('');
+  const [activeGroup, setActiveGroup] = useState<Group | null>(null);
+  const [groupName, setGroupName] = useState('');
+  const [currency, setCurrency] = useState<CurrencyCode>(initialCurrency || DEFAULT_CURRENCY)
+  const [members, setMembers] = useState<Member[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [splitMode, setSplitMode] = useState<'percentage' | 'weight'>('percentage');
+  const [weightSplits, setWeightSplits] = useState<Record<string, number>>({});
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [showReceiptUploader, setShowReceiptUploader] = useState(false);
+  const [, setCurrentUser] = useState<Member | null>(null);
+  const [showIdentityPrompt, setShowIdentityPrompt] = useState(false);
+  const [currentExpense, setCurrentExpense] = useState<Omit<Expense, 'amount'> & { amount: string }>({
+    id: '',
+    description: '',
+    amount: '', // now a string
+    paidBy: '',
+    splits: {},
+    createdAt: new Date(),
+    amountMinor: 0,
+    splitsMinor: {},
+    tags: [],
+  });
 
-const [isEditingExpense, setIsEditingExpense] = useState(false);
-const [showAccessError, setShowAccessError] = useState(false);
-// at the top of ExpenseSplitter(), after your other useStates:
-const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
-const [showSettlementModal, setShowSettlementModal] = useState(false);
-const [isMarkSettledMode, setIsMarkSettledMode] = useState(false);
-const [settlementGroup, setSettlementGroup] = useState<Group|null>(null);
-const [, setSettlements] = useState<Settlement[]>([]);
-// ① map of groupId → settlements[]
-const [settlementsByGroup, setSettlementsByGroup] = useState<Record<string, Settlement[]>>({});
+  const [isEditingExpense, setIsEditingExpense] = useState(false);
+  const [showAccessError, setShowAccessError] = useState(false);
+  // at the top of ExpenseSplitter(), after your other useStates:
+  const [wizardStep, setWizardStep] = useState<'details' | 'expenses'>('details');
+  const [showSettlementModal, setShowSettlementModal] = useState(false);
+  const [isMarkSettledMode, setIsMarkSettledMode] = useState(false);
+  const [settlementGroup, setSettlementGroup] = useState<Group | null>(null);
+  const [, setSettlements] = useState<Settlement[]>([]);
+  // ① map of groupId → settlements[]
+  const [settlementsByGroup, setSettlementsByGroup] = useState<Record<string, Settlement[]>>({});
 
   // holds the raw balances for the selected group
-const [, setSettlementRawBalances] = useState<Record<string,number>>({});
+  const [, setSettlementRawBalances] = useState<Record<string, number>>({});
 
-// just your total debt, for a “Pay All” default
-const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
-  defaultAmount: 0
-});
+  // just your total debt, for a “Pay All” default
+  const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
+    defaultAmount: 0
+  });
 
   const getAuthProviderFromSession = (user: User): Member["authProvider"] => {
     const providerIds = user.providerData
@@ -148,7 +155,7 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
       getSettlements(settlementGroup.id).then(setSettlements);
     }
   }, [settlementGroup]);
-  
+
   useEffect(() => {
     const fetchGroups = async () => {
       if (session || anonUser) {
@@ -160,7 +167,7 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
         else if (anonUser) {
           userGroups = await getUserGroupsById(anonUser.id) as Group[];
         }
-        
+
         // Fetch expenses for all groups to populate the Summary tab correctly
         const formattedGroups: Group[] = await Promise.all(
           userGroups.map(async (group: Group) => {
@@ -175,7 +182,7 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
             };
           })
         );
-        
+
         setSavedGroups(formattedGroups);
         if (groupid) {
           console.log("Group ID:", groupid);
@@ -198,6 +205,14 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
     };
     fetchGroups();
   }, [session, anonUser, groupid]);
+
+  useEffect(() => {
+    if (session) {
+      getUserProfile(session.uid).then(setUserProfile);
+    } else {
+      setUserProfile(null);
+    }
+  }, [session]);
 
   const me = useMemo<Member | null>(() => {
     if (session) {
@@ -373,8 +388,8 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
     setActiveTab('create');
   };
 
-   // replace handleAddMember from earlier:
-   const handleAddMember = (firstName: string, email?: string | null) => {
+  // replace handleAddMember from earlier:
+  const handleAddMember = (firstName: string, email?: string | null) => {
     let name = firstName.trim();
     let mail = email?.trim() || null;
     if (!name) {
@@ -409,7 +424,7 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
   const removeMember = (memberFirstNameToRemove: string) => {
     setMembers(members.filter(member => member.firstName !== memberFirstNameToRemove));
   };
-/* ---- */
+  /* ---- */
 
   // link sharing
 
@@ -421,6 +436,12 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
   const handleDetailsNext = async () => {
     // 1️⃣ If it’s a brand-new group, call your Firebase helper:
     if (!activeGroupId) {
+      if (!isUserPlus(userProfile) && savedGroups.length >= 10) {
+        setUpgradeFeature("Split Groups");
+        setUpgradeLimit("10 groups");
+        setShowUpgradeDialog(true);
+        return;
+      }
       const newId = await createGroup(
         groupName,
         session?.email ?? '',
@@ -459,30 +480,30 @@ const [, setSettlementDefaults] = useState<{ defaultAmount: number }>({
   };
 
   // settlement
-// 3. Replace the old handleOpenSettle with this:
-const handleOpenSettle = (group: Group) => {
-  // 1️⃣ compute raw balances so the modal can see who you owe using minor units
-  const raw = calculateRawBalancesMinor(group.members, group.expenses, group.currency);
+  // 3. Replace the old handleOpenSettle with this:
+  const handleOpenSettle = (group: Group) => {
+    // 1️⃣ compute raw balances so the modal can see who you owe using minor units
+    const raw = calculateRawBalancesMinor(group.members, group.expenses, group.currency);
 
-  // 2️⃣ your total debt (sum of all the positives in raw for others)
-  const totalOwe = group.members
-    .filter(m => m.id !== me!.id)
-    .reduce((sum, m) => sum + Math.max(0, raw[m.id] ?? 0), 0);
+    // 2️⃣ your total debt (sum of all the positives in raw for others)
+    const totalOwe = group.members
+      .filter(m => m.id !== me!.id)
+      .reduce((sum, m) => sum + Math.max(0, raw[m.id] ?? 0), 0);
 
-  setSettlementGroup(group);
-  setSettlementRawBalances(raw);
-  setSettlementDefaults({ defaultAmount: totalOwe });
-  setIsMarkSettledMode(false);
-  setShowSettlementModal(true);
-};
+    setSettlementGroup(group);
+    setSettlementRawBalances(raw);
+    setSettlementDefaults({ defaultAmount: totalOwe });
+    setIsMarkSettledMode(false);
+    setShowSettlementModal(true);
+  };
 
-const handleMarkSettled = (group: Group) => {
-  setSettlementGroup(group);
-  setSettlementRawBalances({});
-  setSettlementDefaults({ defaultAmount: 0 });
-  setIsMarkSettledMode(true);
-  setShowSettlementModal(true);
-};
+  const handleMarkSettled = (group: Group) => {
+    setSettlementGroup(group);
+    setSettlementRawBalances({});
+    setSettlementDefaults({ defaultAmount: 0 });
+    setIsMarkSettledMode(true);
+    setShowSettlementModal(true);
+  };
 
   const handleConfirmSettlement = async (settlement: Settlement) => {
     if (!activeGroupId) {
@@ -558,12 +579,12 @@ const handleMarkSettled = (group: Group) => {
               setWizardStep('expenses');
               setShowCreateTab(true);
               setActiveTab('create');
-            } }
+            }}
             onShareGroup={group => {
               const link = getGroupShareLink(group.id);
               navigator.clipboard.writeText(link);
               alert('Group link copied!');
-            } }
+            }}
             onEditGroup={group => {
               // open the wizard back at Details for editing
               setActiveGroupId(group.id);
@@ -574,10 +595,10 @@ const handleMarkSettled = (group: Group) => {
               setWizardStep('details');
               setShowCreateTab(true);
               setActiveTab('create');
-            } } onCreateGroup={startNewGroup}
+            }} onCreateGroup={startNewGroup}
             isNight={isNight}
           />
-            {showSettlementModal && settlementGroup && (
+          {showSettlementModal && settlementGroup && (
             <SettlementModal
               isOpen
               onClose={() => setShowSettlementModal(false)}
@@ -624,10 +645,10 @@ const handleMarkSettled = (group: Group) => {
               currentUser={me} onCancel={() => {
                 // go to summary tab
                 setActiveTab('summary');
-              } }
-              currency={currency} 
+              }}
+              currency={currency}
               setCurrency={setCurrency}
-              />
+            />
           ) : (
             <ExpensesPanel
               /* DATA */
@@ -644,6 +665,7 @@ const handleMarkSettled = (group: Group) => {
               youId={session?.uid ?? anonUser?.id ?? ""}
               currency={currency}
               isNight={isNight}
+              userProfile={userProfile}
               /* SETTERS */
               setExpenses={setExpenses}
               setCurrentExpense={setCurrentExpense}
@@ -666,7 +688,7 @@ const handleMarkSettled = (group: Group) => {
                 setSavedGroups(gs =>
                   gs.map(g => g.id === activeGroupId ? { ...g, expenses: newExps } : g)
                 );
-              }} 
+              }}
               onConfirmSettlement={handleConfirmSettlement}
             />
           )}
@@ -717,6 +739,12 @@ const handleMarkSettled = (group: Group) => {
           </div>
         </div>
       )}
+      <UpgradeDialog
+        open={showUpgradeDialog}
+        onOpenChange={setShowUpgradeDialog}
+        featureName={upgradeFeature}
+        limitDescription={upgradeLimit}
+      />
     </div>
   );
 };

@@ -77,6 +77,9 @@ import {
   listBudgetsForMember,
   renameBudget,
 } from "@/lib/budgetService";
+import { getUserProfile, isUserPlus } from "@/lib/userService";
+import { UpgradeDialog } from "@/components/UpgradeDialog";
+import type { UserProfile } from "@/types/user";
 import {
   auth,
   provider,
@@ -703,6 +706,10 @@ const BudgetExperience = () => {
   const { theme, setTheme, isNight } = useToodlTheme(initialTheme);
 
   const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState("");
+  const [upgradeLimit, setUpgradeLimit] = useState("");
   const [authChecked, setAuthChecked] = useState(false);
   const [member, setMember] = useState<BudgetMember | null>(null);
   const [budgetId, setBudgetId] = useState<string | null>(null);
@@ -1561,8 +1568,14 @@ const BudgetExperience = () => {
 
   // Track auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
+      if (firebaseUser) {
+        const profile = await getUserProfile(firebaseUser.uid);
+        setUserProfile(profile);
+      } else {
+        setUserProfile(null);
+      }
       setAuthChecked(true);
       if (!firebaseUser) {
         setMember(null);
@@ -2342,6 +2355,12 @@ const BudgetExperience = () => {
   );
 
   const handleAddEntry = (draft: LedgerEntryDraft) => {
+    if (!isUserPlus(userProfile) && state.entries.length >= 100) {
+      setUpgradeFeature("Budget Entries");
+      setUpgradeLimit("100 entries per month");
+      setShowUpgradeDialog(true);
+      return;
+    }
     const entry = createEntryFromDraft(draft);
     if (!entry) {
       return;
@@ -2917,7 +2936,7 @@ const BudgetExperience = () => {
                     <SelectValue placeholder="Select a month" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableMonths.map((monthKey) => (
+                    {(isUserPlus(userProfile) ? availableMonths : availableMonths.slice(0, 2)).map((monthKey) => (
                       <SelectItem key={monthKey} value={monthKey}>
                         {formatMonthLabel(monthKey)}
                       </SelectItem>
@@ -3059,6 +3078,12 @@ const BudgetExperience = () => {
         )}
       </div>
       {createBudgetDialog}
+      <UpgradeDialog
+        open={showUpgradeDialog}
+        onOpenChange={setShowUpgradeDialog}
+        featureName={upgradeFeature}
+        limitDescription={upgradeLimit}
+      />
     </div>
   );
 };

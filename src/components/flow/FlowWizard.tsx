@@ -31,6 +31,9 @@ import {
 } from "@/types/flow";
 import { generateId } from "@/lib/id";
 import { cn } from "@/lib/utils";
+import { isUserPlus } from "@/lib/userService";
+import { UpgradeDialog } from "@/components/UpgradeDialog";
+import type { UserProfile } from "@/types/user";
 
 const categoryOptions: Array<{ id: FlowCategory; label: string; emoji: string }> = [
   { id: "work", label: "Work", emoji: "💼" },
@@ -106,6 +109,7 @@ type FlowWizardProps = {
   onClose: () => void;
   onSave: (settings: FlowSettings) => void;
   isNight?: boolean;
+  userProfile: UserProfile | null;
 };
 
 type RoutineDialogDraft = {
@@ -128,9 +132,12 @@ const createRoutineDraft = (days?: FlowDayOfWeek[]): RoutineDialogDraft => ({
   days: days ?? FLOW_DAY_ORDER.slice(),
 });
 
-export function FlowWizard({ open, settings, onClose, onSave, isNight = false }: FlowWizardProps) {
+export function FlowWizard({ open, settings, onClose, onSave, isNight = false, userProfile }: FlowWizardProps) {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<FlowSettings>(() => cloneSettings(settings));
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState("");
+  const [upgradeLimit, setUpgradeLimit] = useState("");
   const [showSleepOverrides, setShowSleepOverrides] = useState(false);
   const [routineDialogOpen, setRoutineDialogOpen] = useState(false);
   const [routineDialogMode, setRoutineDialogMode] = useState<"daily" | "custom">("daily");
@@ -261,6 +268,12 @@ export function FlowWizard({ open, settings, onClose, onSave, isNight = false }:
         return;
       }
     }
+    if (!isUserPlus(userProfile) && draft.fixedEvents.length >= 10) {
+      setUpgradeFeature("Flow Recurring Tasks");
+      setUpgradeLimit("10 recurring tasks");
+      setShowUpgradeDialog(true);
+      return;
+    }
     setRoutineDialogDraft(
       createRoutineDraft(mode === "daily" ? FLOW_DAY_ORDER.slice() : [])
     );
@@ -303,8 +316,8 @@ export function FlowWizard({ open, settings, onClose, onSave, isNight = false }:
     const days = routineDialogDraft.days.length
       ? sortRoutineDays(routineDialogDraft.days)
       : routineDialogMode === "daily"
-      ? FLOW_DAY_ORDER.slice()
-      : [];
+        ? FLOW_DAY_ORDER.slice()
+        : [];
     if (!days.length) {
       return;
     }
@@ -494,8 +507,8 @@ export function FlowWizard({ open, settings, onClose, onSave, isNight = false }:
                     {showSleepOverrides
                       ? "Hide day overrides"
                       : hasSleepOverrides
-                      ? "Show day overrides"
-                      : "Different on some days?"}
+                        ? "Show day overrides"
+                        : "Different on some days?"}
                   </Button>
                 </div>
                 {!showSleepOverrides && hasSleepOverrides ? (
@@ -527,8 +540,8 @@ export function FlowWizard({ open, settings, onClose, onSave, isNight = false }:
                                   ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-200"
                                   : "border-emerald-500 bg-emerald-500 text-white"
                                 : isNight
-                                ? "border-white/20 bg-white/10 text-slate-300 hover:bg-white/20"
-                                : "border-slate-200 bg-white text-slate-500 hover:bg-slate-100"
+                                  ? "border-white/20 bg-white/10 text-slate-300 hover:bg-white/20"
+                                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-100"
                             )}
                             onClick={() => toggleSleepOverrideDay(day)}
                           >
@@ -663,91 +676,91 @@ export function FlowWizard({ open, settings, onClose, onSave, isNight = false }:
                 </Button>
               </div>
               {draft.fixedEvents.length ? (
-          <div className="space-y-3">
-            {draft.fixedEvents.map((event) => {
-              const category = categoryOptions.find((option) => option.id === event.category);
-              const isDaily = ensureRoutineDays(event.days).length === FLOW_DAY_ORDER.length;
-              return (
-                <div
-                  key={event.id}
-                  className={cn(
-                    "space-y-3 rounded-2xl border p-4",
-                    isNight ? "border-white/15 bg-slate-800/60" : "border-slate-200 bg-slate-50/60"
-                  )}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>{event.label}</p>
-                      <p className={cn("text-xs", isNight ? "text-slate-300" : "text-slate-500")}>
-                        {category ? `${category.emoji} ${category.label}` : "Routine"} · {event.startTime} · {event.durationMinutes} min
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openRoutineDialog(isDaily ? "daily" : "custom", event.id)}
+                <div className="space-y-3">
+                  {draft.fixedEvents.map((event) => {
+                    const category = categoryOptions.find((option) => option.id === event.category);
+                    const isDaily = ensureRoutineDays(event.days).length === FLOW_DAY_ORDER.length;
+                    return (
+                      <div
+                        key={event.id}
+                        className={cn(
+                          "space-y-3 rounded-2xl border p-4",
+                          isNight ? "border-white/15 bg-slate-800/60" : "border-slate-200 bg-slate-50/60"
+                        )}
                       >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-rose-500 hover:text-rose-600"
-                        onClick={() => handleRoutineRemove(event.id)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
-                    {FLOW_DAY_ORDER.map((day) => {
-                      const active = ensureRoutineDays(event.days).includes(day);
-                      return (
-                        <span
-                          key={`${event.id}-${day}`}
-                          className={cn(
-                            "rounded-full border px-2 py-0.5",
-                            active
-                              ? isNight
-                                ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
-                                : "border-emerald-500 bg-emerald-500/10 text-emerald-600"
-                              : isNight
-                              ? "border-white/15 text-slate-500"
-                              : "border-slate-200 text-slate-400"
-                          )}
-                        >
-                          {DAY_LABELS[day].letter}
-                        </span>
-                      );
-                    })}
-                  </div>
-                  {event.tags?.length ? (
-                    <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
-                      {event.tags.map((tag) => (
-                        <span
-                          key={`${event.id}-${tag}`}
-                          className={cn(
-                            "rounded-full px-2 py-0.5",
-                            isNight
-                              ? "bg-white/10 text-slate-300"
-                              : "bg-white/80 text-slate-600"
-                          )}
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>{event.label}</p>
+                            <p className={cn("text-xs", isNight ? "text-slate-300" : "text-slate-500")}>
+                              {category ? `${category.emoji} ${category.label}` : "Routine"} · {event.startTime} · {event.durationMinutes} min
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openRoutineDialog(isDaily ? "daily" : "custom", event.id)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-rose-500 hover:text-rose-600"
+                              onClick={() => handleRoutineRemove(event.id)}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
+                          {FLOW_DAY_ORDER.map((day) => {
+                            const active = ensureRoutineDays(event.days).includes(day);
+                            return (
+                              <span
+                                key={`${event.id}-${day}`}
+                                className={cn(
+                                  "rounded-full border px-2 py-0.5",
+                                  active
+                                    ? isNight
+                                      ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                                      : "border-emerald-500 bg-emerald-500/10 text-emerald-600"
+                                    : isNight
+                                      ? "border-white/15 text-slate-500"
+                                      : "border-slate-200 text-slate-400"
+                                )}
+                              >
+                                {DAY_LABELS[day].letter}
+                              </span>
+                            );
+                          })}
+                        </div>
+                        {event.tags?.length ? (
+                          <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
+                            {event.tags.map((tag) => (
+                              <span
+                                key={`${event.id}-${tag}`}
+                                className={cn(
+                                  "rounded-full px-2 py-0.5",
+                                  isNight
+                                    ? "bg-white/10 text-slate-300"
+                                    : "bg-white/80 text-slate-600"
+                                )}
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-500">
-            No routines yet. Add habits you protect so Flow keeps those blocks safe.
-          </p>
-        )}
+              ) : (
+                <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-500">
+                  No routines yet. Add habits you protect so Flow keeps those blocks safe.
+                </p>
+              )}
             </div>
           ) : null}
 
@@ -825,8 +838,8 @@ export function FlowWizard({ open, settings, onClose, onSave, isNight = false }:
                                         ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
                                         : "border-emerald-400 text-emerald-600"
                                       : isNight
-                                      ? "border-white/15 text-slate-500"
-                                      : "border-slate-200"
+                                        ? "border-white/15 text-slate-500"
+                                        : "border-slate-200"
                                   )}
                                 >
                                   {DAY_LABELS[day].letter}
@@ -972,8 +985,8 @@ export function FlowWizard({ open, settings, onClose, onSave, isNight = false }:
                             ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-200"
                             : "border-emerald-500 bg-emerald-500 text-white"
                           : isNight
-                          ? "border-white/20 bg-white/10 text-slate-300 hover:bg-white/20"
-                          : "border-slate-200 text-slate-500"
+                            ? "border-white/20 bg-white/10 text-slate-300 hover:bg-white/20"
+                            : "border-slate-200 text-slate-500"
                       )}
                       onClick={() => handleRoutineDialogDayToggle(day)}
                     >
@@ -1007,6 +1020,12 @@ export function FlowWizard({ open, settings, onClose, onSave, isNight = false }:
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <UpgradeDialog
+        open={showUpgradeDialog}
+        onOpenChange={setShowUpgradeDialog}
+        featureName={upgradeFeature}
+        limitDescription={upgradeLimit}
+      />
     </Dialog>
   );
 }

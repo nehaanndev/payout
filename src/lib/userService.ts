@@ -59,3 +59,7 @@ export const updateUserTier = async (uid: string, tier: UserTier): Promise<void>
         throw error;
     }
 };
+
+export const isUserPlus = (user: UserProfile | null): boolean => {
+    return user?.tier === 'plus';
+};

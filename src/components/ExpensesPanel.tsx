@@ -1,5 +1,6 @@
 
 import { DollarSign, TrendingUp, TrendingDown, Clock, Wallet, CreditCard, Banknote, ArrowRight, Receipt, Plus, FileText, Sparkles } from 'lucide-react';
+import { useState } from 'react';
 // import { useMemo } from 'react';
 
 import {
@@ -15,6 +16,9 @@ import { Badge } from '@/components/ui/badge';
 import { Expense, Member } from '@/types/group';
 import { Settlement, SettlementMethod } from '@/types/settlement';
 import { cn } from '@/lib/utils';
+import { isUserPlus } from "@/lib/userService";
+import { UpgradeDialog } from "@/components/UpgradeDialog";
+import type { UserProfile } from "@/types/user";
 
 import { addExpense, updateExpense, deleteExpense } from "@/lib/firebaseUtils";
 import { calculateOpenBalancesMinor, calculateRawBalancesMinor } from '@/lib/financeUtils';
@@ -62,6 +66,7 @@ export interface ExpensesPanelProps {
   setShowReceiptUploader: (value: boolean) => void;
   onReceiptPrefill: (data: ReceiptPrefillData) => void;
   isNight?: boolean;
+  userProfile: UserProfile | null;
 
   /* Callbacks to mutate parent state */
   setExpenses: (e: Expense[]) => void;
@@ -111,7 +116,11 @@ export default function ExpensesPanel({
   onBack,
   onExpensesChange,
   onConfirmSettlement,
+  userProfile,
 }: ExpensesPanelProps) {
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState("");
+  const [upgradeLimit, setUpgradeLimit] = useState("");
 
   // ① compute balances with the correct args using minor units
   const balances: Record<string, number> = calculateRawBalancesMinor(members, expenses, currency);
@@ -164,6 +173,14 @@ export default function ExpensesPanel({
   const isIdleState = !showExpenseForm && !showReceiptUploader;
   const handleExpenseSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (!isEditingExpense && !isUserPlus(userProfile) && expenses.length >= 20) {
+      setUpgradeFeature("Split Expenses");
+      setUpgradeLimit("20 expenses per group");
+      setShowUpgradeDialog(true);
+      return;
+    }
+
     const parsedAmount = parseFloat(currentExpense.amount.trim());
 
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -1012,6 +1029,12 @@ export default function ExpensesPanel({
           </div>
         )}
       </CardContent>
+      <UpgradeDialog
+        open={showUpgradeDialog}
+        onOpenChange={setShowUpgradeDialog}
+        featureName={upgradeFeature}
+        limitDescription={upgradeLimit}
+      />
     </Card>
   );
 }
