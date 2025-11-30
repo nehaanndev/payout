@@ -31,11 +31,12 @@ import { type UserTier } from "@/types/user";
 
 type MobileNavProps = {
     user: User | null;
+    isAnon?: boolean;
     tier?: UserTier;
     onSignOut: () => void;
 };
 
-export function MobileNav({ user, tier = 'free', onSignOut }: MobileNavProps) {
+export function MobileNav({ user, isAnon = false, tier = 'free', onSignOut }: MobileNavProps) {
     const pathname = usePathname();
     const { isNight } = useToodlTheme();
     const [open, setOpen] = useState(false);
@@ -157,10 +158,10 @@ export function MobileNav({ user, tier = 'free', onSignOut }: MobileNavProps) {
                     </nav>
 
                     <div className="flex flex-col gap-4">
-                        {user && (
+                        {(user || isAnon) && (
                             <div className={cn("rounded-xl border p-4", isNight ? "border-slate-800 bg-slate-800/50" : "border-slate-100 bg-slate-50")}>
                                 <div className="flex items-center gap-3">
-                                    {user.photoURL ? (
+                                    {user?.photoURL ? (
                                         <Image
                                             src={user.photoURL}
                                             alt={user.displayName ?? "User"}
@@ -175,15 +176,15 @@ export function MobileNav({ user, tier = 'free', onSignOut }: MobileNavProps) {
                                                 ? "border-slate-700 bg-slate-800 text-slate-400"
                                                 : "border-slate-200 bg-white text-slate-500"
                                         )}>
-                                            {user.displayName?.charAt(0).toUpperCase() ?? "U"}
+                                            {user?.displayName?.charAt(0).toUpperCase() ?? "G"}
                                         </div>
                                     )}
                                     <div className="flex flex-col overflow-hidden">
                                         <span className={cn("truncate text-sm font-medium", isNight ? "text-white" : "text-slate-900")}>
-                                            {user.displayName ?? "User"}
+                                            {user?.displayName ?? "Guest"}
                                         </span>
                                         <span className={cn("truncate text-xs", isNight ? "text-slate-400" : "text-slate-500")}>
-                                            {user.email}
+                                            {user?.email ?? "Anonymous"}
                                         </span>
                                     </div>
                                 </div>

@@ -21,11 +21,12 @@ import { type UserTier } from "@/types/user";
 
 type AppSidebarProps = {
     user: User | null;
+    isAnon?: boolean;
     tier?: UserTier;
     onSignOut: () => void;
 };
 
-export function AppSidebar({ user, tier = 'free', onSignOut }: AppSidebarProps) {
+export function AppSidebar({ user, isAnon = false, tier = 'free', onSignOut }: AppSidebarProps) {
     const pathname = usePathname();
     const { isNight } = useToodlTheme();
 
@@ -121,7 +122,7 @@ export function AppSidebar({ user, tier = 'free', onSignOut }: AppSidebarProps) 
             </div>
 
             <div className="flex flex-col items-center gap-4">
-                {user && (
+                {(user || isAnon) && (
                     <>
                         <div className={cn(
                             "flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
@@ -156,14 +157,14 @@ export function AppSidebar({ user, tier = 'free', onSignOut }: AppSidebarProps) 
                         height={32}
                         className="h-8 w-8 rounded-full border-2 border-white/10 object-cover"
                     />
-                ) : user ? (
+                ) : (user || isAnon) ? (
                     <div className={cn(
                         "flex h-8 w-8 items-center justify-center rounded-full border text-xs font-bold",
                         isNight
                             ? "border-slate-200 bg-slate-100 text-slate-600"
                             : "border-white/10 bg-white/10 text-white"
                     )}>
-                        {user.displayName?.charAt(0).toUpperCase() ?? "U"}
+                        {user?.displayName?.charAt(0).toUpperCase() ?? "G"}
                     </div>
                 ) : null}
             </div>
