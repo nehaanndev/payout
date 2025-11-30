@@ -1136,7 +1136,23 @@ const JournalExperience = () => {
     );
   }
 
-  if (authChecked && (!user || user.isAnonymous)) {
+  if (authChecked && (!user || user.isAnonymous) && !isPublic) {
+    const journalIdParam = searchParams.get("journal_id");
+    if (journalIdParam) {
+      return (
+        <div className={cn(
+          "relative flex min-h-screen items-center justify-center",
+          isNight
+            ? "bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950"
+            : "bg-gradient-to-br from-rose-100 via-amber-50 to-sky-100"
+        )}>
+          {!isNight && (
+            <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.6),transparent_65%)] opacity-40" />
+          )}
+          <Spinner />
+        </div>
+      );
+    }
     return (
       <div className={cn(
         "relative min-h-screen overflow-hidden px-4 py-10",
