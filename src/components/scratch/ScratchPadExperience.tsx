@@ -28,6 +28,7 @@ import {
 import { AppTopBar } from "@/components/AppTopBar";
 
 import { OrbitFlowNav } from "@/components/OrbitFlowNav";
+import { TagInput } from "@/components/orbit/TagInput";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1093,10 +1094,11 @@ export function ScratchPadExperience() {
                           <label className="text-sm font-medium text-slate-700" htmlFor="scratch-tags">
                             Tags (comma separated)
                           </label>
-                          <Input
+                          <TagInput
                             id="scratch-tags"
                             value={linkTags}
-                            onChange={(event) => setLinkTags(event.target.value)}
+                            onValueChange={setLinkTags}
+                            suggestions={tagStats.map((s) => s.tag)}
                             placeholder="read later, video, trip"
                             disabled={createBusy}
                           />
@@ -1185,10 +1187,11 @@ export function ScratchPadExperience() {
                           <label className="text-sm font-medium text-slate-700" htmlFor="orbit-file-tags">
                             Tags (optional)
                           </label>
-                          <Input
+                          <TagInput
                             id="orbit-file-tags"
                             value={uploadTags}
-                            onChange={(event) => setUploadTags(event.target.value)}
+                            onValueChange={setUploadTags}
+                            suggestions={tagStats.map((s) => s.tag)}
                             placeholder="receipts, launch, design"
                             disabled={createBusy}
                           />
@@ -1254,10 +1257,11 @@ export function ScratchPadExperience() {
                           <label className="text-sm font-medium text-slate-700" htmlFor="scratch-note-tags">
                             Tags (optional)
                           </label>
-                          <Input
+                          <TagInput
                             id="scratch-note-tags"
                             value={noteTags}
-                            onChange={(event) => setNoteTags(event.target.value)}
+                            onValueChange={setNoteTags}
+                            suggestions={tagStats.map((s) => s.tag)}
                             placeholder="brainstorm, follow-up"
                             disabled={createBusy}
                           />
