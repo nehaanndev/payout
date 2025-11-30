@@ -16,7 +16,6 @@ import type { Member } from "@/types/group";
 
 export function LandingGate() {
   const router = useRouter();
-  const [checkingAuth, setCheckingAuth] = useState(true);
   const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
@@ -24,26 +23,12 @@ export function LandingGate() {
       if (current) {
         setRedirecting(true);
         router.replace("/dashboard");
-      } else {
-        setCheckingAuth(false);
       }
     });
     return () => unsubscribe();
   }, [router]);
 
-  useEffect(() => {
-    if (checkingAuth || redirecting) {
-      return;
-    }
-    if (typeof window === "undefined") {
-      return;
-    }
-    const stored = window.localStorage.getItem("anon_member");
-    if (stored) {
-      setRedirecting(true);
-      router.replace("/dashboard");
-    }
-  }, [checkingAuth, redirecting, router]);
+
 
   const startSignIn = useCallback(
     async (providerType: "google" | "microsoft" | "facebook") => {
@@ -52,8 +37,8 @@ export function LandingGate() {
           providerType === "microsoft"
             ? microsoftProvider
             : providerType === "facebook"
-            ? facebookProvider
-            : provider;
+              ? facebookProvider
+              : provider;
         await signInWithPopup(auth, selectedProvider);
         router.replace("/dashboard");
       } catch (error) {

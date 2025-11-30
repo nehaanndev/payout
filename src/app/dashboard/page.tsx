@@ -24,7 +24,13 @@ import { ReflectionsExperience } from "@/components/reflections/ReflectionsExper
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
 
-import { auth } from "@/lib/firebase";
+import {
+  auth,
+  provider,
+  microsoftProvider,
+  facebookProvider,
+  signInWithPopup,
+} from "@/lib/firebase";
 import {
   ensureFlowPlan,
   fetchFlowPlanSnapshot,
@@ -1074,6 +1080,72 @@ export default function DailyDashboardPage() {
     },
     [user?.uid]
   );
+
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isAnon, setIsAnon] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("anon_member");
+      setIsAnon(Boolean(stored));
+    }
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (current) => {
+      setUser(current);
+      setAuthChecked(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSignIn = useCallback(
+    async (providerType: "google" | "microsoft" | "facebook") => {
+      try {
+        const selectedProvider =
+          providerType === "microsoft"
+            ? microsoftProvider
+            : providerType === "facebook"
+              ? facebookProvider
+              : provider;
+        await signInWithPopup(auth, selectedProvider);
+      } catch (err) {
+        console.error("Sign-in failed", err);
+      }
+    },
+    []
+  );
+
+  if (authChecked && !user && !isAnon) {
+    return (
+      <div className={cn("min-h-screen px-4 py-10 sm:px-6", isNight ? "bg-slate-950" : "bg-slate-50/80")}>
+        <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+          <Card className="flex flex-col items-center gap-4 border-slate-200 bg-white/90 p-10 text-center shadow-xl shadow-slate-300/40 backdrop-blur">
+            <Sparkles className="h-10 w-10 text-indigo-400" />
+            <div className="space-y-2">
+              <h2 className="text-2xl font-semibold text-slate-900">
+                Welcome to your Dashboard
+              </h2>
+              <p className="text-sm text-slate-500">
+                Sign in to see your daily summary, flow tasks, and budget pulse.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Button onClick={() => handleSignIn("google")} className="gap-2">
+                Continue with Google
+              </Button>
+              <Button variant="outline" onClick={() => handleSignIn("microsoft")}>
+                Microsoft
+              </Button>
+              <Button variant="outline" onClick={() => handleSignIn("facebook")}>
+                Facebook
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
