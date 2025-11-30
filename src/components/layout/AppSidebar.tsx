@@ -10,6 +10,7 @@ import {
     Sparkles,
     Wallet,
     Workflow,
+    Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
@@ -57,23 +58,33 @@ export function AppSidebar({ user, tier = 'free', onSignOut }: AppSidebarProps) 
         {
             label: "Orbit",
             href: "/orbit",
-            icon: Sparkles,
+            icon: Globe,
         },
     ];
+
+    const handleOpenToodlMind = () => {
+        if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("open-toodl-mind"));
+        }
+    };
 
     return (
         <aside
             className={cn(
-                "fixed left-0 top-0 z-50 flex h-screen w-16 flex-col items-center justify-between border-r py-6 transition-colors duration-300",
+                "fixed left-0 top-0 z-50 hidden h-screen w-16 flex-col items-center justify-between border-r py-6 transition-colors duration-300 md:flex",
                 isNight
                     ? "bg-white border-slate-200"
                     : "bg-slate-900 border-slate-800"
             )}
         >
             <div className="flex flex-col items-center gap-8">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg">
+                <button
+                    onClick={handleOpenToodlMind}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg transition-transform hover:scale-105 active:scale-95"
+                    title="Open Toodl Mind"
+                >
                     <Sparkles className="h-5 w-5 text-white" />
-                </div>
+                </button>
 
                 <nav className="flex flex-col gap-4">
                     {NAV_ITEMS.map((item) => {
