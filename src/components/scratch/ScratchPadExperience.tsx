@@ -82,6 +82,9 @@ import type { SharedLink, SharedLinkStatus } from "@/types/share";
 import type { OrbitLesson } from "@/types/orbit";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
+import { getUserProfile, isUserPlus } from "@/lib/userService";
+import { UpgradeDialog } from "@/components/UpgradeDialog";
+import type { UserProfile } from "@/types/user";
 
 type ScratchPadFilter = SharedLinkStatus | "all";
 
@@ -172,6 +175,10 @@ const computeSmartScore = (
 
 export function ScratchPadExperience() {
   const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState("");
+  const [upgradeLimit, setUpgradeLimit] = useState("");
   const [loading, setLoading] = useState(true);
   const [allLinks, setAllLinks] = useState<SharedLink[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -217,8 +224,14 @@ export function ScratchPadExperience() {
   const { theme, setTheme, isNight } = useToodlTheme(initialTheme);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (current) => {
+    const unsubscribe = onAuthStateChanged(auth, async (current) => {
       setUser(current);
+      if (current) {
+        const profile = await getUserProfile(current.uid);
+        setUserProfile(profile);
+      } else {
+        setUserProfile(null);
+      }
       setLoading(false);
     });
     return () => unsubscribe();
@@ -475,6 +488,12 @@ export function ScratchPadExperience() {
     if (!user) {
       return;
     }
+    if (!isUserPlus(userProfile) && allLinks.length >= 100) {
+      setUpgradeFeature("Orbit Saves");
+      setUpgradeLimit("100 saved items");
+      setShowUpgradeDialog(true);
+      return;
+    }
     const trimmedUrl = linkUrl.trim();
     if (!trimmedUrl) {
       setError("Enter a link before saving.");
@@ -508,10 +527,16 @@ export function ScratchPadExperience() {
     } finally {
       setCreateBusy(false);
     }
-  }, [user, linkUrl, linkTitle, linkNotes, linkTags, inferContentType, setFilter]);
+  }, [user, linkUrl, linkTitle, linkNotes, linkTags, inferContentType, setFilter, userProfile, allLinks.length]);
 
   const handleCreateNote = useCallback(async () => {
     if (!user) {
+      return;
+    }
+    if (!isUserPlus(userProfile) && allLinks.length >= 100) {
+      setUpgradeFeature("Orbit Saves");
+      setUpgradeLimit("100 saved items");
+      setShowUpgradeDialog(true);
       return;
     }
     const trimmed = noteBody.trim();
@@ -546,10 +571,17 @@ export function ScratchPadExperience() {
     } finally {
       setCreateBusy(false);
     }
-  }, [noteBody, noteTags, setFilter, user]);
+  }, [noteBody, noteTags, setFilter, user, userProfile, allLinks.length]);
 
   const handleUploadFile = useCallback(async () => {
     if (!user || !uploadFile) {
+      return;
+    }
+
+    if (!isUserPlus(userProfile)) {
+      setUpgradeFeature("Orbit Uploads");
+      setUpgradeLimit("file uploads");
+      setShowUpgradeDialog(true);
       return;
     }
 
@@ -602,6 +634,7 @@ export function ScratchPadExperience() {
     uploadTags,
     uploadTitle,
     user,
+    userProfile,
   ]);
 
   const handleLinkCardClick = useCallback(
@@ -2101,6 +2134,12 @@ export function ScratchPadExperience() {
           <ReflectionsExperience user={user} onClose={() => setShowReflections(false)} />
         </DialogContent>
       </Dialog>
-    </div>
+      <UpgradeDialog
+        open={showUpgradeDialog}
+        onOpenChange={setShowUpgradeDialog}
+        featureName={upgradeFeature}
+        limitDescription={upgradeLimit}
+      />
+    </div >
   );
 }

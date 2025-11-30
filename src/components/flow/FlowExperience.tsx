@@ -70,8 +70,9 @@ import {
 import {
   fetchFlowSettings,
   saveFlowSettings,
-  createDefaultFlowSettings,
 } from "@/lib/flowSettingsService";
+import { getUserProfile } from "@/lib/userService";
+import type { UserProfile } from "@/types/user";
 import { generateId } from "@/lib/id";
 import {
   FlowCategory,
@@ -475,6 +476,7 @@ const normaliseDraftTitle = (value: string) => value.trim();
 
 export function FlowExperience() {
   const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [plan, setPlan] = useState<FlowPlan | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(false);
@@ -549,8 +551,14 @@ export function FlowExperience() {
   );
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (current) => {
+    const unsubscribe = onAuthStateChanged(auth, async (current) => {
       setUser(current);
+      if (current) {
+        const profile = await getUserProfile(current.uid);
+        setUserProfile(profile);
+      } else {
+        setUserProfile(null);
+      }
       setAuthChecked(true);
     });
     return () => unsubscribe();
@@ -883,35 +891,6 @@ export function FlowExperience() {
     [plan, updatePlan]
   );
 
-  const handleWizardSave = useCallback(
-    async (draft: FlowSettings) => {
-      if (!user) {
-        return;
-      }
-      const normalizedMeals = draft.meals.map((meal) => ({
-        ...meal,
-        time: meal.time || "12:30",
-        durationMinutes: Math.max(5, meal.durationMinutes || 30),
-      }));
-      const normalizedEvents = draft.fixedEvents.map((event) => ({
-        ...event,
-        startTime: event.startTime || draft.workStart,
-        durationMinutes: Math.max(5, event.durationMinutes || 30),
-      }));
-      const payload: FlowSettings = {
-        ...draft,
-        timezone,
-        meals: normalizedMeals,
-        fixedEvents: normalizedEvents,
-        updatedAt: new Date().toISOString(),
-      };
-      await saveFlowSettings(user.uid, payload);
-      setSettings(payload);
-      setSettingsApplied(false);
-      setWizardOpen(false);
-    },
-    [timezone, user]
-  );
 
   const handleSaveTaskEdits = useCallback(() => {
     if (!plan || !editingTask) {
@@ -1088,10 +1067,6 @@ export function FlowExperience() {
     return "Good evening";
   }, []);
 
-  const wizardSettings = useMemo(
-    () => settings ?? createDefaultFlowSettings(timezone),
-    [settings, timezone]
-  );
 
   return (
     <div
@@ -2308,13 +2283,21 @@ export function FlowExperience() {
           </>
         )}
       </div>
-      <FlowWizard
-        open={wizardOpen}
-        settings={wizardSettings}
-        onClose={() => setWizardOpen(false)}
-        onSave={handleWizardSave}
-        isNight={isNight}
-      />
+      {settings && (
+        <FlowWizard
+          open={wizardOpen}
+          settings={settings}
+          userProfile={userProfile}
+          onClose={() => setWizardOpen(false)}
+          onSave={(updated) => {
+            setSettings(updated);
+            setSettingsApplied(false);
+            setWizardOpen(false);
+            void saveFlowSettings(user!.uid, updated);
+          }}
+          isNight={isNight}
+        />
+      )}
       <Dialog
         open={Boolean(editingTask)}
         onOpenChange={(value) => {
