@@ -42,7 +42,7 @@ export default function ExpenseListItem({
   const owedByMember: Record<string, number> = {}
 
   if (isPayerYou) {
-    if (amountMinor > 0){
+    if (amountMinor > 0) {
       for (const [memberId, splitMinor] of Object.entries(expense.splitsMinor)) {
         if (memberId == youId) continue
         owedByMember[memberId] = splitMinor
@@ -61,22 +61,22 @@ export default function ExpenseListItem({
 
   // You can use payerLabel in the UI
   const payerLabel = isPayerYou ? "You" : payerName
-  const owedTotal = !isPayerYou ? 
-    (amountMinor > 0 ? formatMoney(expense.splitsMinor[youId], group_currency) : round2((amount * yourSharePct) / 100)) : 
+  const owedTotal = !isPayerYou ?
+    (amountMinor > 0 ? formatMoney(expense.splitsMinor[youId], group_currency) : round2((amount * yourSharePct) / 100)) :
     (amountMinor > 0 ? formatMoney(youAreOwedTotal, group_currency) : youAreOwedTotal)
   const lentVsOwed = isPayerYou ? "get back" : "lent you"
 
 
   // Determine accent color based on payer
-  const accentColor = isPayerYou 
+  const accentColor = isPayerYou
     ? isNight ? "border-l-emerald-400/50" : "border-l-emerald-500"
     : isNight ? "border-l-indigo-400/50" : "border-l-indigo-500"
 
   return (
     <div className={cn(
       "group relative rounded-2xl border-l-4 border-r border-t border-b transition-all duration-200",
-      isNight 
-        ? "bg-slate-800/60 border-white/10 hover:bg-slate-800/80 hover:shadow-lg hover:shadow-slate-900/50 shadow-sm" 
+      isNight
+        ? "bg-slate-800/60 border-white/10 hover:bg-slate-800/80 hover:shadow-lg hover:shadow-slate-900/50 shadow-sm"
         : "bg-white border-slate-300 shadow-md hover:bg-slate-50 hover:shadow-lg hover:shadow-slate-400/30",
       accentColor
     )}>
@@ -86,32 +86,32 @@ export default function ExpenseListItem({
             {/* Date Badge - Improved styling */}
             <div className={cn(
               "flex-shrink-0 rounded-xl border text-center p-2 min-w-[3.5rem]",
-              isNight 
-                ? "border-white/20 bg-white/5" 
+              isNight
+                ? "border-white/20 bg-white/5"
                 : "border-slate-200 bg-slate-50"
             )}>
               <div className={cn("text-[10px] uppercase font-semibold tracking-wider", isNight ? "text-slate-400" : "text-slate-500")}>
-                {date.toLocaleDateString('en-US', { month: 'short' })}
+                {date.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })}
               </div>
               <div className={cn("text-xl font-bold leading-none mt-1", isNight ? "text-white" : "text-slate-900")}>
-                {date.getDate()}
+                {date.getUTCDate()}
               </div>
             </div>
-            
+
             <div className="flex-1 min-w-0 space-y-2">
               <div className="flex items-start gap-2">
                 <DollarSign className={cn("h-4 w-4 flex-shrink-0 mt-0.5", isNight ? "text-slate-400" : "text-slate-500")} />
-                <h3 
+                <h3
                   className={cn(
                     "font-semibold cursor-pointer hover:underline transition",
                     isNight ? "text-white" : "text-slate-900"
-                  )} 
+                  )}
                   onClick={() => setExpanded(!expanded)}
                 >
                   {expense.description}
                 </h3>
               </div>
-              
+
               {/* Amounts with better typography */}
               <div className="flex flex-wrap items-baseline gap-4">
                 <div>
@@ -144,27 +144,27 @@ export default function ExpenseListItem({
 
           {/* Action buttons */}
           <div className="flex gap-1 flex-shrink-0">
-            <Button 
-              size="sm" 
-              variant="ghost" 
-              onClick={onEdit} 
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onEdit}
               className={cn(
                 "transition-all",
-                isNight 
-                  ? "text-slate-300 hover:text-white hover:bg-white/10" 
+                isNight
+                  ? "text-slate-300 hover:text-white hover:bg-white/10"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               )}
             >
               <Edit2 className="w-4 h-4" />
             </Button>
-            <Button 
-              size="sm" 
-              variant="ghost" 
-              onClick={onDelete} 
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onDelete}
               className={cn(
                 "transition-all",
-                isNight 
-                  ? "text-rose-300 hover:text-rose-200 hover:bg-rose-500/20" 
+                isNight
+                  ? "text-rose-300 hover:text-rose-200 hover:bg-rose-500/20"
                   : "text-red-600 hover:text-red-700 hover:bg-red-50"
               )}
             >
@@ -187,11 +187,11 @@ export default function ExpenseListItem({
                 const name = membersMapById[id]?.firstName ?? id
                 const isYou = id === youId
                 return (
-                  <div 
-                    key={id} 
+                  <div
+                    key={id}
                     className={cn(
                       "flex items-center justify-between px-2 py-1 rounded",
-                      isNight 
+                      isNight
                         ? isYou ? "bg-white/5" : ""
                         : isYou ? "bg-slate-100" : ""
                     )}
