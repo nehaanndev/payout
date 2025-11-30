@@ -1154,7 +1154,7 @@ const JournalExperience = () => {
 
   if (authChecked && (!user || user.isAnonymous) && !isPublic) {
     const journalIdParam = searchParams.get("journal_id");
-    if (journalIdParam) {
+    if (journalIdParam && !invalidJournal) {
       return (
         <div className={cn(
           "relative flex min-h-screen items-center justify-center",
