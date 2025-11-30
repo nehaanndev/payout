@@ -696,16 +696,7 @@ export function FlowExperience() {
         return;
       }
 
-      if (type === "priority" && priorityCount >= 3) {
-        setErrors((prev) => [
-          ...prev,
-          {
-            id: generateId(),
-            message: "You’ve already queued three top priorities for today.",
-          },
-        ]);
-        return;
-      }
+
 
       const nowIso = new Date().toISOString();
       const nextSequence =
