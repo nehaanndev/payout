@@ -7,7 +7,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
-import { STRIPE_PAYMENT_LINK } from "@/lib/constants";
+import { useState } from "react";
+import { auth } from "@/lib/firebase"; // Import auth to get current user
 
 interface UpgradeDialogProps {
     open: boolean;
@@ -22,9 +23,40 @@ export function UpgradeDialog({
     featureName,
     limitDescription,
 }: UpgradeDialogProps) {
-    const handleUpgrade = () => {
-        window.open(STRIPE_PAYMENT_LINK, "_blank");
-        onOpenChange(false);
+    const [loading, setLoading] = useState(false);
+
+    const handleUpgrade = async () => {
+        setLoading(true);
+        try {
+            const user = auth.currentUser;
+            if (!user) {
+                console.error("User not found");
+                return;
+            }
+
+            const response = await fetch("/api/stripe/checkout", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    userId: user.uid,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.url) {
+                window.location.href = data.url;
+            } else {
+                console.error("Failed to create checkout session:", data.error);
+            }
+        } catch (error) {
+            console.error("Error upgrading:", error);
+        } finally {
+            setLoading(false);
+            onOpenChange(false);
+        }
     };
 
     return (
@@ -55,14 +87,15 @@ export function UpgradeDialog({
                     </div>
                 </div>
                 <div className="flex justify-end gap-3">
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
                         Maybe later
                     </Button>
                     <Button
                         onClick={handleUpgrade}
+                        disabled={loading}
                         className="bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600"
                     >
-                        Upgrade to Plus
+                        {loading ? "Loading..." : "Upgrade to Plus"}
                     </Button>
                 </div>
             </DialogContent>
