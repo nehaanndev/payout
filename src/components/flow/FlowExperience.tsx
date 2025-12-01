@@ -85,6 +85,7 @@ import {
   FlowTaskType,
   FLOW_DAY_ORDER,
 } from "@/types/flow";
+import { calculateFreeTime } from "@/lib/flowCalculator";
 import { FLOW_MOOD_OPTIONS } from "@/lib/flowMood";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
@@ -1215,27 +1216,14 @@ export function FlowExperience() {
                         )}>
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                           Free time: {(() => {
-                            const start = parseTimeStringToDate(activeDate, settings.sleepEnd);
-                            const end = parseTimeStringToDate(activeDate, settings.sleepStart);
-                            // If sleep start is earlier than sleep end (e.g. 23:00 vs 07:00), it's same day.
-                            // If sleep start is smaller (e.g. 01:00) but meant to be next day, we need to handle that.
-                            // Usually sleepStart is bedtime (e.g. 23:00) and sleepEnd is wake up (e.g. 07:00).
-                            // Active day is sleepEnd to sleepStart.
-                            let activeMinutes = (end.getTime() - start.getTime()) / 1000 / 60;
-                            if (activeMinutes < 0) {
-                              activeMinutes += 24 * 60;
-                            }
-
-                            const committedMinutes = plan?.tasks
-                              .filter((t) =>
-                                t.category !== "play" &&
-                                t.type !== "reminder" &&
-                                t.status !== "skipped"
-                              )
-                              .reduce((acc, t) => acc + t.estimateMinutes, 0) || 0;
-
-                            const freeMinutes = Math.max(0, activeMinutes - committedMinutes);
-                            return `${Math.floor(freeMinutes / 60)}h ${Math.floor(freeMinutes % 60)}m`;
+                            if (!plan || !settings) return "--";
+                            const { hours, minutes } = calculateFreeTime(
+                              now,
+                              activeDate,
+                              settings,
+                              plan.tasks
+                            );
+                            return `${hours}h ${minutes}m`;
                           })()}
                         </div>
                       </div>
