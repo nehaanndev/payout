@@ -7,12 +7,14 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
+import { useState } from "react";
+import { auth } from "@/lib/firebase"; // Import auth to get current user
 
 interface UpgradeDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    featureName: string;
-    limitDescription: string;
+    featureName?: string;
+    limitDescription?: string;
 }
 
 export function UpgradeDialog({
@@ -21,17 +23,55 @@ export function UpgradeDialog({
     featureName,
     limitDescription,
 }: UpgradeDialogProps) {
+    const [loading, setLoading] = useState(false);
+
+    const handleUpgrade = async () => {
+        setLoading(true);
+        try {
+            const user = auth.currentUser;
+            if (!user) {
+                console.error("User not found");
+                return;
+            }
+
+            const response = await fetch("/api/stripe/checkout", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    userId: user.uid,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.url) {
+                window.location.href = data.url;
+            } else {
+                console.error("Failed to create checkout session:", data.error);
+            }
+        } catch (error) {
+            console.error("Error upgrading:", error);
+        } finally {
+            setLoading(false);
+            onOpenChange(false);
+        }
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Sparkles className="h-5 w-5 text-amber-500" />
-                        Unlock Unlimited {featureName}
+                        {featureName ? `Unlock Unlimited ${featureName}` : "Unlock the Full Potential of Toodl"}
                     </DialogTitle>
                     <DialogDescription className="pt-2">
-                        You&apos;ve reached the limit for {limitDescription} on the free plan.
-                        Upgrade to Plus to remove all limits and support the development of Toodl.
+                        {limitDescription
+                            ? `You've reached the limit for ${limitDescription} on the free plan.`
+                            : "Get unlimited access to all Toodl features and support development."}
+                        {" "}Upgrade to Plus to remove all limits.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="flex flex-col gap-4 py-4">
@@ -47,11 +87,15 @@ export function UpgradeDialog({
                     </div>
                 </div>
                 <div className="flex justify-end gap-3">
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
                         Maybe later
                     </Button>
-                    <Button className="bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600">
-                        Upgrade to Plus
+                    <Button
+                        onClick={handleUpgrade}
+                        disabled={loading}
+                        className="bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600"
+                    >
+                        {loading ? "Loading..." : "Upgrade to Plus"}
                     </Button>
                 </div>
             </DialogContent>
