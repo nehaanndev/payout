@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
 async function handleCheckoutSession(session: Stripe.Checkout.Session) {
     const userId = session.metadata?.userId;
-
+    console.log(`Processing checkout session for user ${userId}`);
     if (userId) {
         try {
             const adminDb = getAdminDb();
