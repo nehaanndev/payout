@@ -68,7 +68,9 @@ async function handleCheckoutSession(session: Stripe.Checkout.Session) {
                     stripeSubscriptionStatus: subscription.status,
                     stripeCancelAtPeriodEnd: subscription.cancel_at_period_end,
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    stripeCurrentPeriodEnd: new Date((subscription as any).current_period_end * 1000).toISOString(),
+                    stripeCurrentPeriodEnd: (subscription as any).current_period_end
+                        ? new Date((subscription as any).current_period_end * 1000).toISOString()
+                        : null,
                     updatedAt: new Date().toISOString(),
                 },
                 { merge: true }
@@ -99,7 +101,9 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
                 stripeSubscriptionStatus: status,
                 stripeCancelAtPeriodEnd: subscription.cancel_at_period_end,
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                stripeCurrentPeriodEnd: new Date((subscription as any).current_period_end * 1000).toISOString(),
+                stripeCurrentPeriodEnd: (subscription as any).current_period_end
+                    ? new Date((subscription as any).current_period_end * 1000).toISOString()
+                    : null,
                 updatedAt: new Date().toISOString(),
             },
             { merge: true }
@@ -126,7 +130,9 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
                 stripeSubscriptionStatus: subscription.status,
                 stripeCancelAtPeriodEnd: false,
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                stripeCurrentPeriodEnd: new Date((subscription as any).current_period_end * 1000).toISOString(),
+                stripeCurrentPeriodEnd: (subscription as any).current_period_end
+                    ? new Date((subscription as any).current_period_end * 1000).toISOString()
+                    : null,
                 updatedAt: new Date().toISOString(),
             },
             { merge: true }
