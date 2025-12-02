@@ -24,27 +24,37 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: `Webhook Error: ${errorMessage}` }, { status: 400 });
     }
 
-    if (event.type === "checkout.session.completed") {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const userId = session.metadata?.userId;
-
-        if (userId) {
-            try {
-                const adminDb = getAdminDb();
-                await adminDb.collection("users").doc(userId).set(
-                    {
-                        tier: "plus",
-                        updatedAt: new Date().toISOString(),
-                    },
-                    { merge: true }
-                );
-                console.log(`Successfully upgraded user ${userId} to Plus.`);
-            } catch (error) {
-                console.error("Error updating user tier:", error);
-                return NextResponse.json({ error: "Database update failed" }, { status: 500 });
-            }
+    switch (event.type) {
+        case "checkout.session.completed":
+        case "checkout.session.async_payment_succeeded": {
+            const session = event.data.object as Stripe.Checkout.Session;
+            await handleCheckoutSession(session);
+            break;
         }
+        default:
+            console.log(`Unhandled event type ${event.type}`);
     }
 
     return NextResponse.json({ received: true });
+}
+
+async function handleCheckoutSession(session: Stripe.Checkout.Session) {
+    const userId = session.metadata?.userId;
+
+    if (userId) {
+        try {
+            const adminDb = getAdminDb();
+            await adminDb.collection("users").doc(userId).set(
+                {
+                    tier: "plus",
+                    updatedAt: new Date().toISOString(),
+                },
+                { merge: true }
+            );
+            console.log(`Successfully upgraded user ${userId} to Plus.`);
+        } catch (error) {
+            console.error("Error updating user tier:", error);
+            throw error; // Re-throw to be caught by the caller if needed, or handle gracefully
+        }
+    }
 }
