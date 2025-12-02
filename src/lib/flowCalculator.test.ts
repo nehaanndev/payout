@@ -9,17 +9,18 @@ describe("flowCalculator", () => {
         sleepEnd: "07:00",
         meals: [],
         fixedEvents: [],
+        workEnd: "17:00",
         timezone: "UTC",
-        workDays: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+        updatedAt: new Date().toISOString(),
     };
 
     const baseDate = "2023-10-27"; // A Friday
 
     const createMockTask = (
         id: string,
-        category: any,
+        category: FlowTask["category"],
         estimateMinutes: number,
-        status: any = "pending"
+        status: FlowTask["status"] = "pending"
     ): FlowTask => ({
         id,
         title: "Task",

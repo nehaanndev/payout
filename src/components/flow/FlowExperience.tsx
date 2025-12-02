@@ -737,7 +737,7 @@ export function FlowExperience() {
         tasks: [...current.tasks, newTask],
       }));
     },
-    [plan, priorityCount, updatePlan]
+    [plan, updatePlan]
   );
 
   const handleGenerateSchedule = useCallback(() => {

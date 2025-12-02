@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "./route";
-import { NextResponse } from "next/server";
-import * as firebaseAdmin from "@/lib/firebaseAdmin";
 
 // Mock Stripe
 const { mockConstructEvent } = vi.hoisted(() => {

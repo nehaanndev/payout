@@ -41,7 +41,7 @@ export const calculateFreeTime = (
     }
 
     // Calculate total remaining available minutes
-    let remainingMinutes = (windowEnd.getTime() - effectiveStart.getTime()) / 1000 / 60;
+    const remainingMinutes = (windowEnd.getTime() - effectiveStart.getTime()) / 1000 / 60;
 
     // If we are already past the end time, 0 free time.
     if (remainingMinutes < 0) {
