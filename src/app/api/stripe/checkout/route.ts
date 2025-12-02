@@ -27,7 +27,7 @@ export async function POST(req: Request) {
         const origin = req.headers.get("origin") || "http://localhost:3000";
 
         const session = await stripe.checkout.sessions.create({
-            mode: "payment", // or 'subscription' if you want recurring
+            mode: "subscription",
             payment_method_types: ["card"],
             line_items: [
                 {
@@ -38,6 +38,9 @@ export async function POST(req: Request) {
                             description: "Unlock all features",
                         },
                         unit_amount: STRIPE_PRICE_AMOUNT_CENTS,
+                        recurring: {
+                            interval: "month",
+                        },
                     },
                     quantity: 1,
                 },
@@ -46,6 +49,11 @@ export async function POST(req: Request) {
             cancel_url: `${origin}/dashboard?canceled=true`,
             metadata: {
                 userId,
+            },
+            subscription_data: {
+                metadata: {
+                    userId,
+                },
             },
         });
 
