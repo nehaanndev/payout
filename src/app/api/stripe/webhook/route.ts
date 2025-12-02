@@ -102,7 +102,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
             {
                 tier: isPlus ? "plus" : "free",
                 stripeSubscriptionStatus: status,
-                stripeCancelAtPeriodEnd: subscription.cancel_at_period_end,
+                stripeCancelAtPeriodEnd: subscription.cancel_at_period_end || (subscription.cancel_at !== null && subscription.cancel_at > Date.now() / 1000),
                 stripeCurrentPeriodEnd: currentPeriodEnd
                     ? new Date(currentPeriodEnd * 1000).toISOString()
                     : null,

@@ -12,6 +12,13 @@ vi.mock("stripe", () => {
             webhooks = {
                 constructEvent: mockConstructEvent,
             };
+            subscriptions = {
+                retrieve: vi.fn().mockResolvedValue({
+                    status: "active",
+                    cancel_at_period_end: false,
+                    items: { data: [{ current_period_end: 1234567890 }] },
+                }),
+            };
         },
     };
 });
@@ -72,6 +79,11 @@ describe("Stripe Webhook", () => {
         expect(mockSet).toHaveBeenCalledWith(
             {
                 tier: "plus",
+                stripeCustomerId: undefined,
+                stripeSubscriptionId: undefined,
+                stripeSubscriptionStatus: "active",
+                stripeCancelAtPeriodEnd: false,
+                stripeCurrentPeriodEnd: expect.any(String),
                 updatedAt: expect.any(String),
             },
             { merge: true }
@@ -105,6 +117,11 @@ describe("Stripe Webhook", () => {
         expect(mockSet).toHaveBeenCalledWith(
             {
                 tier: "plus",
+                stripeCustomerId: undefined,
+                stripeSubscriptionId: undefined,
+                stripeSubscriptionStatus: "active",
+                stripeCancelAtPeriodEnd: false,
+                stripeCurrentPeriodEnd: expect.any(String),
                 updatedAt: expect.any(String),
             },
             { merge: true }
@@ -147,5 +164,45 @@ describe("Stripe Webhook", () => {
         expect(res.status).toBe(200);
         expect(data).toEqual({ received: true });
         expect(mockCollection).not.toHaveBeenCalled();
+    });
+    it("should handle customer.subscription.updated event with cancel_at set", async () => {
+        const futureDate = Math.floor(Date.now() / 1000) + 10000;
+        const event = {
+            type: "customer.subscription.updated",
+            data: {
+                object: {
+                    metadata: { userId: "user_789" },
+                    status: "active",
+                    cancel_at_period_end: false,
+                    cancel_at: futureDate,
+                    items: { data: [{ current_period_end: futureDate }] },
+                },
+            },
+        };
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req = new Request("http://localhost/api/stripe/webhook", {
+            method: "POST",
+            body: JSON.stringify(event),
+        });
+
+        const res = await POST(req);
+        const data = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(data).toEqual({ received: true });
+        expect(mockCollection).toHaveBeenCalledWith("users");
+        expect(mockDoc).toHaveBeenCalledWith("user_789");
+        expect(mockSet).toHaveBeenCalledWith(
+            {
+                tier: "plus",
+                stripeSubscriptionStatus: "active",
+                stripeCancelAtPeriodEnd: true,
+                stripeCurrentPeriodEnd: new Date(futureDate * 1000).toISOString(),
+                updatedAt: expect.any(String),
+            },
+            { merge: true }
+        );
     });
 });
