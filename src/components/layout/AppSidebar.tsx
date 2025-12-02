@@ -13,6 +13,7 @@ import {
     Globe,
     Moon,
     Sun,
+    Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
@@ -166,6 +167,18 @@ export function AppSidebar({ user, isAnon = false, tier = 'free', onSignOut }: A
                             )}>
                                 {tier}
                             </div>
+                            <Link
+                                href="/settings"
+                                className={cn(
+                                    "flex h-10 w-10 items-center justify-center rounded-xl transition-colors",
+                                    isNight
+                                        ? "text-slate-400 hover:bg-slate-100 hover:text-slate-900"
+                                        : "text-slate-500 hover:bg-white/5 hover:text-white"
+                                )}
+                                title="Settings"
+                            >
+                                <Settings className="h-5 w-5" />
+                            </Link>
                             <button
                                 onClick={onSignOut}
                                 className={cn(
