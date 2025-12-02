@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { STRIPE_PRICE_ID } from "@/lib/constants";
+import { STRIPE_PRICE_AMOUNT_CENTS } from "@/lib/constants";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_dummy", {
     // If the previous error said '2025-11-17.clover', I should probably use that if I can confirm it's valid,
@@ -15,7 +15,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_dummy", {
 
 export async function POST(req: Request) {
     try {
-        const { userId, priceId = STRIPE_PRICE_ID } = await req.json();
+        const { userId } = await req.json();
 
         if (!userId) {
             return NextResponse.json(
@@ -31,7 +31,14 @@ export async function POST(req: Request) {
             payment_method_types: ["card"],
             line_items: [
                 {
-                    price: priceId,
+                    price_data: {
+                        currency: "usd",
+                        product_data: {
+                            name: "Premium Upgrade",
+                            description: "Unlock all features",
+                        },
+                        unit_amount: STRIPE_PRICE_AMOUNT_CENTS,
+                    },
                     quantity: 1,
                 },
             ],
