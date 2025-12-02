@@ -7,6 +7,10 @@ export interface UserProfile {
     photoURL: string | null;
     tier: UserTier;
     stripeCustomerId?: string;
+    stripeSubscriptionId?: string;
+    stripeSubscriptionStatus?: string;
+    stripeCancelAtPeriodEnd?: boolean;
+    stripeCurrentPeriodEnd?: string;
     createdAt: string;
     updatedAt: string;
 }
