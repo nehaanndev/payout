@@ -126,12 +126,24 @@ export default function SettingsPage() {
                                         {isPlus ? "Plus" : "Free"}
                                     </span>
                                     {isPlus && (
-                                        <span className="flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                        <span className={cn(
+                                            "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                                            userProfile.stripeCancelAtPeriodEnd
+                                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                                : "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"
+                                        )}>
                                             <ShieldCheck className="h-3 w-3" />
-                                            Active
+                                            {userProfile.stripeCancelAtPeriodEnd ? "Cancels Soon" : "Active"}
                                         </span>
                                     )}
                                 </div>
+                                {isPlus && userProfile.stripeCurrentPeriodEnd && (
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        {userProfile.stripeCancelAtPeriodEnd
+                                            ? `Access ends on ${new Date(userProfile.stripeCurrentPeriodEnd).toLocaleDateString()}`
+                                            : `Renews on ${new Date(userProfile.stripeCurrentPeriodEnd).toLocaleDateString()}`}
+                                    </p>
+                                )}
                             </div>
 
                             {isPlus ? (

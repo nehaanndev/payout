@@ -34,7 +34,7 @@ export async function POST(req: Request) {
                     price_data: {
                         currency: "usd",
                         product_data: {
-                            name: "Premium Upgrade",
+                            name: "Toodl Plus Subscription",
                             description: "Unlock all features",
                         },
                         unit_amount: STRIPE_PRICE_AMOUNT_CENTS,
