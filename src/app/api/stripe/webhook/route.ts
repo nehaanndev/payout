@@ -10,6 +10,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_dummy", {
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
+
+
 export async function POST(req: Request) {
     const body = await req.text();
     const sig = (await headers()).get("stripe-signature") as string;
@@ -59,6 +61,7 @@ async function handleCheckoutSession(session: Stripe.Checkout.Session) {
 
             // Fetch subscription to get current period end
             const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            const currentPeriodEnd = subscription.items.data[0]?.current_period_end;
 
             await adminDb.collection("users").doc(userId).set(
                 {
@@ -67,9 +70,8 @@ async function handleCheckoutSession(session: Stripe.Checkout.Session) {
                     stripeSubscriptionId: subscriptionId,
                     stripeSubscriptionStatus: subscription.status,
                     stripeCancelAtPeriodEnd: subscription.cancel_at_period_end,
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    stripeCurrentPeriodEnd: (subscription as any).current_period_end
-                        ? new Date((subscription as any).current_period_end * 1000).toISOString()
+                    stripeCurrentPeriodEnd: currentPeriodEnd
+                        ? new Date(currentPeriodEnd * 1000).toISOString()
                         : null,
                     updatedAt: new Date().toISOString(),
                 },
@@ -94,15 +96,15 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
         const adminDb = getAdminDb();
         const status = subscription.status;
         const isPlus = status === "active" || status === "trialing";
+        const currentPeriodEnd = subscription.items.data[0]?.current_period_end;
 
         await adminDb.collection("users").doc(userId).set(
             {
                 tier: isPlus ? "plus" : "free",
                 stripeSubscriptionStatus: status,
                 stripeCancelAtPeriodEnd: subscription.cancel_at_period_end,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                stripeCurrentPeriodEnd: (subscription as any).current_period_end
-                    ? new Date((subscription as any).current_period_end * 1000).toISOString()
+                stripeCurrentPeriodEnd: currentPeriodEnd
+                    ? new Date(currentPeriodEnd * 1000).toISOString()
                     : null,
                 updatedAt: new Date().toISOString(),
             },
@@ -124,14 +126,14 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
     try {
         const adminDb = getAdminDb();
+        const currentPeriodEnd = subscription.items.data[0]?.current_period_end;
         await adminDb.collection("users").doc(userId).set(
             {
                 tier: "free",
                 stripeSubscriptionStatus: subscription.status,
                 stripeCancelAtPeriodEnd: false,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                stripeCurrentPeriodEnd: (subscription as any).current_period_end
-                    ? new Date((subscription as any).current_period_end * 1000).toISOString()
+                stripeCurrentPeriodEnd: currentPeriodEnd
+                    ? new Date(currentPeriodEnd * 1000).toISOString()
                     : null,
                 updatedAt: new Date().toISOString(),
             },
