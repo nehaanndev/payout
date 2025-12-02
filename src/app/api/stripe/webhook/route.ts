@@ -44,9 +44,11 @@ async function handleCheckoutSession(session: Stripe.Checkout.Session) {
     if (userId) {
         try {
             const adminDb = getAdminDb();
+            const customerId = session.customer as string;
             await adminDb.collection("users").doc(userId).set(
                 {
                     tier: "plus",
+                    stripeCustomerId: customerId,
                     updatedAt: new Date().toISOString(),
                 },
                 { merge: true }

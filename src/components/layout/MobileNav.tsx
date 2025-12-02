@@ -15,6 +15,7 @@ import {
     Globe,
     Moon,
     Sun,
+    Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
@@ -161,6 +162,20 @@ export function MobileNav({ user, isAnon = false, tier = 'free', onSignOut }: Mo
                                     </Link>
                                 );
                             })}
+
+                            <Link
+                                href="/settings"
+                                onClick={() => setOpen(false)}
+                                className={cn(
+                                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                                    isNight
+                                        ? "text-slate-400 hover:bg-white/5 hover:text-slate-300"
+                                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                                )}
+                            >
+                                <Settings className="h-5 w-5" />
+                                Settings
+                            </Link>
 
                             <div className={cn("my-2 h-px", isNight ? "bg-slate-800" : "bg-slate-100")} />
 
