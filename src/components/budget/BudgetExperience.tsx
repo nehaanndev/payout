@@ -24,6 +24,7 @@ import {
   Upload,
   MoreHorizontal,
   Sparkles,
+  Landmark,
 } from "lucide-react";
 import { User } from "firebase/auth";
 
@@ -696,6 +697,40 @@ const defaultState = (): BudgetState => ({
 
 const isClient = () => typeof window !== "undefined";
 
+function ConnectBankDialog({
+  open,
+  onOpenChange,
+  onConnect,
+  loading,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConnect: () => void;
+  loading: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Connect your bank</DialogTitle>
+          <DialogDescription>
+            Link your bank account to automatically import transactions.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={onConnect} disabled={loading}>
+            {loading ? "Connecting..." : "Connect with Stripe"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
 const BudgetExperience = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -707,6 +742,100 @@ const BudgetExperience = () => {
 
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showConnectBankDialog, setShowConnectBankDialog] = useState(false);
+  const [isConnectingBank, setIsConnectingBank] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [stripe, setStripe] = useState<any>(null);
+
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (typeof window !== "undefined" && (window as any).Stripe) {
+      // Initialize Stripe with your publishable key
+      setStripe(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).Stripe(
+          process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
+          "pk_test_dummy"
+        )
+      );
+    }
+  }, []);
+
+  const handleConnectBank = async () => {
+    if (!stripe) {
+      console.error("Stripe not initialized");
+      return;
+    }
+    setIsConnectingBank(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error("User not found");
+        return;
+      }
+
+      // 1. Create Financial Connections Session
+      const response = await fetch(
+        "/api/stripe/financial-connections/session",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: user.uid,
+          }),
+        }
+      );
+
+      const { client_secret, error } = await response.json();
+
+      if (error) {
+        console.error("Error creating session:", error);
+        return;
+      }
+
+      // 2. Collect Financial Connections Accounts
+      const result = await stripe.collectFinancialConnectionsAccounts({
+        clientSecret: client_secret,
+      });
+
+      if (result.error) {
+        console.error("Error collecting accounts:", result.error);
+        return;
+      }
+
+      // 3. Fetch transactions for the connected accounts
+      const accounts = result.financialConnectionsSession.accounts;
+      for (const account of accounts) {
+        const txResponse = await fetch(
+          "/api/stripe/financial-connections/transactions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              accountId: account.id,
+            }),
+          }
+        );
+        const txData = await txResponse.json();
+        console.log("Fetched transactions:", txData);
+        // TODO: Add transactions to the budget (e.g. open import dialog with these transactions)
+        // For now, we'll just log them.
+        // We could convert them to LedgerEntryDraft and open ImportExpenses
+      }
+
+      setShowConnectBankDialog(false);
+    } catch (err) {
+      console.error("Error connecting bank:", err);
+    } finally {
+      setIsConnectingBank(false);
+    }
+  };
+
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState("");
   const [upgradeLimit, setUpgradeLimit] = useState("");
@@ -4221,6 +4350,14 @@ function Ledger({
               <Button
                 variant="outline"
                 className="gap-2"
+                onClick={() => setShowConnectBankDialog(true)}
+              >
+                <Landmark className="h-4 w-4" />
+                Connect Bank
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
                 onClick={() => setShowImport(true)}
               >
                 <Upload className="h-4 w-4" />
@@ -4296,6 +4433,12 @@ function Ledger({
             await onImportEntries(drafts);
             setShowImport(false);
           }}
+        />
+        <ConnectBankDialog
+          open={showConnectBankDialog}
+          onOpenChange={setShowConnectBankDialog}
+          onConnect={handleConnectBank}
+          loading={isConnectingBank}
         />
       </Card>
       <EntryEditorDialog

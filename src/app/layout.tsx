@@ -37,6 +37,9 @@ export default async function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <script src="https://js.stripe.com/v3/" async></script>
+      </head>
       <body className="flex flex-col min-h-screen" suppressHydrationWarning>
         <ToodlMindProvider>
           <MindIdentityBridge />
