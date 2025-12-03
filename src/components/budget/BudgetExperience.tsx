@@ -742,7 +742,7 @@ const BudgetExperience = () => {
 
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [showImportDialog, setShowImportDialog] = useState(false);
+
   const [showConnectBankDialog, setShowConnectBankDialog] = useState(false);
   const [isConnectingBank, setIsConnectingBank] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -3197,6 +3197,10 @@ const BudgetExperience = () => {
             onOpenWizard={() => setMode("wizard")}
             paceStats={paceStats}
             isNight={isNight}
+            showConnectBankDialog={showConnectBankDialog}
+            setShowConnectBankDialog={setShowConnectBankDialog}
+            onConnectBank={handleConnectBank}
+            isConnectingBank={isConnectingBank}
           />
         )}
       </div>
@@ -3879,6 +3883,10 @@ function Ledger({
   onOpenWizard,
   paceStats,
   isNight = false,
+  showConnectBankDialog,
+  setShowConnectBankDialog,
+  onConnectBank,
+  isConnectingBank,
 }: {
   entries: BudgetLedgerEntry[];
   categories: CategoryOption[];
@@ -3914,6 +3922,10 @@ function Ledger({
   onOpenWizard: () => void;
   paceStats: PaceStats;
   isNight?: boolean;
+  showConnectBankDialog: boolean;
+  setShowConnectBankDialog: (open: boolean) => void;
+  onConnectBank: () => void;
+  isConnectingBank: boolean;
 }) {
   const isNightMode = isNight ?? false;
   const [showAdd, setShowAdd] = useState(false);
@@ -4437,7 +4449,7 @@ function Ledger({
         <ConnectBankDialog
           open={showConnectBankDialog}
           onOpenChange={setShowConnectBankDialog}
-          onConnect={handleConnectBank}
+          onConnect={onConnectBank}
           loading={isConnectingBank}
         />
       </Card>
