@@ -18,6 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -45,6 +46,7 @@ const TIME_RANGES: { id: TimeRange; label: string; days: number }[] = [
 export function ReflectionsExperience({ user, onClose }: ReflectionsExperienceProps) {
     const { isNight } = useToodlTheme();
     const [timeRange, setTimeRange] = useState<TimeRange>("month");
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [plans, setPlans] = useState<FlowPlan[]>([]);
 
@@ -163,7 +165,10 @@ export function ReflectionsExperience({ user, onClose }: ReflectionsExperiencePr
                                     <Card className={cn("overflow-hidden transition-all hover:shadow-md", isNight ? "bg-slate-900 border-slate-800" : "bg-white")}>
                                         <CardContent className="p-6 space-y-4">
                                             {reflection.photoUrl && (
-                                                <div className="relative h-48 w-full overflow-hidden rounded-lg">
+                                                <div
+                                                    className="relative h-48 w-full overflow-hidden rounded-lg cursor-pointer transition-opacity hover:opacity-90"
+                                                    onClick={() => reflection.photoUrl && setSelectedImage(reflection.photoUrl)}
+                                                >
                                                     <Image
                                                         src={reflection.photoUrl}
                                                         alt="Reflection"
@@ -198,6 +203,21 @@ export function ReflectionsExperience({ user, onClose }: ReflectionsExperiencePr
                     )}
                 </div>
             </ScrollArea>
-        </div>
+
+            <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
+                <DialogContent className="max-w-4xl p-0 overflow-hidden bg-transparent border-none shadow-none">
+                    {selectedImage && (
+                        <div className="relative w-full h-[80vh]">
+                            <Image
+                                src={selectedImage}
+                                alt="Reflection Full View"
+                                fill
+                                className="object-contain"
+                            />
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+        </div >
     );
 }
