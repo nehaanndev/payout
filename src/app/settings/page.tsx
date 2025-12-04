@@ -10,6 +10,8 @@ import { UpgradeDialog } from "@/components/UpgradeDialog";
 import { Loader2, Settings as SettingsIcon, CreditCard, ShieldCheck } from "lucide-react";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
 import { cn } from "@/lib/utils";
+import { SplitSettingsSection } from "@/components/settings/SplitSettingsSection";
+import { OrbitSettingsSection } from "@/components/settings/OrbitSettingsSection";
 
 export default function SettingsPage() {
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -184,6 +186,11 @@ export default function SettingsPage() {
                         )}
                     </CardContent>
                 </Card>
+            </div>
+
+            <div className="mx-auto max-w-2xl space-y-8 mt-8">
+                <SplitSettingsSection />
+                <OrbitSettingsSection />
             </div>
 
             <UpgradeDialog

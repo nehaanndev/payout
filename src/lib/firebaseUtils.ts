@@ -10,13 +10,16 @@ export const createGroup = async (
   members: Member[],
   currency: CurrencyCode
 ) => {
-  
+
   const formattedMembers = members.map((member) => ({
     email: member.email || null,
     firstName: member.firstName, // Include first name with fallback
     id: member.id, // Ensure id is included
     authProvider: member.authProvider,
     paypalMeLink: member.paypalMeLink ?? null,
+    zelleId: member.zelleId ?? null,
+    venmoId: member.venmoId ?? null,
+    cashAppId: member.cashAppId ?? null,
   }));
 
   const formattedMemberEmails = members.map((member) => member.email || null);
@@ -27,7 +30,7 @@ export const createGroup = async (
     currency: currency,
     createdBy: userId,
     members: formattedMembers,  // Store both email and first names
-    memberEmails:formattedMemberEmails,          // Array of emails for easier querying
+    memberEmails: formattedMemberEmails,          // Array of emails for easier querying
     memberIds: formattedMemberIds,              // Array of IDs for easier querying
     createdAt: serverTimestamp(),
     lastUpdated: serverTimestamp(),
@@ -62,6 +65,9 @@ export const updateGroupMembers = async (
     const formattedMembers = members.map((member) => ({
       ...member,
       paypalMeLink: member.paypalMeLink ?? null,
+      zelleId: member.zelleId ?? null,
+      venmoId: member.venmoId ?? null,
+      cashAppId: member.cashAppId ?? null,
     }));
     const memberEmails = formattedMembers.map((member) => member.email);
     const memberIds = formattedMembers.map((member) => member.id);
@@ -163,7 +169,7 @@ export const signInToFirebase = async (accessToken: string) => {
 };
 
 
-import {  orderBy, Timestamp } from "firebase/firestore";
+import { orderBy, Timestamp } from "firebase/firestore";
 import { Settlement, SettlementMethod, SettlementStatus } from "@/types/settlement";
 
 // ✅ Add expense to Firestore
@@ -207,9 +213,9 @@ export const getExpenses = async (groupId: string) => {
   const expensesRef = collection(db, "groups", groupId, "expenses").withConverter(firebaseExpenseConverter);
   console.log("Fetching expenses for group", groupId);
   const q = query(expensesRef, orderBy("createdAt", "desc"));
-  
+
   const querySnapshot = await getDocs(q);
-  
+
   const expenses = querySnapshot.docs.map((doc) => ({
     ...doc.data(),
   }));

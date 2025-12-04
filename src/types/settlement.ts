@@ -1,4 +1,4 @@
-export type SettlementMethod = "paypal" | "zelle" | "cash" | "venmo" | "other";
+export type SettlementMethod = "paypal" | "venmo" | "cash" | "other" | "zelle" | "cash_app";
 export type SettlementStatus = "pending" | "confirmed";
 
 export interface Settlement {
@@ -16,8 +16,8 @@ export interface Settlement {
 }
 
 export interface SettlementDefaults {
-    payeeId: string;       // the member you owe money to
-    payeeName: string;     // their display name
-    defaultAmount: number; // how much you owe them
-  }
-  
+  payeeId: string;       // the member you owe money to
+  payeeName: string;     // their display name
+  defaultAmount: number; // how much you owe them
+}
+

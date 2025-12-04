@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, serverTimestamp, increment, collection, addDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, increment, collection, addDoc, deleteDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import {
   UserInterests,
@@ -159,13 +159,13 @@ export const recordLearningLesson = async (
   const nextCompleted = hasLesson
     ? completed
     : [
-        ...completed,
-        {
-          day: lesson.day,
-          title: lesson.title,
-          overview: lesson.overview,
-        },
-      ];
+      ...completed,
+      {
+        day: lesson.day,
+        title: lesson.title,
+        overview: lesson.overview,
+      },
+    ];
   const totalLessons = existing?.totalLessons ?? lesson.totalDays ?? 7;
   const currentLesson = Math.min(totalLessons, Math.max(existing?.currentLesson ?? 0, lesson.day));
   const basePlan =
@@ -204,12 +204,12 @@ export const saveOrbitLesson = async (
   const sanitizedQuiz =
     Array.isArray(lesson.quiz) && lesson.quiz.length
       ? lesson.quiz.map((item) => ({
-          question: String(item.question ?? "").trim(),
-          answers: Array.isArray(item.answers)
-            ? item.answers.map((answer) => String(answer ?? "").trim()).filter(Boolean)
-            : [],
-          correctAnswer: String(item.correctAnswer ?? "").trim(),
-        }))
+        question: String(item.question ?? "").trim(),
+        answers: Array.isArray(item.answers)
+          ? item.answers.map((answer) => String(answer ?? "").trim()).filter(Boolean)
+          : [],
+        correctAnswer: String(item.correctAnswer ?? "").trim(),
+      }))
       : [];
   const sanitizedLesson: OrbitLearningLesson = {
     title: String(lesson.title ?? topic).trim(),
@@ -305,4 +305,12 @@ export const recordInsightPreference = async (
     },
     { merge: true }
   );
+};
+
+export const deleteLearningPlan = async (userId: string): Promise<void> => {
+  if (!userId) {
+    throw new Error("User ID is required");
+  }
+  const ref = learningPlanDoc(userId);
+  await deleteDoc(ref);
 };
