@@ -4,6 +4,7 @@ import ToodlMindProvider from "@/components/mind/ToodlMindProvider";
 import MindIdentityBridge from "@/components/mind/MindIdentityBridge";
 import ToodlMindLauncher from "@/components/mind/ToodlMindLauncher";
 import { AppShell } from "@/components/layout/AppShell";
+import { Toaster } from "@/components/ui/toaster";
 
 // app/layout.tsx
 export const metadata = {
@@ -45,6 +46,7 @@ export default async function RootLayout({
             <Footer />
           </AppShell>
           <ToodlMindLauncher />
+          <Toaster />
         </ToodlMindProvider>
       </body>
     </html>

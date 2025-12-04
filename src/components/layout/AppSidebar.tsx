@@ -14,6 +14,7 @@ import {
     Moon,
     Sun,
     Settings,
+    MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
@@ -21,6 +22,7 @@ import { type User } from "firebase/auth";
 import Image from "next/image";
 
 import { type UserTier } from "@/types/user";
+
 
 type AppSidebarProps = {
     user: User | null;
@@ -142,6 +144,23 @@ export function AppSidebar({ user, isAnon = false, tier = 'free', onSignOut }: A
                             <Sparkles className="h-5 w-5 text-white" />
                         </button>
                     )}
+
+                    <Link
+                        href="/feedback"
+                        className={cn(
+                            "flex h-10 w-10 items-center justify-center rounded-xl transition-colors",
+                            pathname === "/feedback"
+                                ? isNight
+                                    ? "bg-slate-800 text-white"
+                                    : "bg-slate-100 text-slate-900"
+                                : isNight
+                                    ? "text-slate-400 hover:bg-white/5 hover:text-slate-300"
+                                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                        )}
+                        title="Feedback"
+                    >
+                        <MessageSquare className="h-5 w-5" />
+                    </Link>
 
                     <button
                         onClick={() => setTheme(isNight ? "morning" : "night")}
