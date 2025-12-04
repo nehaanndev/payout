@@ -18,7 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -206,6 +206,7 @@ export function ReflectionsExperience({ user, onClose }: ReflectionsExperiencePr
 
             <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
                 <DialogContent className="max-w-4xl p-0 overflow-hidden bg-transparent border-none shadow-none">
+                    <DialogTitle className="sr-only">Reflection Image</DialogTitle>
                     {selectedImage && (
                         <div className="relative w-full h-[80vh]">
                             <Image
