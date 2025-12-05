@@ -3,17 +3,22 @@
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
+  Activity,
   ArrowRight,
   Brain,
+  Globe,
   MessageCircle,
+  NotebookPen,
   Sparkles,
+  Wallet,
+  Workflow,
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 
 type SpotlightProduct = {
   name: string;
   tagline: string;
-  icon: string;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
   accent: string;
   description: string;
   href: string;
@@ -23,7 +28,7 @@ const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
   {
     name: "Split",
     tagline: "Split bills with friends",
-    icon: "/brand/toodl-expense.svg",
+    icon: Wallet,
     accent: "from-slate-900/10 via-slate-800/5 to-slate-900/0",
     description: "Track shared expenses and settle up instantly.",
     href: "/split",
@@ -31,7 +36,7 @@ const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
   {
     name: "Pulse",
     tagline: "Track your budget",
-    icon: "/brand/toodl-budget.svg",
+    icon: Activity,
     accent: "from-emerald-500/15 via-teal-400/10 to-emerald-500/0",
     description: "See where your money goes and stay on track.",
     href: "/budget",
@@ -39,7 +44,7 @@ const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
   {
     name: "Story",
     tagline: "Journal your days",
-    icon: "/brand/toodl-journal.svg",
+    icon: NotebookPen,
     accent: "from-rose-400/15 via-amber-300/10 to-sky-400/0",
     description: "Capture memories and reflections alongside your spend.",
     href: "/journal",
@@ -47,7 +52,7 @@ const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
   {
     name: "Flow",
     tagline: "Plan your schedule",
-    icon: "/brand/toodl-flow.svg",
+    icon: Workflow,
     accent: "from-emerald-400/15 via-teal-300/10 to-amber-200/0",
     description: "Organize your day with tasks and focus blocks.",
     href: "/flow",
@@ -55,7 +60,7 @@ const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
   {
     name: "Orbit",
     tagline: "Save important things",
-    icon: "/brand/toodl-orbit.svg",
+    icon: Globe,
     accent: "from-indigo-500/15 via-violet-400/10 to-blue-400/0",
     description: "Keep receipts, documents, and links in one place.",
     href: "/orbit",
@@ -152,7 +157,7 @@ export function LandingPage({
                   height={48}
                   className="h-12 w-12"
                 />
-                <span className="text-2xl font-bold tracking-tight text-slate-900">Toodl</span>
+                <span className="text-3xl font-extrabold tracking-tight text-slate-900">Toodl</span>
               </div>
               <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
                 Plan your life.
@@ -212,7 +217,7 @@ export function LandingPage({
                       className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white/70 p-3"
                     >
                       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-inner">
-                        <Image src={product.icon} alt={product.name} width={32} height={32} className="brand-logo" />
+                        <product.icon className="h-6 w-6 text-slate-900" />
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-slate-900">{product.name}</p>
