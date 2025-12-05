@@ -86,7 +86,56 @@ export function UpgradeDialog({
                         </ul>
                     </div>
                 </div>
-                <div className="flex justify-end gap-3">
+                <div className="flex flex-col gap-2">
+                    <div className="text-xs text-muted-foreground text-center">
+                        Have an invite code?
+                    </div>
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="Enter code"
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                            id="invite-code"
+                        />
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={async () => {
+                                const input = document.getElementById('invite-code') as HTMLInputElement;
+                                const code = input.value.trim();
+                                if (!code) return;
+
+                                setLoading(true);
+                                try {
+                                    const user = auth.currentUser;
+                                    if (!user) return;
+
+                                    const res = await fetch('/api/invite/redeem', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ code, userId: user.uid }),
+                                    });
+
+                                    if (res.ok) {
+                                        window.location.reload();
+                                    } else {
+                                        const data = await res.json();
+                                        alert(data.error || 'Failed to redeem code');
+                                    }
+                                } catch (e) {
+                                    console.error(e);
+                                    alert('Error redeeming code');
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }}
+                            disabled={loading}
+                        >
+                            Redeem
+                        </Button>
+                    </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-4">
                     <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
                         Maybe later
                     </Button>

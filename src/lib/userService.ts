@@ -61,5 +61,16 @@ export const updateUserTier = async (uid: string, tier: UserTier): Promise<void>
 };
 
 export const isUserPlus = (user: UserProfile | null): boolean => {
-    return user?.tier === 'plus';
+    if (!user) return false;
+    if (user.tier !== 'plus') return false;
+
+    // Check for expiration if it exists
+    if (user.stripeCurrentPeriodEnd) {
+        const endDate = new Date(user.stripeCurrentPeriodEnd);
+        if (endDate < new Date()) {
+            return false;
+        }
+    }
+
+    return true;
 };
