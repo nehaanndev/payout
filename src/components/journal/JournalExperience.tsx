@@ -83,6 +83,7 @@ import {
   CheckCircle2,
   Clock,
   FileEdit,
+  NotebookPen,
 } from "lucide-react";
 
 type JournalQuestion = {
@@ -1187,7 +1188,9 @@ const JournalExperience = () => {
           />
           <div className="flex items-center justify-center">
             <Card className="flex w-full max-w-md flex-col items-center gap-4 border-slate-200 bg-white/90 p-10 text-center shadow-xl shadow-slate-300/40 backdrop-blur">
-              <Sparkles className="h-10 w-10 text-rose-400" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-100 text-rose-600">
+                <NotebookPen className="h-6 w-6" />
+              </div>
               <div className="space-y-2">
                 <h2 className="text-2xl font-semibold text-slate-900">
                   Capture your daily story

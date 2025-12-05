@@ -18,6 +18,7 @@ import {
   TimerReset,
   Trash2,
   Wand2,
+  Workflow,
   X,
 } from "lucide-react";
 
@@ -1294,8 +1295,8 @@ export function FlowExperience() {
             "flex flex-col items-center gap-4 border-slate-200 bg-white/90 p-12 text-center backdrop-blur",
             isNight ? "shadow-2xl shadow-slate-900/50" : "shadow-2xl shadow-emerald-200/30"
           )}>
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-              <Flame className="h-6 w-6" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-100 text-teal-700">
+              <Workflow className="h-6 w-6" />
             </div>
             <div className="space-y-3">
               <h2 className="text-2xl font-semibold text-slate-900">
