@@ -5,7 +5,7 @@ import {
   getDailySummary,
   saveDailySummary,
   getInsightPreferences,
-  getLearningPlan,
+  getLearningPlans,
   saveLearningPlan,
   recordLearningLesson,
 } from "@/lib/orbitSummaryService";
@@ -84,8 +84,22 @@ type AiLearningResponse = {
   }>;
 };
 
-const depthToLessons = (depth: OrbitLearningPlan["depth"]) =>
-  depth === "deep" ? 30 : depth === "standard" ? 10 : 7;
+const depthToLessons = (depth: OrbitLearningPlan["depth"]): number => {
+  switch (depth) {
+    case "light":
+      return 7;
+    case "standard":
+      return 10;
+    case "deep":
+      return 30;
+    case "expert":
+      return 60;
+    case "auto":
+      return 14; // Fallback if AI doesn't set it, though we'll ask AI to decide.
+    default:
+      return 10;
+  }
+};
 
 const buildFallbackSyllabus = (plan: OrbitLearningPlan): NonNullable<OrbitLearningPlan["syllabus"]> => {
   const totalLessons = plan.totalLessons || depthToLessons(plan.depth);
@@ -107,6 +121,11 @@ const generateLearningRoadmap = async (
     return buildFallbackSyllabus(plan);
   }
 
+  // If depth is auto and totalLessons is 0 (or low), ask AI to decide duration.
+  const durationPrompt = plan.depth === "auto" && (!plan.totalLessons || plan.totalLessons === 0)
+    ? "Determine an appropriate duration for this topic (between 5 and 60 days) based on its complexity."
+    : `Create a ${totalLessons}-day learning syllabus.`;
+
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -114,22 +133,21 @@ const generateLearningRoadmap = async (
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content:
-            "You design concise micro-learning syllabi. Return JSON with a `syllabus` array where each item has day, title, summary, and quizFocus. Make every day distinct and non-repetitive.",
-        },
-        {
-          role: "user",
-          content: `Create a ${totalLessons}-day learning roadmap for "${plan.topic}" at a ${plan.depth
-            } depth. Keep days additive, avoid repeating angles, and ensure difficulty progresses.`,
+          content: `You are an expert curriculum designer. ${durationPrompt} For topic: "${plan.topic}".
+Return a JSON object with a "syllabus" array. Each item must have:
+- day: number (1 to N)
+- title: string (short lesson title)
+- summary: string (1 sentence overview)
+- quizFocus: string (optional, what the quiz should test)
+- code: string (optional, short code snippet if relevant)
+Ensure the syllabus covers the topic comprehensively within the duration.`,
         },
       ],
-      temperature: 0.3,
-      max_tokens: 700,
+      response_format: { type: "json_object" },
     }),
   });
 
@@ -151,20 +169,24 @@ const generateLearningRoadmap = async (
     console.error("Failed to parse syllabus JSON", error, content);
   }
 
-  const raw = Array.isArray(parsed?.syllabus) ? parsed?.syllabus : [];
-  const syllabus = raw
-    .slice(0, totalLessons)
-    .map((item, index) => ({
-      day: Number(item?.day) || index + 1,
-      title: String(item?.title ?? `${plan.topic}: Part ${index + 1}`),
-      summary: String(item?.summary ?? `Focus on aspect ${index + 1} of ${plan.topic}.`),
-      quizFocus: item?.quizFocus ? String(item.quizFocus) : undefined,
-    }))
-    .filter((item) => item.title);
-
-  if (!syllabus.length) {
+  if (!parsed?.syllabus || !Array.isArray(parsed.syllabus)) {
+    console.error("Invalid syllabus format from OpenAI", parsed);
     return buildFallbackSyllabus(plan);
   }
+
+  const rawSyllabus = parsed.syllabus;
+  const syllabus = rawSyllabus
+    .slice(0, totalLessons > 0 ? totalLessons : rawSyllabus.length)
+    .map((item: unknown, index: number) => {
+      const typedItem = item as { day?: unknown; title?: unknown; summary?: unknown; quizFocus?: unknown; code?: unknown };
+      return {
+        day: Number(typedItem?.day) || index + 1,
+        title: String(typedItem?.title ?? `${plan.topic}: Part ${index + 1}`),
+        summary: String(typedItem?.summary ?? "No summary provided."),
+        quizFocus: typedItem?.quizFocus ? String(typedItem.quizFocus) : undefined,
+        code: typedItem?.code ? String(typedItem.code) : undefined,
+      };
+    });
 
   return syllabus;
 };
@@ -180,7 +202,7 @@ const ensureLearningRoadmap = async (
   const nextPlan = {
     ...plan,
     syllabus: syllabus ?? plan.syllabus,
-    totalLessons: plan.totalLessons || depthToLessons(plan.depth),
+    totalLessons: plan.totalLessons || syllabus.length || depthToLessons(plan.depth),
   };
   try {
     await saveLearningPlan(userId, nextPlan);
@@ -553,42 +575,83 @@ export async function GET(request: NextRequest) {
 
     const dateKey = getTodayDateKey();
 
-    const rawLearningPlan = await getLearningPlan(userId);
-    const learningPlan = rawLearningPlan ? await ensureLearningRoadmap(userId, rawLearningPlan) : null;
-    const learningActive =
-      learningPlan &&
-      learningPlan.currentLesson < (learningPlan.totalLessons || depthToLessons(learningPlan.depth));
-    const existingDaily = await getDailySummary(userId, dateKey);
-    if (existingDaily?.payload) {
-      // If a learning plan is active but the cached payload lacks a lesson, generate one and override sparks
-      // Also regenerate if the plan has been updated since the summary was created (e.g. user started a new topic)
-      const planUpdatedSinceSummary =
-        learningPlan &&
-        existingDaily.createdAt &&
-        new Date(learningPlan.updatedAt).getTime() > new Date(existingDaily.createdAt).getTime();
+    const plans = await getLearningPlans(userId);
+    const activePlans: OrbitLearningPlan[] = [];
 
-      if (learningActive && (!existingDaily.payload.learningLesson || planUpdatedSinceSummary)) {
-        const lesson =
-          (await generateLearningLesson(learningPlan)) ?? buildFallbackLesson(learningPlan);
-        if (lesson) {
+    for (const plan of plans) {
+      const ensured = await ensureLearningRoadmap(userId, plan);
+      if (ensured.currentLesson < (ensured.totalLessons || depthToLessons(ensured.depth))) {
+        activePlans.push(ensured);
+      }
+    }
+
+    const existingDaily = await getDailySummary(userId, dateKey);
+
+    // Check if we need to generate/update lessons
+    // We do this if:
+    // 1. We have active plans
+    // 2. AND (No existing summary OR existing summary is missing lessons for some active plans)
+    // Note: We don't strictly check for "planUpdatedSinceSummary" for every plan to keep it simple, 
+    // but we ensure every active plan has a lesson in the payload.
+
+    let lessons: OrbitLearningLesson[] = existingDaily?.payload?.learningLessons ?? [];
+
+    // Backfill from legacy single lesson if needed
+    if (existingDaily?.payload?.learningLesson && lessons.length === 0) {
+      lessons.push(existingDaily.payload.learningLesson);
+    }
+
+
+    const missingLessonPlans = activePlans.filter(p => {
+      // Heuristic: check if we have a lesson that looks like it belongs to this plan
+      // Since we don't store planId on lesson, we match by topic/title roughly
+      return !lessons.some(l => l.title.includes(p.topic));
+    });
+
+    if (missingLessonPlans.length > 0) {
+      const newLessons = await Promise.all(missingLessonPlans.map(p => generateLearningLesson(p)));
+      const validNewLessons = newLessons.filter((l): l is OrbitLearningLesson => l !== null);
+
+      if (validNewLessons.length > 0) {
+        lessons = [...lessons, ...validNewLessons];
+
+        // Save the new lessons
+        await Promise.all(validNewLessons.map(l => recordLearningLesson(userId, l)));
+
+        // Update the summary payload
+        if (existingDaily?.payload) {
           const patchedSummary: DailySummaryPayload = {
             ...existingDaily.payload,
-            learningLesson: lesson,
-            insights: [],
+            learningLessons: lessons,
+            learningLesson: lessons[0] || null, // Keep legacy field populated
+            insights: [], // Clear insights if we are adding learning (product decision: learning replaces insights?)
           };
-          await recordLearningLesson(userId, lesson);
-          const summaryId = lesson.title ?? existingDaily.shareId ?? "ai-summary";
+          const summaryId = lessons[0]?.title ?? existingDaily.shareId ?? "ai-summary";
           await saveDailySummary(userId, dateKey, patchedSummary, summaryId);
           return NextResponse.json(patchedSummary);
         }
       }
-      return NextResponse.json(existingDaily.payload);
     }
 
-    // Only show daily summary in the morning
-    if (!isMorning()) {
+    if (existingDaily?.payload) {
+      // Ensure we return the list
+      const payload = {
+        ...existingDaily.payload,
+        learningLessons: lessons,
+        learningLesson: lessons[0] || null,
+      };
+      return NextResponse.json(payload);
+    }
+
+    // If no existing summary, check if we should generate one.
+    // If it's NOT morning AND no active plans, return restriction message.
+    if (!isMorning() && activePlans.length === 0) {
       return NextResponse.json({ message: "Daily summaries are only available in the morning" }, { status: 200 });
     }
+
+    // Proceed to generate full summary (even if afternoon, if we have learning plans)
+
+    // (Removed isMorning check here to allow generation if learning plans exist)
 
     // Get user interests
     const interests = await getUserInterests(userId);
@@ -643,9 +706,17 @@ export async function GET(request: NextRequest) {
 
     const insightPreferences = await getInsightPreferences(userId);
 
-    const learningLesson = learningActive
-      ? (await generateLearningLesson(learningPlan)) ?? buildFallbackLesson(learningPlan)
-      : null;
+    const generatedLessons = await Promise.all(activePlans.map(p => generateLearningLesson(p)));
+    const validLessons = generatedLessons.filter((l): l is OrbitLearningLesson => l !== null);
+
+    // If we failed to generate AI lessons, try fallbacks
+    if (validLessons.length < activePlans.length) {
+      activePlans.forEach(p => {
+        if (!validLessons.some(l => l.title.includes(p.topic))) {
+          validLessons.push(buildFallbackLesson(p));
+        }
+      });
+    }
 
     // Generate personalized summary
     const summary = await generatePersonalizedSummary(
@@ -654,16 +725,19 @@ export async function GET(request: NextRequest) {
       yesterdayBudget,
       interestList,
       insightPreferences,
-      { skipInsights: Boolean(learningLesson) }
+      { skipInsights: validLessons.length > 0 }
     );
-    summary.learningLesson = learningLesson;
-    if (learningLesson) {
+
+    summary.learningLessons = validLessons;
+    summary.learningLesson = validLessons[0] || null; // Legacy
+
+    if (validLessons.length > 0) {
       summary.insights = [];
-      await recordLearningLesson(userId, learningLesson);
+      await Promise.all(validLessons.map(l => recordLearningLesson(userId, l)));
     }
 
     // Persist that we generated something today so we can avoid duplicates later
-    const summaryId = summary.insights[0]?.id ?? summary.learningLesson?.title ?? "ai-summary";
+    const summaryId = summary.insights[0]?.id ?? summary.learningLessons?.[0]?.title ?? "ai-summary";
     await saveDailySummary(userId, dateKey, summary, summaryId);
 
     return NextResponse.json(summary);
