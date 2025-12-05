@@ -26,10 +26,8 @@ import Image from "next/image";
 import { CurrencyCode } from "@/lib/currency_core";
 import { DEFAULT_CURRENCY, getGroupCurrency } from "@/lib/currency";
 import { AppTopBar } from "@/components/AppTopBar";
+import { Wallet } from "lucide-react";
 
-import {
-  Users,
-} from "lucide-react";
 import PaymentSettingsDialog from "@/components/PaymentSettingsDialog";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
@@ -535,8 +533,8 @@ function SplitSignIn({
           : "border-slate-200 bg-white"
       )}>
         <div className="text-center space-y-2">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
-            <Users className="h-6 w-6" />
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+            <Wallet className="h-6 w-6" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Sign in to Split</h1>
           <p className={cn("text-sm", isNight ? "text-slate-400" : "text-slate-500")}>

@@ -1777,14 +1777,27 @@ function FlowCards({
           />
           <Highlight
             label="Today’s pulse"
-            value={totalTasks ? `${completedTasks}/${totalTasks} done · ${totalTasks - completedTasks} to go` : "No schedule for today."}
+            value={
+              totalTasks ? (
+                <span className="flex items-baseline gap-2">
+                  <span className="text-xl font-bold text-slate-900">{completedTasks}/{totalTasks}</span>
+                  <span className="text-slate-600">done · {totalTasks - completedTasks} to go</span>
+                </span>
+              ) : (
+                "No schedule for today."
+              )
+            }
           />
           <Highlight
             label="Next anchor"
             value={
-              upcomingTasks[0]
-                ? `${upcomingTasks[0].title} · ${formatTaskTimeRange(upcomingTasks[0])}`
-                : "Add a top priority to Flow"
+              upcomingTasks[0] ? (
+                <span className="block font-semibold text-slate-900 leading-snug">
+                  {upcomingTasks[0].title} <span className="font-normal text-slate-500">· {formatTaskTimeRange(upcomingTasks[0])}</span>
+                </span>
+              ) : (
+                "Add a top priority to Flow"
+              )
             }
           />
           <Highlight
@@ -2280,11 +2293,11 @@ function formatBudgetMonthLabel(monthKey: string) {
   });
 }
 
-function Highlight({ label, value, dark }: { label: string; value: string; dark?: boolean }) {
+function Highlight({ label, value, dark }: { label: string; value: ReactNode; dark?: boolean }) {
   return (
     <div>
       <p className={cn("text-xs font-semibold uppercase tracking-[0.35em]", dark ? "text-slate-400" : "text-slate-500")}>{label}</p>
-      <p className={cn("text-sm", dark ? "text-slate-200" : "text-slate-700")}>{value}</p>
+      <div className={cn("text-sm", dark ? "text-slate-200" : "text-slate-700")}>{value}</div>
     </div>
   );
 }

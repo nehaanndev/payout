@@ -3,17 +3,23 @@
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
+  Activity,
   ArrowRight,
   Brain,
+  Globe,
   MessageCircle,
+  NotebookPen,
   Sparkles,
+  Wallet,
+  Workflow,
+  Zap,
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 
 type SpotlightProduct = {
   name: string;
   tagline: string;
-  icon: string;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
   accent: string;
   description: string;
   href: string;
@@ -23,7 +29,7 @@ const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
   {
     name: "Split",
     tagline: "Split bills with friends",
-    icon: "/brand/toodl-expense.svg",
+    icon: Wallet,
     accent: "from-slate-900/10 via-slate-800/5 to-slate-900/0",
     description: "Track shared expenses and settle up instantly.",
     href: "/split",
@@ -31,7 +37,7 @@ const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
   {
     name: "Pulse",
     tagline: "Track your budget",
-    icon: "/brand/toodl-budget.svg",
+    icon: Activity,
     accent: "from-emerald-500/15 via-teal-400/10 to-emerald-500/0",
     description: "See where your money goes and stay on track.",
     href: "/budget",
@@ -39,7 +45,7 @@ const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
   {
     name: "Story",
     tagline: "Journal your days",
-    icon: "/brand/toodl-journal.svg",
+    icon: NotebookPen,
     accent: "from-rose-400/15 via-amber-300/10 to-sky-400/0",
     description: "Capture memories and reflections alongside your spend.",
     href: "/journal",
@@ -47,7 +53,7 @@ const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
   {
     name: "Flow",
     tagline: "Plan your schedule",
-    icon: "/brand/toodl-flow.svg",
+    icon: Workflow,
     accent: "from-emerald-400/15 via-teal-300/10 to-amber-200/0",
     description: "Organize your day with tasks and focus blocks.",
     href: "/flow",
@@ -55,7 +61,7 @@ const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
   {
     name: "Orbit",
     tagline: "Save important things",
-    icon: "/brand/toodl-orbit.svg",
+    icon: Globe,
     accent: "from-indigo-500/15 via-violet-400/10 to-blue-400/0",
     description: "Keep receipts, documents, and links in one place.",
     href: "/orbit",
@@ -70,99 +76,42 @@ type WorkflowStep = {
 
 const HOW_IT_WORKS_STEPS: WorkflowStep[] = [
   {
-    title: "Chat",
+    title: "Plan your day with Flow",
     description:
-      "Tell Toodl what’s happening—like buying groceries or planning a trip.",
-    icon: MessageCircle,
-  },
-  {
-    title: "Plan",
-    description:
-      "Toodl organizes it into the right app: Split, Pulse, Flow, or Orbit.",
+      "Start each morning by planning your tasks and schedule. Add reflections throughout the day to stay mindful.",
     icon: Brain,
   },
   {
-    title: "Relax",
-    description: "Stay on top of your money and time without the stress.",
+    title: "Save what matters in Orbit",
+    description:
+      "Found something interesting? A recipe, an article, a gift idea? Save it to Orbit and revisit when ready.",
+    icon: Sparkles,
+  },
+  {
+    title: "Manage money with Pulse & Split",
+    description:
+      "Track your budget in Pulse and split bills with friends. Keep your finances transparent and stress-free.",
+    icon: MessageCircle,
+  },
+  {
+    title: "Reflect with Story",
+    description:
+      "End your day with a personal journal entry. Capture your thoughts, wins, and gratitude.",
+    icon: Brain,
+  },
+  {
+    title: "Get personalized recommendations",
+    description:
+      "Toodl learns from your past schedule to suggest the best times for deep work, meetings, and breaks.",
+    icon: Zap,
+  },
+  {
+    title: "Toodl Mind ties it all together",
+    description:
+      "Talk to Toodl Mind and it routes your requests to the right app. One AI assistant for your whole life.",
     icon: Sparkles,
   },
 ];
-
-
-const DASHBOARD_SNAPSHOTS = [
-  {
-    id: "morning",
-    label: "Morning calm",
-    headline: "Wake up with clarity.",
-    subhead: "Flow lines up anchors, groups show what’s owed, and budgets keep you honest.",
-    emoji: "🌤️",
-    gradient: "bg-gradient-to-br from-white via-emerald-50 to-white",
-    background: "border-emerald-100",
-    details: [
-      {
-        title: "Anchors",
-        description: "First three Flow tasks so the day feels guided.",
-      },
-      {
-        title: "Balances",
-        description: "Household sees who owes what right away.",
-      },
-      {
-        title: "Budget pulse",
-        description: "Flex spending remaining so choices feel confident.",
-      },
-    ],
-    ctas: ["Add expense", "Log note"],
-    gridSpan: 2,
-  },
-  {
-    id: "evening",
-    label: "Evening reflection",
-    headline: "Close the loop gently.",
-    subhead: "Capture a journal, mark expenses settled, and nudge tomorrow’s Flow.",
-    emoji: "🌙",
-    gradient: "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900",
-    background: "border-slate-800 text-white",
-    details: [
-      {
-        title: "Reflection",
-        description: "Journal prompt, mood picker, and photo capture.",
-      },
-      {
-        title: "Group actions",
-        description: "Add expense, confirm settlement, or share link.",
-      },
-      {
-        title: "Flow streak",
-        description: "Shows wins + open loops to carry forward.",
-      },
-    ],
-    ctas: ["Add journal", "Add photo"],
-    gridSpan: 1,
-  },
-  {
-    id: "sunday",
-    label: "Sunday digest",
-    headline: "Plan the week with receipts.",
-    subhead: "AI recap, Orbit saves, and Flow timeline combine into a ritual planning session.",
-    emoji: "📅",
-    gradient: "bg-gradient-to-br from-white via-indigo-50 to-white",
-    background: "border-indigo-100",
-    details: [
-      {
-        title: "Digest",
-        description: "Summaries of tasks, reflections, and spend.",
-      },
-      {
-        title: "Orbit sparks",
-        description: "Saved links that deserve a slot next week.",
-      },
-    ],
-    ctas: ["Review AI notes", "Plan Flow"],
-    gridSpan: 1,
-  },
-];
-
 
 
 const SOCIAL_PROOF = [
@@ -207,6 +156,16 @@ export function LandingPage({
         <div className="relative mx-auto max-w-6xl px-6 py-24 lg:py-28">
           <div className="grid gap-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:items-center">
             <div className="space-y-8">
+              <div className="flex items-center gap-3">
+                <Image
+                  src="/brand/toodl-logo.png"
+                  alt="Toodl"
+                  width={48}
+                  height={48}
+                  className="h-12 w-12"
+                />
+                <span className="text-3xl font-extrabold tracking-tight text-slate-900">Toodl</span>
+              </div>
               <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
                 Plan your life.
               </h1>
@@ -265,7 +224,7 @@ export function LandingPage({
                       className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white/70 p-3"
                     >
                       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-inner">
-                        <Image src={product.icon} alt={product.name} width={32} height={32} className="brand-logo" />
+                        <product.icon className="h-6 w-6 text-slate-900" />
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-slate-900">{product.name}</p>
@@ -319,23 +278,33 @@ export function LandingPage({
       </section>
 
       <HowItWorksSection />
-      <DailyDashboardShowcase />
+      <FeatureShowcase />
       <SocialProofSection />
 
-      <section className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.25),transparent_55%)]" />
-        <div className="relative mx-auto max-w-6xl px-6 py-24 text-center text-white">
-          <h2 className="text-3xl font-bold md:text-4xl">
+      <section className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-white to-emerald-50 border-t border-slate-100">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.15),transparent_55%)]" />
+        <div className="relative mx-auto max-w-6xl px-6 py-24 text-center">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <Image
+              src="/brand/toodl-logo.png"
+              alt="Toodl"
+              width={40}
+              height={40}
+              className="h-10 w-10"
+            />
+            <span className="text-xl font-bold tracking-tight text-slate-900">Toodl</span>
+          </div>
+          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
             Ready to start the AI conversation that runs your ledger?
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-base text-slate-200">
+          <p className="mx-auto mt-4 max-w-2xl text-base text-slate-600">
             Say it once, let the AI Mind remember it, then split bills, plan budgets, capture journals, spin up Flow, and organize Orbit—all with a single sign-in.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button
               variant="primaryDark"
               onClick={onGoogle}
-              className="flex items-center gap-2 bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-100"
+              className="flex items-center gap-2 bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
             >
               <Image src="/logos/google.svg" alt="Google" width={18} height={18} className="h-4 w-4" />
               Start with Google
@@ -343,7 +312,7 @@ export function LandingPage({
             <Button
               variant="outline"
               onClick={onMicrosoft}
-              className="flex items-center gap-2 border-white/40 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+              className="flex items-center gap-2 border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-400 hover:text-slate-900"
             >
               <Image src="/logos/microsoft.svg" alt="Microsoft" width={18} height={18} className="h-4 w-4" />
               Use Microsoft
@@ -351,7 +320,7 @@ export function LandingPage({
             <Button
               variant="outline"
               onClick={onFacebook}
-              className="flex items-center gap-2 border-white/40 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+              className="flex items-center gap-2 border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-400 hover:text-slate-900"
             >
               <Image src="/logos/facebook.svg" alt="Facebook" width={18} height={18} className="h-4 w-4" />
               Facebook login
@@ -360,7 +329,7 @@ export function LandingPage({
           <button
             type="button"
             onClick={onContinueWithoutSignIn}
-            className="mt-6 inline-flex items-center text-sm text-slate-300 underline-offset-2 hover:text-white hover:underline"
+            className="mt-6 inline-flex items-center text-sm text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
           >
             Prefer to explore without signing in
           </button>
@@ -374,71 +343,117 @@ export function LandingPage({
 
 
 
-function DailyDashboardShowcase() {
+function FeatureShowcase() {
   return (
-    <section className="bg-gradient-to-b from-[#fff8f0] via-white to-slate-50/60">
-      <div className="mx-auto max-w-6xl px-6 py-20 space-y-6">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Home screen snapshots</p>
-          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">How the dashboard greets every moment.</h2>
-          <p className="text-base text-slate-600">
-            Built for mornings, evenings, weekly recaps, and the memory lane that keeps people emotionally invested.
-          </p>
-        </div>
-        <div className="grid gap-6 lg:grid-cols-2">
-          {DASHBOARD_SNAPSHOTS.map((snapshot) => (
-            <div
-              key={snapshot.id}
-              className={`${snapshot.gridSpan === 2 ? "lg:col-span-2" : ""}`}
-            >
-              <SnapshotCard snapshot={snapshot} />
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-type Snapshot = typeof DASHBOARD_SNAPSHOTS[number];
-
-function SnapshotCard({ snapshot }: { snapshot: Snapshot }) {
-  return (
-    <div
-      className={`h-full rounded-3xl border ${snapshot.gradient} ${snapshot.background} p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl`}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
-            {snapshot.label}
-          </p>
-          <h3 className="mt-2 text-2xl font-semibold">{snapshot.headline}</h3>
-          <p className="mt-1 text-sm text-slate-600/90">{snapshot.subhead}</p>
-        </div>
-        <span className="text-3xl">{snapshot.emoji}</span>
-      </div>
-      <div className="mt-4 space-y-3">
-        {snapshot.details.map((detail) => (
-          <div key={`${snapshot.id}-${detail.title}`}>
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
-              {detail.title}
+    <div className="flex flex-col gap-24 py-24">
+      {/* Section 1: The Command Center */}
+      <section className="mx-auto grid max-w-6xl gap-16 px-6 lg:grid-cols-2 lg:items-center">
+        <div className="space-y-8">
+          <div className="space-y-4">
+            <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
+              Your daily command center.
+            </h2>
+            <p className="text-lg text-slate-600">
+              See a snapshot of your day as it progresses. Missed something important yesterday? Toodl brings it forward so nothing slips through the cracks.
             </p>
-            <p className="mt-1 text-sm text-slate-700">{detail.description}</p>
           </div>
-        ))}
-      </div>
-      {snapshot.ctas && (
-        <div className="mt-6 flex flex-wrap gap-3">
-          {snapshot.ctas.map((cta) => (
-            <span
-              key={`${snapshot.id}-${cta}`}
-              className="inline-flex items-center rounded-full border border-slate-200/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-600"
-            >
-              + {cta}
-            </span>
-          ))}
+
+          <div className="space-y-6">
+            <div className="flex gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                <Brain className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Just ask Toodl Mind</h3>
+                <p className="text-slate-600">
+                  &quot;Add $45 for groceries&quot; or &quot;Add $350 for Restaurant bill to the roommates group&quot;. It handles the math and the splitting.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Search across your life</h3>
+                <p className="text-slate-600">
+                  Find a flow anchor, a split expense, or an orbit save—all from one search bar.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
+
+        <div className="relative space-y-6">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50">
+            <Image
+              src="/showcase/dashboard.png"
+              alt="Dashboard Snapshot"
+              width={600}
+              height={400}
+              className="w-full object-cover"
+            />
+          </div>
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+            <Image
+              src="/showcase/search.png"
+              alt="Search Anything"
+              width={600}
+              height={400}
+              className="w-full object-cover"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Section 2: Learn and Grow */}
+      <section className="bg-slate-50 py-20">
+        <div className="mx-auto grid max-w-6xl gap-16 px-6 lg:grid-cols-2 lg:items-center">
+          <div className="order-2 lg:order-1">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50">
+              <Image
+                src="/showcase/learning.png"
+                alt="Learning Paths"
+                width={600}
+                height={400}
+                className="w-full object-cover"
+              />
+            </div>
+          </div>
+          <div className="order-1 space-y-6 lg:order-2">
+            <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
+              Learn something new every day.
+            </h2>
+            <p className="text-lg text-slate-600">
+              Let the AI teach you a new skill in bite-sized lessons. Ask questions, get answers, and track your progress daily. It&apos;s painless growth on your schedule.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 3: Reflection History */}
+      <section className="mx-auto grid max-w-6xl gap-16 px-6 lg:grid-cols-2 lg:items-center">
+        <div className="space-y-6">
+          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
+            Your story, in focus.
+          </h2>
+          <p className="text-lg text-slate-600">
+            Build a rich history of reflections with photos. Watch your personal journey unfold over time, organized and beautifully presented.
+          </p>
+        </div>
+        <div>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50">
+            <Image
+              src="/showcase/reflections.png"
+              alt="Reflection History"
+              width={600}
+              height={400}
+              className="w-full object-cover"
+            />
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -451,12 +466,12 @@ function HowItWorksSection() {
       <div className="mx-auto max-w-6xl px-6 py-16">
         <div className="space-y-2 text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">How it works</p>
-          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">One conversation powers everything.</h2>
+          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">Your day, simplified.</h2>
           <p className="text-base text-slate-600">
-            Just talk to Toodl, and it handles the rest.
+            From morning planning to evening reflection—Toodl keeps everything in one place.
           </p>
         </div>
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {HOW_IT_WORKS_STEPS.map((step) => {
             const Icon = step.icon;
             return (
