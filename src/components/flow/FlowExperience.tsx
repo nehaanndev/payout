@@ -242,6 +242,13 @@ const reindexSequence = (tasks: FlowTask[]) =>
 const isFinishedStatus = (status: FlowTaskStatus) =>
   status === "done" || status === "skipped" || status === "failed";
 
+/**
+ * Gap-based auto-scheduling for Flow timeline.
+ * 
+ * 1. Identifies "fixed" slots: finished tasks + locked tasks with set times
+ * 2. Finds gaps between these fixed slots (from day start to day end)
+ * 3. Fits unallocated (pending, unlocked) tasks into the earliest available gaps
+ */
 const generateAutoSchedule = (
   tasks: FlowTask[],
   dateKey: string,
@@ -250,90 +257,219 @@ const generateAutoSchedule = (
   if (!tasks.length) {
     return tasks;
   }
-  const base = parseTimeStringToDate(dateKey, startTime || "08:00");
-  let cursor = new Date(base);
-  const ordered = reindexSequence(tasks).sort((a, b) => a.sequence - b.sequence);
-  const updated: FlowTask[] = [];
 
-  ordered.forEach((task) => {
+  // Day boundaries: from startTime (or 00:00) to 23:59
+  const dayStart = parseTimeStringToDate(dateKey, startTime || "00:00");
+  const dayEnd = parseTimeStringToDate(dateKey, "23:59");
+
+  // Separate fixed vs unallocated tasks
+  const fixedTasks: FlowTask[] = [];
+  const unallocatedTasks: FlowTask[] = [];
+
+  tasks.forEach((task) => {
     if (isFinishedStatus(task.status)) {
-      const end = parseIso(task.actualEnd) ?? parseIso(task.scheduledEnd);
-      if (end) {
-        cursor = new Date(Math.max(cursor.getTime(), end.getTime()));
-      }
-      updated.push(task);
-      return;
+      // Finished tasks are fixed
+      fixedTasks.push(task);
+    } else if (task.locked && task.scheduledStart && task.scheduledEnd) {
+      // Locked tasks with times are fixed
+      fixedTasks.push(task);
+    } else {
+      // Everything else is unallocated
+      unallocatedTasks.push(task);
     }
-
-    if (task.locked && task.scheduledStart && task.scheduledEnd) {
-      const lockedEnd = parseIso(task.scheduledEnd);
-      if (lockedEnd) {
-        cursor = new Date(Math.max(cursor.getTime(), lockedEnd.getTime()));
-      }
-      updated.push(task);
-      return;
-    }
-
-    const estimateMs = Math.max(5, task.estimateMinutes) * 60 * 1000;
-    const startDate = new Date(cursor);
-    const endDate = new Date(cursor.getTime() + estimateMs);
-    cursor = new Date(endDate);
-
-    updated.push({
-      ...task,
-      scheduledStart: startDate.toISOString(),
-      scheduledEnd: endDate.toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
   });
 
-  return sortTasksBySchedule(updated);
+  // Sort fixed tasks by start time
+  const sortedFixed = fixedTasks.slice().sort((a, b) => {
+    const aStart = parseIso(a.scheduledStart) ?? parseIso(a.actualStart);
+    const bStart = parseIso(b.scheduledStart) ?? parseIso(b.actualStart);
+    if (!aStart && !bStart) return 0;
+    if (!aStart) return 1;
+    if (!bStart) return -1;
+    return aStart.getTime() - bStart.getTime();
+  });
+
+  // Build list of gaps between fixed tasks
+  type Gap = { start: Date; end: Date };
+  const gaps: Gap[] = [];
+  let cursor = new Date(dayStart);
+
+  sortedFixed.forEach((task) => {
+    const taskStart = parseIso(task.scheduledStart) ?? parseIso(task.actualStart);
+    const taskEnd = parseIso(task.scheduledEnd) ?? parseIso(task.actualEnd);
+
+    if (taskStart && taskStart.getTime() > cursor.getTime()) {
+      // There's a gap before this fixed task
+      gaps.push({ start: new Date(cursor), end: new Date(taskStart) });
+    }
+
+    if (taskEnd) {
+      cursor = new Date(Math.max(cursor.getTime(), taskEnd.getTime()));
+    }
+  });
+
+  // Add final gap from last fixed task to end of day
+  if (cursor.getTime() < dayEnd.getTime()) {
+    gaps.push({ start: new Date(cursor), end: new Date(dayEnd) });
+  }
+
+  // Sort unallocated by sequence to maintain user-defined order
+  const orderedUnallocated = reindexSequence(unallocatedTasks).sort(
+    (a, b) => a.sequence - b.sequence
+  );
+
+  // Fit unallocated tasks into gaps
+  const scheduledUnallocated: FlowTask[] = [];
+  const remainingGaps = gaps.slice();
+
+  orderedUnallocated.forEach((task) => {
+    const estimateMs = Math.max(5, task.estimateMinutes) * 60 * 1000;
+
+    // Find first gap that can fit this task
+    for (let i = 0; i < remainingGaps.length; i++) {
+      const gap = remainingGaps[i];
+      const gapDuration = gap.end.getTime() - gap.start.getTime();
+
+      if (gapDuration >= estimateMs) {
+        // Task fits in this gap
+        const taskStart = new Date(gap.start);
+        const taskEnd = new Date(taskStart.getTime() + estimateMs);
+
+        scheduledUnallocated.push({
+          ...task,
+          scheduledStart: taskStart.toISOString(),
+          scheduledEnd: taskEnd.toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+
+        // Shrink or remove the gap
+        if (taskEnd.getTime() >= gap.end.getTime()) {
+          remainingGaps.splice(i, 1);
+        } else {
+          gap.start = taskEnd;
+        }
+        break;
+      }
+    }
+
+    // If no gap found, task couldn't be scheduled - add it unscheduled
+    if (!scheduledUnallocated.find((t) => t.id === task.id)) {
+      scheduledUnallocated.push({
+        ...task,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Combine fixed and scheduled tasks
+  return sortTasksBySchedule([...sortedFixed, ...scheduledUnallocated]);
 };
 
+/**
+ * Reschedule pending tasks respecting current time.
+ * Similar to generateAutoSchedule but cursor starts from max(now, startTime).
+ */
 const reschedulePendingTasks = (
   tasks: FlowTask[],
   dateKey: string,
   startTime: string
 ) => {
   const now = new Date();
-  const base = parseTimeStringToDate(dateKey, startTime || "08:00");
-  let cursor = new Date(Math.max(now.getTime(), base.getTime()));
+  const base = parseTimeStringToDate(dateKey, startTime || "00:00");
+  const dayEnd = parseTimeStringToDate(dateKey, "23:59");
 
-  const ordered = tasks.slice().sort((a, b) => a.sequence - b.sequence);
-  const updated: FlowTask[] = [];
+  // Effective start is the later of now or startTime
+  const effectiveStart = new Date(Math.max(now.getTime(), base.getTime()));
 
-  ordered.forEach((task) => {
-    if (task.status === "done" || task.status === "skipped" || task.status === "failed") {
-      const end = parseIso(task.actualEnd) ?? parseIso(task.scheduledEnd);
-      if (end) {
-        cursor = new Date(Math.max(cursor.getTime(), end.getTime()));
-      }
-      updated.push(task);
-      return;
+  // Separate fixed vs unallocated tasks
+  const fixedTasks: FlowTask[] = [];
+  const unallocatedTasks: FlowTask[] = [];
+
+  tasks.forEach((task) => {
+    if (isFinishedStatus(task.status)) {
+      fixedTasks.push(task);
+    } else if (task.locked && task.scheduledStart && task.scheduledEnd) {
+      fixedTasks.push(task);
+    } else {
+      unallocatedTasks.push(task);
     }
-
-    if (task.locked && task.scheduledStart && task.scheduledEnd) {
-      const startDate = parseIso(task.scheduledStart) ?? cursor;
-      const endDate = parseIso(task.scheduledEnd) ?? startDate;
-      cursor = new Date(Math.max(cursor.getTime(), endDate.getTime()));
-      updated.push(task);
-      return;
-    }
-
-    const estimateMs = Math.max(5, task.estimateMinutes) * 60 * 1000;
-    const startDate = new Date(Math.max(cursor.getTime(), now.getTime()));
-    const endDate = new Date(startDate.getTime() + estimateMs);
-    cursor = new Date(endDate);
-
-    updated.push({
-      ...task,
-      scheduledStart: startDate.toISOString(),
-      scheduledEnd: endDate.toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
   });
 
-  return sortTasksBySchedule(updated);
+  // Sort fixed tasks by start time
+  const sortedFixed = fixedTasks.slice().sort((a, b) => {
+    const aStart = parseIso(a.scheduledStart) ?? parseIso(a.actualStart);
+    const bStart = parseIso(b.scheduledStart) ?? parseIso(b.actualStart);
+    if (!aStart && !bStart) return 0;
+    if (!aStart) return 1;
+    if (!bStart) return -1;
+    return aStart.getTime() - bStart.getTime();
+  });
+
+  // Build gaps starting from effective start
+  type Gap = { start: Date; end: Date };
+  const gaps: Gap[] = [];
+  let cursor = new Date(effectiveStart);
+
+  sortedFixed.forEach((task) => {
+    const taskStart = parseIso(task.scheduledStart) ?? parseIso(task.actualStart);
+    const taskEnd = parseIso(task.scheduledEnd) ?? parseIso(task.actualEnd);
+
+    if (taskStart && taskStart.getTime() > cursor.getTime()) {
+      gaps.push({ start: new Date(cursor), end: new Date(taskStart) });
+    }
+
+    if (taskEnd) {
+      cursor = new Date(Math.max(cursor.getTime(), taskEnd.getTime()));
+    }
+  });
+
+  if (cursor.getTime() < dayEnd.getTime()) {
+    gaps.push({ start: new Date(cursor), end: new Date(dayEnd) });
+  }
+
+  const orderedUnallocated = unallocatedTasks.slice().sort(
+    (a, b) => a.sequence - b.sequence
+  );
+
+  const scheduledUnallocated: FlowTask[] = [];
+  const remainingGaps = gaps.slice();
+
+  orderedUnallocated.forEach((task) => {
+    const estimateMs = Math.max(5, task.estimateMinutes) * 60 * 1000;
+
+    for (let i = 0; i < remainingGaps.length; i++) {
+      const gap = remainingGaps[i];
+      const gapDuration = gap.end.getTime() - gap.start.getTime();
+
+      if (gapDuration >= estimateMs) {
+        const taskStart = new Date(gap.start);
+        const taskEnd = new Date(taskStart.getTime() + estimateMs);
+
+        scheduledUnallocated.push({
+          ...task,
+          scheduledStart: taskStart.toISOString(),
+          scheduledEnd: taskEnd.toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+
+        if (taskEnd.getTime() >= gap.end.getTime()) {
+          remainingGaps.splice(i, 1);
+        } else {
+          gap.start = taskEnd;
+        }
+        break;
+      }
+    }
+
+    if (!scheduledUnallocated.find((t) => t.id === task.id)) {
+      scheduledUnallocated.push({
+        ...task,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  });
+
+  return sortTasksBySchedule([...sortedFixed, ...scheduledUnallocated]);
 };
 
 const ensureAutoScheduleState = (plan: FlowPlan): FlowPlan => ({
@@ -861,6 +997,39 @@ export function FlowExperience() {
     [plan, updatePlan]
   );
 
+  /**
+   * Toggle a task's locked state. When unlocked, the task becomes
+   * available for auto-scheduling into gaps; when locked, it stays fixed.
+   */
+  const handleToggleLocked = useCallback(
+    (taskId: string, lock: boolean) => {
+      if (!plan) {
+        return;
+      }
+      updatePlan((current) => {
+        const updatedTasks = current.tasks.map((task) => {
+          if (task.id !== taskId) {
+            return task;
+          }
+          return {
+            ...task,
+            locked: lock,
+            updatedAt: new Date().toISOString(),
+          };
+        });
+        // Reschedule to fit newly unlocked tasks into gaps
+        const scheduled = autoSchedulingActive(current)
+          ? reschedulePendingTasks(updatedTasks, current.date, current.startTime)
+          : updatedTasks;
+        return {
+          ...current,
+          tasks: scheduled,
+        };
+      });
+    },
+    [plan, updatePlan]
+  );
+
   const handleMoveTask = useCallback(
     (taskId: string, direction: "up" | "down") => {
       if (!plan) {
@@ -918,13 +1087,16 @@ export function FlowExperience() {
           type: editType,
           scheduledStart: startDate.toISOString(),
           scheduledEnd: endDate.toISOString(),
+          locked: true, // Lock task when user manually sets time
           updatedAt: nowIso,
         };
       });
+      // Reschedule other tasks around this now-locked task
+      const scheduled = reschedulePendingTasks(updatedTasks, current.date, current.startTime);
       return {
         ...current,
-        autoScheduleEnabled: false,
-        tasks: sortTasksBySchedule(updatedTasks),
+        autoScheduleEnabled: true,
+        tasks: scheduled,
       };
     });
     setEditingTask(null);
@@ -1985,6 +2157,34 @@ export function FlowExperience() {
                                               </Button>
                                             </TooltipTrigger>
                                             <TooltipContent className="bg-blue-600 text-white">Edit</TooltipContent>
+                                          </Tooltip>
+                                          {/* Auto-schedule button: toggle locked state */}
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className={cn(
+                                                  "h-8 w-8 rounded-full border transition-colors",
+                                                  task.locked
+                                                    ? isNight
+                                                      ? "border-violet-500 bg-violet-500/20 text-violet-300 hover:bg-violet-500/30"
+                                                      : "border-violet-500 bg-violet-50 text-violet-600 hover:bg-violet-100"
+                                                    : isNight
+                                                      ? "border-slate-500 bg-white/10 text-slate-300 hover:bg-white/20"
+                                                      : "border-slate-200 bg-white text-slate-400 hover:bg-slate-50"
+                                                )}
+                                                onClick={() => handleToggleLocked(task.id, !task.locked)}
+                                              >
+                                                <CalendarClock className="h-4 w-4" />
+                                                <span className="sr-only">
+                                                  {task.locked ? "Auto-schedule" : "Lock time"}
+                                                </span>
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-blue-600 text-white">
+                                              {task.locked ? "Auto-schedule" : "Lock time"}
+                                            </TooltipContent>
                                           </Tooltip>
                                           <Tooltip>
                                             <TooltipTrigger asChild>
