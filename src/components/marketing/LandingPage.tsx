@@ -102,82 +102,6 @@ const HOW_IT_WORKS_STEPS: WorkflowStep[] = [
 ];
 
 
-const DASHBOARD_SNAPSHOTS = [
-  {
-    id: "morning",
-    label: "Morning calm",
-    headline: "Wake up with clarity.",
-    subhead: "Flow lines up anchors, groups show what’s owed, and budgets keep you honest.",
-    emoji: "🌤️",
-    gradient: "bg-gradient-to-br from-white via-emerald-50 to-white",
-    background: "border-emerald-100",
-    details: [
-      {
-        title: "Anchors",
-        description: "First three Flow tasks so the day feels guided.",
-      },
-      {
-        title: "Balances",
-        description: "Household sees who owes what right away.",
-      },
-      {
-        title: "Budget pulse",
-        description: "Flex spending remaining so choices feel confident.",
-      },
-    ],
-    ctas: ["Add expense", "Log note"],
-    gridSpan: 2,
-  },
-  {
-    id: "evening",
-    label: "Evening reflection",
-    headline: "Close the loop gently.",
-    subhead: "Capture a journal, mark expenses settled, and nudge tomorrow’s Flow.",
-    emoji: "🌙",
-    gradient: "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900",
-    background: "border-slate-800 text-white",
-    details: [
-      {
-        title: "Reflection",
-        description: "Journal prompt, mood picker, and photo capture.",
-      },
-      {
-        title: "Group actions",
-        description: "Add expense, confirm settlement, or share link.",
-      },
-      {
-        title: "Flow streak",
-        description: "Shows wins + open loops to carry forward.",
-      },
-    ],
-    ctas: ["Add journal", "Add photo"],
-    gridSpan: 1,
-  },
-  {
-    id: "sunday",
-    label: "Sunday digest",
-    headline: "Plan the week with receipts.",
-    subhead: "AI recap, Orbit saves, and Flow timeline combine into a ritual planning session.",
-    emoji: "📅",
-    gradient: "bg-gradient-to-br from-white via-indigo-50 to-white",
-    background: "border-indigo-100",
-    details: [
-      {
-        title: "Digest",
-        description: "Summaries of tasks, reflections, and spend.",
-      },
-      {
-        title: "Orbit sparks",
-        description: "Saved links that deserve a slot next week.",
-      },
-    ],
-    ctas: ["Review AI notes", "Plan Flow"],
-    gridSpan: 1,
-  },
-];
-
-
-
 const SOCIAL_PROOF = [
   {
     name: "Priya, Brooklyn",
@@ -342,7 +266,7 @@ export function LandingPage({
       </section>
 
       <HowItWorksSection />
-      <DailyDashboardShowcase />
+      <FeatureShowcase />
       <SocialProofSection />
 
       <section className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-white to-emerald-50 border-t border-slate-100">
@@ -407,71 +331,128 @@ export function LandingPage({
 
 
 
-function DailyDashboardShowcase() {
+function FeatureShowcase() {
   return (
-    <section className="bg-gradient-to-b from-[#fff8f0] via-white to-slate-50/60">
-      <div className="mx-auto max-w-6xl px-6 py-20 space-y-6">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Home screen snapshots</p>
-          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">How the dashboard greets every moment.</h2>
-          <p className="text-base text-slate-600">
-            Built for mornings, evenings, weekly recaps, and the memory lane that keeps people emotionally invested.
-          </p>
-        </div>
-        <div className="grid gap-6 lg:grid-cols-2">
-          {DASHBOARD_SNAPSHOTS.map((snapshot) => (
-            <div
-              key={snapshot.id}
-              className={`${snapshot.gridSpan === 2 ? "lg:col-span-2" : ""}`}
-            >
-              <SnapshotCard snapshot={snapshot} />
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-type Snapshot = typeof DASHBOARD_SNAPSHOTS[number];
-
-function SnapshotCard({ snapshot }: { snapshot: Snapshot }) {
-  return (
-    <div
-      className={`h-full rounded-3xl border ${snapshot.gradient} ${snapshot.background} p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl`}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
-            {snapshot.label}
-          </p>
-          <h3 className="mt-2 text-2xl font-semibold">{snapshot.headline}</h3>
-          <p className="mt-1 text-sm text-slate-600/90">{snapshot.subhead}</p>
-        </div>
-        <span className="text-3xl">{snapshot.emoji}</span>
-      </div>
-      <div className="mt-4 space-y-3">
-        {snapshot.details.map((detail) => (
-          <div key={`${snapshot.id}-${detail.title}`}>
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">
-              {detail.title}
+    <div className="flex flex-col gap-24 py-24">
+      {/* Section 1: The Command Center */}
+      <section className="mx-auto grid max-w-6xl gap-16 px-6 lg:grid-cols-2 lg:items-center">
+        <div className="space-y-8">
+          <div className="space-y-4">
+            <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
+              Your daily command center.
+            </h2>
+            <p className="text-lg text-slate-600">
+              See a snapshot of your day as it progresses. Missed something important yesterday? Toodl brings it forward so nothing slips through the cracks.
             </p>
-            <p className="mt-1 text-sm text-slate-700">{detail.description}</p>
           </div>
-        ))}
-      </div>
-      {snapshot.ctas && (
-        <div className="mt-6 flex flex-wrap gap-3">
-          {snapshot.ctas.map((cta) => (
-            <span
-              key={`${snapshot.id}-${cta}`}
-              className="inline-flex items-center rounded-full border border-slate-200/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-slate-600"
-            >
-              + {cta}
-            </span>
-          ))}
+
+          <div className="space-y-6">
+            <div className="flex gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                <Brain className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Just ask Toodl Mind</h3>
+                <p className="text-slate-600">
+                  &quot;Add $45 for groceries&quot; or &quot;Add $350 for Restaurant bill to the roommates group&quot;. It handles the math and the splitting.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Search across your life</h3>
+                <p className="text-slate-600">
+                  Find a flow anchor, a split expense, or an orbit save—all from one search bar.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
+
+        <div className="relative space-y-6">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50">
+            <Image
+              src="/showcase/dashboard.png"
+              alt="Dashboard Snapshot"
+              width={600}
+              height={400}
+              className="w-full object-cover"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+              <Image
+                src="/showcase/search.png"
+                alt="Search Anything"
+                width={300}
+                height={200}
+                className="w-full object-cover"
+              />
+            </div>
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+              <Image
+                src="/showcase/daily-moves.png"
+                alt="Daily Recommendations"
+                width={300}
+                height={200}
+                className="w-full object-cover"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 2: Learn and Grow */}
+      <section className="bg-slate-50 py-20">
+        <div className="mx-auto grid max-w-6xl gap-16 px-6 lg:grid-cols-2 lg:items-center">
+          <div className="order-2 lg:order-1">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50">
+              <Image
+                src="/showcase/learning.png"
+                alt="Learning Paths"
+                width={600}
+                height={400}
+                className="w-full object-cover"
+              />
+            </div>
+          </div>
+          <div className="order-1 space-y-6 lg:order-2">
+            <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
+              Learn something new every day.
+            </h2>
+            <p className="text-lg text-slate-600">
+              Let the AI teach you a new skill in bite-sized lessons. Ask questions, get answers, and track your progress daily. It&apos;s painless growth on your schedule.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 3: Reflection History */}
+      <section className="mx-auto grid max-w-6xl gap-16 px-6 lg:grid-cols-2 lg:items-center">
+        <div className="space-y-6">
+          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
+            Your story, in focus.
+          </h2>
+          <p className="text-lg text-slate-600">
+            Build a rich history of reflections with photos. Watch your personal journey unfold over time, organized and beautifully presented.
+          </p>
+        </div>
+        <div>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50">
+            <Image
+              src="/showcase/reflections.png"
+              alt="Reflection History"
+              width={600}
+              height={400}
+              className="w-full object-cover"
+            />
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
