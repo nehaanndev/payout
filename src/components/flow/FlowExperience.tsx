@@ -510,6 +510,7 @@ export function FlowExperience() {
   const [saving, setSaving] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<FlowTask | null>(null);
+  const [editTitle, setEditTitle] = useState<string>("");
   const [editStartTime, setEditStartTime] = useState<string>("");
   const [editDuration, setEditDuration] = useState<number>(30);
   const [editType, setEditType] = useState<FlowTaskType>("flex");
@@ -904,6 +905,7 @@ export function FlowExperience() {
     const startDate = parseTimeStringToDate(plan.date, appliedStart);
     const endDate = new Date(startDate.getTime() + duration * 60 * 1000);
     const nowIso = new Date().toISOString();
+    const title = editTitle.trim() || editingTask.title;
     updatePlan((current) => {
       const updatedTasks = current.tasks.map((task) => {
         if (task.id !== editingTask.id) {
@@ -911,6 +913,7 @@ export function FlowExperience() {
         }
         return {
           ...task,
+          title,
           estimateMinutes: duration,
           type: editType,
           scheduledStart: startDate.toISOString(),
@@ -925,7 +928,7 @@ export function FlowExperience() {
       };
     });
     setEditingTask(null);
-  }, [editDuration, editStartTime, editType, editingTask, plan, startTime, updatePlan]);
+  }, [editDuration, editStartTime, editType, editTitle, editingTask, plan, startTime, updatePlan]);
 
   const handleAddReflection = useCallback(() => {
     if (!plan || reflectionSaving) {
@@ -1969,6 +1972,7 @@ export function FlowExperience() {
                                                 )}
                                                 onClick={() => {
                                                   setEditingTask(task);
+                                                  setEditTitle(task.title);
                                                   setEditStartTime(
                                                     toTimeInputValue(task.scheduledStart) || startTime
                                                   );
@@ -2352,6 +2356,14 @@ export function FlowExperience() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={editTitle}
+                onChange={(event) => setEditTitle(event.target.value)}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="edit-start">Start time</Label>
               <Input
