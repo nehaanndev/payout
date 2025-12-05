@@ -3028,6 +3028,7 @@ const BudgetExperience = () => {
             onUpdateGoal={updateGoal}
             onDeleteGoal={deleteGoal}
             onFinish={() => setMode("ledger")}
+            isNight={isNight}
           />
         ) : (
           <Ledger
@@ -3108,6 +3109,7 @@ function Wizard({
   onUpdateGoal,
   onDeleteGoal,
   onFinish,
+  isNight,
 }: {
   step: WizardStep;
   setStep: (next: WizardStep) => void;
@@ -3136,13 +3138,14 @@ function Wizard({
   onUpdateGoal: (goalId: string, patch: Partial<BudgetGoal>) => void;
   onDeleteGoal: (goalId: string) => void;
   onFinish: () => void;
+  isNight?: boolean;
 }) {
   const progress = ((step + 1) / 5) * 100;
   const remainingAfterBills = Math.max(0, totalIncome - totalFixed);
   const projectedLeftover = Math.max(0, flexBudget);
 
   return (
-    <Card className="border-slate-200">
+    <Card className={cn("border-slate-200", isNight && "border-white/15 bg-slate-900/50")}>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center justify-between">
           <span>Budget Wizard</span>
@@ -3392,6 +3395,7 @@ function Wizard({
               onCreateGoal={onCreateGoal}
               onUpdateGoal={onUpdateGoal}
               onDeleteGoal={onDeleteGoal}
+              isNight={isNight}
             />
             <div className="flex items-center justify-between">
               <Button
@@ -3410,17 +3414,22 @@ function Wizard({
 
         {step === 4 && (
           <div className="space-y-6">
-            <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-6">
-              <div className="text-sm text-slate-600">
+            <div className={cn(
+              "rounded-2xl border p-6",
+              isNight
+                ? "border-emerald-500/20 bg-gradient-to-br from-slate-800 to-slate-900"
+                : "border-emerald-100 bg-gradient-to-br from-emerald-50 to-white"
+            )}>
+              <div className={cn("text-sm", isNight ? "text-slate-400" : "text-slate-600")}>
                 Based on what you entered
               </div>
-              <div className="mt-2 text-2xl font-semibold">
+              <div className={cn("mt-2 text-2xl font-semibold", isNight ? "text-white" : "text-slate-900")}>
                 You have {currency(flexBudget)} to spend this month
               </div>
-              <div className="mt-1 text-sm text-slate-500">
+              <div className={cn("mt-1 text-sm", isNight ? "text-slate-400" : "text-slate-500")}>
                 After bills and savings, this is your flexible budget.
               </div>
-              <div className="mt-4 space-y-2 text-sm text-slate-600">
+              <div className={cn("mt-4 space-y-2 text-sm", isNight ? "text-slate-300" : "text-slate-600")}>
                 <div className="flex items-center justify-between">
                   <span>Total income</span>
                   <span className="font-semibold">{currency(totalIncome)}</span>
@@ -3433,8 +3442,8 @@ function Wizard({
                   <span>Savings target</span>
                   <span className="font-semibold">- {currency(Math.max(0, savingsTarget))}</span>
                 </div>
-                <hr className="border-slate-200" />
-                <div className="flex items-center justify-between text-base font-semibold text-emerald-700">
+                <hr className={cn("border-slate-200", isNight && "border-slate-700")} />
+                <div className={cn("flex items-center justify-between text-base font-semibold", isNight ? "text-emerald-400" : "text-emerald-700")}>
                   <span>Flexible spending</span>
                   <span>{currency(projectedLeftover)}</span>
                 </div>
@@ -5226,10 +5235,10 @@ function GoalSummaryCard({
             "rounded-lg border px-3 py-2 text-xs",
             overAllocation
               ? isNight
-                ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                ? "border-amber-500/20 bg-amber-900/20 text-amber-200"
                 : "border-amber-200 bg-amber-50 text-amber-700"
               : isNight
-                ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                ? "border-emerald-500/20 bg-emerald-900/20 text-emerald-200"
                 : "border-emerald-200 bg-emerald-50 text-emerald-700"
           )}
         >
@@ -5319,6 +5328,7 @@ function SavingsGoalPlanner({
   onCreateGoal,
   onUpdateGoal,
   onDeleteGoal,
+  isNight,
 }: {
   goalProjections: GoalProjection[];
   savingsTarget: number;
@@ -5332,6 +5342,7 @@ function SavingsGoalPlanner({
   }) => BudgetGoal | null;
   onUpdateGoal: (goalId: string, patch: Partial<BudgetGoal>) => void;
   onDeleteGoal: (goalId: string) => void;
+  isNight?: boolean;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
@@ -5550,7 +5561,11 @@ function SavingsGoalPlanner({
               setShowForm((prev) => !prev);
               setError(null);
             }}
-            className="w-full sm:w-auto"
+            className={cn(
+              "w-full sm:w-auto",
+              isNight && !showForm && "bg-indigo-600 hover:bg-indigo-500 text-white",
+              isNight && showForm && "border-white/20 bg-white/10 text-slate-200 hover:bg-white/20"
+            )}
           >
             {showForm ? "Cancel" : "Add goal"}
           </Button>
@@ -5606,7 +5621,12 @@ function SavingsGoalPlanner({
                 </div>
               )}
               <div className="flex justify-end">
-                <Button onClick={handleCreateGoal}>Save goal</Button>
+                <Button
+                  onClick={handleCreateGoal}
+                  className={cn(isNight && "bg-indigo-600 hover:bg-indigo-500 text-white")}
+                >
+                  Save goal
+                </Button>
               </div>
             </div>
           )}
