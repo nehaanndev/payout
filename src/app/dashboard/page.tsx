@@ -2841,15 +2841,15 @@ function DailyRecommendationCard({
                       return (
                         <Button
                           size="sm"
-                          variant={isNight ? "secondary" : "outline"}
+                          variant={isNight ? "ghost" : "outline"}
                           disabled={disabled}
                           onClick={() => onAddAnchor(task)}
                           className={cn(
-                            "text-xs font-semibold",
-                            disabled &&
-                            (isNight
-                              ? "bg-white/5 text-indigo-200 border-white/15"
-                              : "bg-slate-100 text-slate-500 border-slate-200")
+                            "text-xs font-semibold transition-all",
+                            isNight
+                              ? "bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/20 hover:text-white border border-indigo-500/20"
+                              : "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200 hover:text-slate-700",
+                            disabled && "opacity-50 cursor-not-allowed"
                           )}
                         >
                           {isAdding ? "Adding..." : isAdded ? "Task added" : canAddAnchors ? "Add to Flow" : "Sign in to add"}
