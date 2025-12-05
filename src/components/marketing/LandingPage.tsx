@@ -207,6 +207,16 @@ export function LandingPage({
         <div className="relative mx-auto max-w-6xl px-6 py-24 lg:py-28">
           <div className="grid gap-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:items-center">
             <div className="space-y-8">
+              <div className="flex items-center gap-3">
+                <Image
+                  src="/brand/toodl-logo.png"
+                  alt="Toodl"
+                  width={48}
+                  height={48}
+                  className="h-12 w-12"
+                />
+                <span className="text-2xl font-bold tracking-tight text-slate-900">Toodl</span>
+              </div>
               <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
                 Plan your life.
               </h1>
@@ -322,20 +332,30 @@ export function LandingPage({
       <DailyDashboardShowcase />
       <SocialProofSection />
 
-      <section className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.25),transparent_55%)]" />
-        <div className="relative mx-auto max-w-6xl px-6 py-24 text-center text-white">
-          <h2 className="text-3xl font-bold md:text-4xl">
+      <section className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-white to-emerald-50 border-t border-slate-100">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.15),transparent_55%)]" />
+        <div className="relative mx-auto max-w-6xl px-6 py-24 text-center">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <Image
+              src="/brand/toodl-logo.png"
+              alt="Toodl"
+              width={40}
+              height={40}
+              className="h-10 w-10"
+            />
+            <span className="text-xl font-bold tracking-tight text-slate-900">Toodl</span>
+          </div>
+          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">
             Ready to start the AI conversation that runs your ledger?
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-base text-slate-200">
+          <p className="mx-auto mt-4 max-w-2xl text-base text-slate-600">
             Say it once, let the AI Mind remember it, then split bills, plan budgets, capture journals, spin up Flow, and organize Orbit—all with a single sign-in.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button
               variant="primaryDark"
               onClick={onGoogle}
-              className="flex items-center gap-2 bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-100"
+              className="flex items-center gap-2 bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
             >
               <Image src="/logos/google.svg" alt="Google" width={18} height={18} className="h-4 w-4" />
               Start with Google
@@ -343,7 +363,7 @@ export function LandingPage({
             <Button
               variant="outline"
               onClick={onMicrosoft}
-              className="flex items-center gap-2 border-white/40 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+              className="flex items-center gap-2 border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-400 hover:text-slate-900"
             >
               <Image src="/logos/microsoft.svg" alt="Microsoft" width={18} height={18} className="h-4 w-4" />
               Use Microsoft
@@ -351,7 +371,7 @@ export function LandingPage({
             <Button
               variant="outline"
               onClick={onFacebook}
-              className="flex items-center gap-2 border-white/40 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+              className="flex items-center gap-2 border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-400 hover:text-slate-900"
             >
               <Image src="/logos/facebook.svg" alt="Facebook" width={18} height={18} className="h-4 w-4" />
               Facebook login
@@ -360,7 +380,7 @@ export function LandingPage({
           <button
             type="button"
             onClick={onContinueWithoutSignIn}
-            className="mt-6 inline-flex items-center text-sm text-slate-300 underline-offset-2 hover:text-white hover:underline"
+            className="mt-6 inline-flex items-center text-sm text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
           >
             Prefer to explore without signing in
           </button>
