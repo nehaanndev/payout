@@ -70,20 +70,33 @@ type WorkflowStep = {
 
 const HOW_IT_WORKS_STEPS: WorkflowStep[] = [
   {
-    title: "Chat",
+    title: "Plan your day with Flow",
     description:
-      "Tell Toodl what’s happening—like buying groceries or planning a trip.",
-    icon: MessageCircle,
-  },
-  {
-    title: "Plan",
-    description:
-      "Toodl organizes it into the right app: Split, Pulse, Flow, or Orbit.",
+      "Start each morning by planning your tasks and schedule. Add reflections throughout the day to stay mindful.",
     icon: Brain,
   },
   {
-    title: "Relax",
-    description: "Stay on top of your money and time without the stress.",
+    title: "Save what matters in Orbit",
+    description:
+      "Found something interesting? A recipe, an article, a gift idea? Save it to Orbit and revisit when ready.",
+    icon: Sparkles,
+  },
+  {
+    title: "Manage money with Pulse & Split",
+    description:
+      "Track your budget in Pulse and split bills with friends. Keep your finances transparent and stress-free.",
+    icon: MessageCircle,
+  },
+  {
+    title: "Reflect with Story",
+    description:
+      "End your day with a personal journal entry. Capture your thoughts, wins, and gratitude.",
+    icon: Brain,
+  },
+  {
+    title: "Toodl Mind ties it all together",
+    description:
+      "Talk to Toodl Mind and it routes your requests to the right app. One AI assistant for your whole life.",
     icon: Sparkles,
   },
 ];
@@ -471,12 +484,12 @@ function HowItWorksSection() {
       <div className="mx-auto max-w-6xl px-6 py-16">
         <div className="space-y-2 text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">How it works</p>
-          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">One conversation powers everything.</h2>
+          <h2 className="text-3xl font-bold text-slate-900 md:text-4xl">Your day, simplified.</h2>
           <p className="text-base text-slate-600">
-            Just talk to Toodl, and it handles the rest.
+            From morning planning to evening reflection—Toodl keeps everything in one place.
           </p>
         </div>
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {HOW_IT_WORKS_STEPS.map((step) => {
             const Icon = step.icon;
             return (
