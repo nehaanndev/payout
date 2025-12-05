@@ -383,25 +383,14 @@ function FeatureShowcase() {
               className="w-full object-cover"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-              <Image
-                src="/showcase/search.png"
-                alt="Search Anything"
-                width={300}
-                height={200}
-                className="w-full object-cover"
-              />
-            </div>
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-              <Image
-                src="/showcase/daily-moves.png"
-                alt="Daily Recommendations"
-                width={300}
-                height={200}
-                className="w-full object-cover"
-              />
-            </div>
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+            <Image
+              src="/showcase/search.png"
+              alt="Search Anything"
+              width={600}
+              height={400}
+              className="w-full object-cover"
+            />
           </div>
         </div>
       </section>
