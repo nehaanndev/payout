@@ -32,6 +32,7 @@ const SETTLEMENT_METHOD_LABELS: Record<SettlementMethod | "other", string> = {
   zelle: "Zelle",
   cash: "Cash",
   venmo: "Venmo",
+  cash_app: "Cash App",
   other: "Other",
 };
 
@@ -40,6 +41,7 @@ const SETTLEMENT_METHOD_ICONS: Record<SettlementMethod | "other", typeof Wallet>
   zelle: CreditCard,
   cash: Banknote,
   venmo: Wallet,
+  cash_app: Wallet,
   other: Wallet,
 };
 

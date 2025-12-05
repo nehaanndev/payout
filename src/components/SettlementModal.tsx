@@ -66,19 +66,19 @@ export default function SettlementModal({
     };
 
   // 3️⃣ Build the payee list based on mode
-  const payees = isMarkSettledMode 
+  const payees = isMarkSettledMode
     ? plan.receives.map(({ from, amount }) => ({
-        id: from,
-        name: members.find(m => m.id === from)?.firstName ?? from,
-        owed: amount,
-        type: 'owed' as const,
-      }))
+      id: from,
+      name: members.find(m => m.id === from)?.firstName ?? from,
+      owed: amount,
+      type: 'owed' as const,
+    }))
     : plan.owes.map(({ to, amount }) => ({
-        id: to,
-        name: members.find(m => m.id === to)?.firstName ?? to,
-        owed: amount,
-        type: 'owe' as const,
-      }));
+      id: to,
+      name: members.find(m => m.id === to)?.firstName ?? to,
+      owed: amount,
+      type: 'owe' as const,
+    }));
 
   // 4️⃣ Local state
   const [selectedPayee, setSelectedPayee] = useState<string>(
@@ -177,26 +177,27 @@ export default function SettlementModal({
           </div>
 
           {/* Method */}
-  <div>
-    <Label>Payment method</Label>
-    <Select
-      value={paymentMethod}
-      onValueChange={(value) => setPaymentMethod(value as SettlementMethod)}
-    >
-      <SelectTrigger className="w-full">
-        <SelectValue placeholder="Select a method" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="paypal">PayPal</SelectItem>
-        <SelectItem value="zelle">Zelle</SelectItem>
-        <SelectItem value="cash">Cash</SelectItem>
-        <SelectItem value="venmo">Venmo</SelectItem>
-        <SelectItem value="other">Other</SelectItem>
-      </SelectContent>
-    </Select>
-  </div>
+          <div>
+            <Label>Payment method</Label>
+            <Select
+              value={paymentMethod}
+              onValueChange={(value) => setPaymentMethod(value as SettlementMethod)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="paypal">PayPal</SelectItem>
+                <SelectItem value="zelle">Zelle</SelectItem>
+                <SelectItem value="venmo">Venmo</SelectItem>
+                <SelectItem value="cash_app">Cash App</SelectItem>
+                <SelectItem value="cash">Cash</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          {paypalLink ? (
+          {paymentMethod === "paypal" && paypalLink ? (
             <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
               <p className="text-xs text-slate-500">
                 {selectedPayeeMember?.firstName ?? "This member"} shared a PayPal.Me link.
@@ -208,6 +209,39 @@ export default function SettlementModal({
               >
                 Open PayPal to pay
               </Button>
+            </div>
+          ) : null}
+
+          {paymentMethod === "zelle" && selectedPayeeMember?.zelleId ? (
+            <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+              <p className="text-xs text-slate-500">
+                Send Zelle payment to:
+              </p>
+              <div className="font-mono text-sm font-medium select-all">
+                {selectedPayeeMember.zelleId}
+              </div>
+            </div>
+          ) : null}
+
+          {paymentMethod === "venmo" && selectedPayeeMember?.venmoId ? (
+            <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+              <p className="text-xs text-slate-500">
+                Send Venmo payment to:
+              </p>
+              <div className="font-mono text-sm font-medium select-all">
+                {selectedPayeeMember.venmoId}
+              </div>
+            </div>
+          ) : null}
+
+          {paymentMethod === "cash_app" && selectedPayeeMember?.cashAppId ? (
+            <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-3">
+              <p className="text-xs text-slate-500">
+                Send Cash App payment to:
+              </p>
+              <div className="font-mono text-sm font-medium select-all">
+                {selectedPayeeMember.cashAppId}
+              </div>
             </div>
           ) : null}
 
