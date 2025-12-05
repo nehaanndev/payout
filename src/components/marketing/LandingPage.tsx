@@ -12,6 +12,7 @@ import {
   Sparkles,
   Wallet,
   Workflow,
+  Zap,
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 
@@ -97,6 +98,12 @@ const HOW_IT_WORKS_STEPS: WorkflowStep[] = [
     description:
       "End your day with a personal journal entry. Capture your thoughts, wins, and gratitude.",
     icon: Brain,
+  },
+  {
+    title: "Get personalized recommendations",
+    description:
+      "Toodl learns from your past schedule to suggest the best times for deep work, meetings, and breaks.",
+    icon: Zap,
   },
   {
     title: "Toodl Mind ties it all together",
