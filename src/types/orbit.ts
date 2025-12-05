@@ -26,8 +26,9 @@ export type OrbitLearningLesson = {
 };
 
 export type OrbitLearningPlan = {
+  id: string;
   topic: string;
-  depth: "light" | "standard" | "deep";
+  depth: "light" | "standard" | "deep" | "expert" | "auto";
   totalLessons: number;
   currentLesson: number;
   startedAt: string;
@@ -43,6 +44,13 @@ export type OrbitLearningPlan = {
     overview: string;
   }>;
   updatedAt: string;
+  lastLessonGeneratedAt?: string;
+  activeLesson?: OrbitLearningLesson;
+};
+
+export type OrbitLearningProfile = {
+  plans: OrbitLearningPlan[];
+  updatedAt: string;
 };
 
 export type DailySummaryPayload = {
@@ -51,7 +59,8 @@ export type DailySummaryPayload = {
   completedWork: WorkTaskHighlight[];
   pendingWork: WorkTaskHighlight[];
   insights: OrbitInsightCard[];
-  learningLesson?: OrbitLearningLesson | null;
+  learningLesson?: OrbitLearningLesson | null; // Deprecated, keep for backward compat
+  learningLessons?: OrbitLearningLesson[];
 };
 
 export type OrbitLesson = OrbitLearningLesson & {

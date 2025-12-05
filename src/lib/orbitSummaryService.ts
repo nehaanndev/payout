@@ -10,6 +10,7 @@ import {
   OrbitLearningLesson,
   OrbitLesson,
 } from "@/types/orbit";
+import { generateId } from "@/lib/id";
 
 
 const interestsDoc = (userId: string) =>
@@ -64,6 +65,85 @@ export const saveUserInterests = async (
   );
 };
 
+export const saveOrbitLesson = async (
+  userId: string,
+  lesson: OrbitLearningLesson,
+  topic: string
+): Promise<OrbitLesson> => {
+  if (!userId) {
+    throw new Error("User ID is required");
+  }
+  if (!topic?.trim()) {
+    throw new Error("Lesson topic is required");
+  }
+
+  // Sanitize quiz
+  const sanitizedQuiz =
+    Array.isArray(lesson.quiz) && lesson.quiz.length
+      ? lesson.quiz.map((item) => ({
+        question: String(item.question ?? "").trim(),
+        answers: Array.isArray(item.answers)
+          ? item.answers.map((answer) => String(answer ?? "").trim()).filter(Boolean)
+          : [],
+        correctAnswer: String(item.correctAnswer ?? "").trim(),
+      }))
+      : [];
+
+  // Sanitize lesson fields
+  const sanitizedLesson: OrbitLearningLesson = {
+    title: String(lesson.title ?? topic).trim(),
+    day: Number(lesson.day) || 1,
+    totalDays: Number(lesson.totalDays) || Number(lesson.day) || 1,
+    overview: String(lesson.overview ?? "").trim(),
+    paragraphs: Array.isArray(lesson.paragraphs)
+      ? lesson.paragraphs.map((p) => String(p ?? "")).filter(Boolean)
+      : [],
+    code: (() => {
+      const lessonCode = lesson.code;
+      if (!Array.isArray(lessonCode)) {
+        return undefined;
+      }
+      return lessonCode
+        .map((block) => String(block ?? ""))
+        .filter((block) => Boolean(block?.trim()));
+    })(),
+    quiz: sanitizedQuiz.filter((item) => item.question && item.answers.length),
+  };
+
+  const now = new Date().toISOString();
+
+  // Construct payload
+  const payload: Omit<OrbitLesson, "id"> = {
+    topic: topic.trim(),
+    createdAt: now,
+    ...sanitizedLesson,
+  };
+
+  // Sanitize entire payload before saving to remove any remaining undefineds
+  const finalPayload = removeUndefined(payload);
+
+  const ref = await addDoc(collection(db, "users", userId, "shares"), {
+    url: null,
+    title: finalPayload.title,
+    description: finalPayload.overview,
+    sourceApp: "orbit-lesson",
+    platform: "web",
+    contentType: "note",
+    tags: [finalPayload.topic, "lesson"].filter(Boolean),
+    previewImageUrl: null,
+    storagePath: null,
+    status: "new",
+    summarizable: false,
+    createdAt: now,
+    updatedAt: now,
+    lessonPayload: finalPayload,
+    serverCreatedAt: serverTimestamp(),
+    serverUpdatedAt: serverTimestamp(),
+  });
+
+  return { id: ref.id, ...payload } as OrbitLesson;
+};
+
 export const getDailySummary = async (
   userId: string,
   date: string
@@ -101,11 +181,15 @@ export const saveDailySummary = async (
 
   const resolvedShareId = shareId ?? payload?.insights?.[0]?.id ?? "ai-summary";
   const ref = dailySummaryDoc(userId, date);
+
+  // Sanitize payload to remove undefined values
+  const sanitizedPayload = removeUndefined(payload);
+
   await setDoc(
     ref,
     {
       shareId: resolvedShareId,
-      payload,
+      payload: sanitizedPayload,
       date,
       shownAt: new Date().toISOString(),
       createdAt: serverTimestamp(),
@@ -114,16 +198,60 @@ export const saveDailySummary = async (
   );
 };
 
-export const getLearningPlan = async (userId: string): Promise<OrbitLearningPlan | null> => {
-  if (!userId) {
+// Helper to remove undefined values for Firestore
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function removeUndefined(obj: any): any {
+  if (obj === null || obj === undefined) {
     return null;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefined);
+  }
+  if (typeof obj === 'object') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: any = {};
+    for (const key in obj) {
+      const val = obj[key];
+      if (val !== undefined) {
+        result[key] = removeUndefined(val);
+      }
+    }
+    return result;
+  }
+  return obj;
+}
+
+export const getLearningPlans = async (userId: string): Promise<OrbitLearningPlan[]> => {
+  if (!userId) {
+    return [];
   }
   const ref = learningPlanDoc(userId);
   const snapshot = await getDoc(ref);
   if (!snapshot.exists()) {
-    return null;
+    return [];
   }
-  return snapshot.data() as OrbitLearningPlan;
+  const data = snapshot.data();
+  // New format
+  if (data.plans && Array.isArray(data.plans)) {
+    return data.plans as OrbitLearningPlan[];
+  }
+  // Old format migration
+  if (data.topic) {
+    const oldPlan = data as OrbitLearningPlan;
+    // Ensure it has an ID
+    if (!oldPlan.id) {
+      oldPlan.id = generateId();
+    }
+    return [oldPlan];
+  }
+  return [];
+};
+
+export const getLearningPlan = async (userId: string): Promise<OrbitLearningPlan | null> => {
+  const plans = await getLearningPlans(userId);
+  // Return the most recently updated plan, or the first one
+  if (plans.length === 0) return null;
+  return plans.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
 };
 
 export const saveLearningPlan = async (userId: string, plan: OrbitLearningPlan): Promise<void> => {
@@ -132,11 +260,31 @@ export const saveLearningPlan = async (userId: string, plan: OrbitLearningPlan):
   }
   const ref = learningPlanDoc(userId);
   const now = new Date().toISOString();
+
+  // Ensure plan has ID
+  if (!plan.id) {
+    plan.id = generateId();
+  }
+
+  const existingPlans = await getLearningPlans(userId);
+  const otherPlans = existingPlans.filter(p => p.id !== plan.id && p.topic !== plan.topic);
+
+  // Update or add the plan
+  const updatedPlan = {
+    ...plan,
+    startedAt: plan.startedAt ?? now,
+    updatedAt: now,
+  };
+
+  const newPlans = [...otherPlans, updatedPlan];
+
+  // Sanitize plans to remove undefined values
+  const sanitizedPlans = removeUndefined(newPlans);
+
   await setDoc(
     ref,
     {
-      ...plan,
-      startedAt: plan.startedAt ?? now,
+      plans: sanitizedPlans,
       updatedAt: now,
     },
     { merge: true }
@@ -150,11 +298,20 @@ export const recordLearningLesson = async (
   if (!userId) {
     throw new Error("User ID is required");
   }
-  const ref = learningPlanDoc(userId);
-  const snapshot = await getDoc(ref);
-  const existing = snapshot.exists() ? (snapshot.data() as OrbitLearningPlan) : null;
+
+  // We need to find which plan this lesson belongs to.
+  // Since OrbitLearningLesson doesn't have planId, we match by topic.
+  const plans = await getLearningPlans(userId);
+  const planIndex = plans.findIndex(p => p.topic === lesson.title || p.topic === lesson.title.split(":")[0].trim()); // Heuristic match
+
+  // If no exact match, try to find the active plan (most recently updated)
+  const targetPlanIndex = planIndex !== -1 ? planIndex : 0; // Default to first if not found, though this is risky.
+
+  if (plans.length === 0) return; // No plan to record to
+
+  const existing = plans[targetPlanIndex];
   const now = new Date().toISOString();
-  const completed = existing?.completedLessons ?? [];
+  const completed = existing.completedLessons ?? [];
   const hasLesson = completed.some((item) => item.day === lesson.day);
   const nextCompleted = hasLesson
     ? completed
@@ -166,96 +323,31 @@ export const recordLearningLesson = async (
         overview: lesson.overview,
       },
     ];
-  const totalLessons = existing?.totalLessons ?? lesson.totalDays ?? 7;
-  const currentLesson = Math.min(totalLessons, Math.max(existing?.currentLesson ?? 0, lesson.day));
-  const basePlan =
-    existing ?? {
-      topic: lesson.title,
-      depth: "standard" as const,
-      totalLessons: lesson.totalDays || 7,
-      currentLesson: 0,
-      startedAt: now,
-      completedLessons: [],
-      updatedAt: now,
-    };
+
+  const totalLessons = existing.totalLessons ?? lesson.totalDays ?? 7;
+  const currentLesson = Math.min(totalLessons, Math.max(existing.currentLesson ?? 0, lesson.day));
+
+  const updatedPlan = {
+    ...existing,
+    currentLesson,
+    completedLessons: nextCompleted,
+    updatedAt: now,
+  };
+
+  plans[targetPlanIndex] = updatedPlan;
+
+  const ref = learningPlanDoc(userId);
   await setDoc(
     ref,
     {
-      ...basePlan,
-      currentLesson,
-      completedLessons: nextCompleted,
+      plans,
       updatedAt: now,
     },
     { merge: true }
   );
 };
 
-export const saveOrbitLesson = async (
-  userId: string,
-  lesson: OrbitLearningLesson,
-  topic: string
-): Promise<OrbitLesson> => {
-  if (!userId) {
-    throw new Error("User ID is required");
-  }
-  if (!topic?.trim()) {
-    throw new Error("Lesson topic is required");
-  }
-  const sanitizedQuiz =
-    Array.isArray(lesson.quiz) && lesson.quiz.length
-      ? lesson.quiz.map((item) => ({
-        question: String(item.question ?? "").trim(),
-        answers: Array.isArray(item.answers)
-          ? item.answers.map((answer) => String(answer ?? "").trim()).filter(Boolean)
-          : [],
-        correctAnswer: String(item.correctAnswer ?? "").trim(),
-      }))
-      : [];
-  const sanitizedLesson: OrbitLearningLesson = {
-    title: String(lesson.title ?? topic).trim(),
-    day: Number(lesson.day) || 1,
-    totalDays: Number(lesson.totalDays) || Number(lesson.day) || 1,
-    overview: String(lesson.overview ?? "").trim(),
-    paragraphs: Array.isArray(lesson.paragraphs)
-      ? lesson.paragraphs.map((p) => String(p ?? "")).filter(Boolean)
-      : [],
-    code: (() => {
-      const lessonCode = (lesson as OrbitLearningLesson).code;
-      if (!Array.isArray(lessonCode)) {
-        return undefined;
-      }
-      return lessonCode
-        .map((block) => String(block ?? ""))
-        .filter((block) => Boolean(block?.trim()));
-    })(),
-    quiz: sanitizedQuiz.filter((item) => item.question && item.answers.length),
-  };
-  const now = new Date().toISOString();
-  const payload: Omit<OrbitLesson, "id"> = {
-    topic: topic.trim(),
-    createdAt: now,
-    ...sanitizedLesson,
-  };
-  const ref = await addDoc(collection(db, "users", userId, "shares"), {
-    url: null,
-    title: payload.title,
-    description: payload.overview,
-    sourceApp: "orbit-lesson",
-    platform: "web",
-    contentType: "note",
-    tags: [payload.topic, "lesson"].filter(Boolean),
-    previewImageUrl: null,
-    storagePath: null,
-    status: "new",
-    summarizable: false,
-    createdAt: now,
-    updatedAt: now,
-    lessonPayload: payload,
-    serverCreatedAt: serverTimestamp(),
-    serverUpdatedAt: serverTimestamp(),
-  });
-  return { id: ref.id, ...payload };
-};
+
 export const getInsightPreferences = async (
   userId: string
 ): Promise<OrbitInsightPreferences | null> => {
@@ -307,10 +399,31 @@ export const recordInsightPreference = async (
   );
 };
 
-export const deleteLearningPlan = async (userId: string): Promise<void> => {
+export const deleteLearningPlan = async (userId: string, planId?: string): Promise<void> => {
   if (!userId) {
     throw new Error("User ID is required");
   }
   const ref = learningPlanDoc(userId);
-  await deleteDoc(ref);
+
+  if (!planId) {
+    // Legacy behavior: delete everything
+    await deleteDoc(ref);
+    return;
+  }
+
+  const plans = await getLearningPlans(userId);
+  const newPlans = plans.filter(p => p.id !== planId);
+
+  if (newPlans.length === 0) {
+    await deleteDoc(ref);
+  } else {
+    await setDoc(
+      ref,
+      {
+        plans: newPlans,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  }
 };
