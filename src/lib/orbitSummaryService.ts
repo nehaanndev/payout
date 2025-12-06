@@ -300,12 +300,26 @@ export const recordLearningLesson = async (
   }
 
   // We need to find which plan this lesson belongs to.
-  // Since OrbitLearningLesson doesn't have planId, we match by topic.
+  // Since OrbitLearningLesson now has optional planId, we check that first.
   const plans = await getLearningPlans(userId);
-  const planIndex = plans.findIndex(p => p.topic === lesson.title || p.topic === lesson.title.split(":")[0].trim()); // Heuristic match
+  let planIndex = -1;
 
-  // If no exact match, try to find the active plan (most recently updated)
-  const targetPlanIndex = planIndex !== -1 ? planIndex : 0; // Default to first if not found, though this is risky.
+  if (lesson.planId) {
+    planIndex = plans.findIndex(p => p.id === lesson.planId);
+  }
+
+  if (planIndex === -1) {
+    // Fallback to heuristic match by topic
+    planIndex = plans.findIndex(p => p.topic === lesson.title || p.topic === lesson.title.split(":")[0].trim());
+  }
+
+  // If still no match, we DO NOT default to index 0 anymore as that causes contamination.
+  if (planIndex === -1) {
+    console.warn("Could not find matching plan for lesson", lesson.title, lesson.planId);
+    return;
+  }
+
+  const targetPlanIndex = planIndex;
 
   if (plans.length === 0) return; // No plan to record to
 

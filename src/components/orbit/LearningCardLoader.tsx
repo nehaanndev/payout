@@ -49,11 +49,6 @@ export function LearningCardLoader({ plan, isNight, userId, isVisible }: Learnin
                 return;
             }
 
-            // Fallback for migration: if no lastLessonDate, check lastLessonGeneratedAt
-            // But lastLessonGeneratedAt is UTC. If plan has activeLesson and we are unsure, 
-            // it's safer to fetch and let server decide (server now handles 'date' param).
-            // However, to save reads, if we just generated it 5 seconds ago, it's probably fine.
-
             setLoading(true);
             try {
                 // Pass local date to server

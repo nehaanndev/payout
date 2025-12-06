@@ -8,7 +8,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const userId = body?.userId as string | undefined;
     const topic = body?.topic as string | undefined;
+    const planId = body?.planId as string | undefined;
     const lesson = body?.lesson as OrbitLearningLesson | undefined;
+
+    // Inject planId into lesson if provided
+    if (lesson && planId) {
+      lesson.planId = planId;
+    }
 
     if (!userId || !lesson || !topic) {
       return NextResponse.json({ error: "userId, topic, and lesson are required" }, { status: 400 });

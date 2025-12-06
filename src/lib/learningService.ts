@@ -279,5 +279,6 @@ export async function generateLearningLesson(
         quiz: quiz.length ? quiz : [],
         day: nextDay,
         totalDays: totalLessons,
+        planId: plan.id,
     };
 }
