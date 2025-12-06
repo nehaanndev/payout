@@ -39,17 +39,24 @@ export function LearningCardLoader({ plan, isNight, userId, isVisible }: Learnin
         // 3. If no (or different day), call API.
 
         const checkAndFetch = async () => {
-            const todayStr = new Date().toISOString().split("T")[0];
-            const lastGenStr = plan.lastLessonGeneratedAt ? new Date(plan.lastLessonGeneratedAt).toISOString().split("T")[0] : null;
+            const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+            const lastGenDate = plan.lastLessonDate; // Use explicit date field if available
 
-            if (lastGenStr === todayStr && plan.activeLesson) {
+            // If we have a lesson for *this local date*, use it.
+            if (lastGenDate === todayStr && plan.activeLesson) {
                 setLesson(plan.activeLesson);
                 setHasFetched(true);
                 return;
             }
 
+            // Fallback for migration: if no lastLessonDate, check lastLessonGeneratedAt
+            // But lastLessonGeneratedAt is UTC. If plan has activeLesson and we are unsure, 
+            // it's safer to fetch and let server decide (server now handles 'date' param).
+            // However, to save reads, if we just generated it 5 seconds ago, it's probably fine.
+
             setLoading(true);
             try {
+                // Pass local date to server
                 const res = await fetch(`/api/orbit/plan-lesson?userId=${userId}&planId=${plan.id}&date=${todayStr}`);
                 if (res.ok) {
                     const data = await res.json();

@@ -36,57 +36,41 @@ export async function GET(request: NextRequest) {
 
         // Determine "today"
         // If client provided date, use it. Else use server date.
-        const today = clientDate ? new Date(clientDate) : new Date();
-        const todayStr = today.toISOString().split("T")[0]; // YYYY-MM-DD
+        // We prefer client date to match user timezone.
+        const todayStr = clientDate || new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
-        // Check lastLessonGeneratedAt
-        const lastGeneratedStr = ensuredPlan.lastLessonGeneratedAt
+        // Check lastLessonDate (preferred) or fallback to lastGeneratedAt
+        const lastLessonDateStr = ensuredPlan.lastLessonDate || (ensuredPlan.lastLessonGeneratedAt
             ? new Date(ensuredPlan.lastLessonGeneratedAt).toISOString().split("T")[0]
-            : null;
+            : null);
 
-        // Logic:
-        // 1. If lastGeneratedAt is TODAY, we should return the lesson for the current day.
-        //    But we don't store the *content* of the generated lesson in the plan, only in daily-summary or completedLessons.
-        //    Wait, if we don't store the content, we have to regenerate it? That's wasteful.
-        //    The user said: "Every time you open a dashboard... check the day... if day equals day of last card... show that card."
-        //    This implies we MUST store the generated card somewhere persistent if we want to show the SAME card.
-        //    Or we store it in `daily-summary` as before?
-        //    The user also said: "Make sure that for every learning track, we keep a copy of the syllabus that tells which topic on which day." (We have this).
+        // logic:
+        // if the plan says we already generated a lesson for "todayStr", return it.
+        // This is robust against timezone shifts because "todayStr" comes from the user's local time.
 
-        //    If we want to be stateless regarding daily-summary, we need to store the "current active lesson" in the plan itself?
-        //    Or we just regenerate it deterministically?
-        //    Regenerating is expensive.
-
-        //    Let's look at `OrbitLearningPlan`. It has `currentLesson` (number).
-        //    It doesn't have `currentLessonContent`.
-        //    Maybe we should add `currentLessonContent` to the plan?
-        //    That would solve the caching issue perfectly.
-
-        //    Let's assume we can add `activeLesson` to `OrbitLearningPlan`?
-        //    The user didn't explicitly ask for that, but "show that card" implies persistence.
-        //    I'll add `activeLesson` to the plan type as well in the next step if needed, or just use it here and let Firestore handle the extra field (it's flexible).
-        //    Actually, I'll add it to the type for safety.
-
-        //    Let's proceed assuming `activeLesson` exists on the plan.
-
-        if (lastGeneratedStr === todayStr && ensuredPlan.activeLesson) {
+        if (lastLessonDateStr === todayStr && ensuredPlan.activeLesson) {
             // Same day, return cached lesson
             return NextResponse.json({ lesson: ensuredPlan.activeLesson });
         }
 
-        // If different day (or no active lesson), we generate the NEXT one.
-        // But only if the user is "opening the app" (which they are, by calling this API).
-        // So we increment the day.
+        // If different day, we simply proceed to next lesson.
+        // We do NOT arbitrarily "skip" unless the logic demands it.
+        // The standard flow is currentLesson + 1.
 
-        // Wait, if lastGenerated was yesterday, and currentLesson is 5.
-        // Today we should show lesson 6?
-        // Yes.
-        // What if lastGenerated was today? We show lesson 5 (cached).
+        // Wait, if users miss a day?
+        // If lastLessonDate was yesterday (2023-10-01) and today is 2023-10-02, we go to next.
+        // If lastLessonDate was a week ago? We still go to next (we don't skip lessons just because time passed, unless that's the desired "catch up" logic? 
+        // User complaint: "lesson number jumped from 1 to 3".
+        // This implies logic was advancing Lesson Number based on Date Diff?
+        // Our previous logic was simple increment. 
+        // Let's ensure we just increment by 1 regardless of time gap (unless completed).
 
-        // So if lastGenerated !== todayStr:
-        //   nextLessonDay = currentLesson + 1
-        //   Generate lesson for nextLessonDay
-        //   Update plan: currentLesson = nextLessonDay, lastLessonGeneratedAt = now, activeLesson = newLesson
+        // previous logic:
+        // const nextLessonDay = ensuredPlan.currentLesson + 1;
+
+        // The issue "jumped from 1 to 3" might happen if `currentLesson` was somehow updated twice?
+        // Or if the client called this endpoint multiple times with different dates?
+        // With `lastLessonDate`, we are safer because we key off strict date equality.
 
         // Check if we reached the end
         const totalLessons = ensuredPlan.totalLessons || depthToLessons(ensuredPlan.depth);
@@ -121,6 +105,7 @@ export async function GET(request: NextRequest) {
             ...ensuredPlan,
             currentLesson: nextLessonDay,
             lastLessonGeneratedAt: now,
+            lastLessonDate: todayStr,
             activeLesson: newLesson,
             updatedAt: now
         };

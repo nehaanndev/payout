@@ -11,6 +11,9 @@
 !.yarn/releases
 !.yarn/versions
 
+# model training
+/.venv
+
 # testing
 /coverage
 

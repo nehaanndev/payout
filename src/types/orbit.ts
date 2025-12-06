@@ -46,6 +46,7 @@ export type OrbitLearningPlan = {
   updatedAt: string;
   lastLessonGeneratedAt?: string;
   activeLesson?: OrbitLearningLesson;
+  lastLessonDate?: string; // YYYY-MM-DD
 };
 
 export type OrbitLearningProfile = {
