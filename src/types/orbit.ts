@@ -23,6 +23,7 @@ export type OrbitLearningLesson = {
     answers: string[];
     correctAnswer: string;
   }>;
+  planId?: string;
 };
 
 export type OrbitLearningPlan = {
@@ -44,7 +45,6 @@ export type OrbitLearningPlan = {
     overview: string;
   }>;
   updatedAt: string;
-  lastLessonGeneratedAt?: string;
   activeLesson?: OrbitLearningLesson;
   lastLessonDate?: string; // YYYY-MM-DD
 };

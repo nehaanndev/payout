@@ -39,10 +39,8 @@ export async function GET(request: NextRequest) {
         // We prefer client date to match user timezone.
         const todayStr = clientDate || new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
-        // Check lastLessonDate (preferred) or fallback to lastGeneratedAt
-        const lastLessonDateStr = ensuredPlan.lastLessonDate || (ensuredPlan.lastLessonGeneratedAt
-            ? new Date(ensuredPlan.lastLessonGeneratedAt).toISOString().split("T")[0]
-            : null);
+        // Check lastLessonDate
+        const lastLessonDateStr = ensuredPlan.lastLessonDate;
 
         // logic:
         // if the plan says we already generated a lesson for "todayStr", return it.
@@ -104,7 +102,6 @@ export async function GET(request: NextRequest) {
         const updatedPlan = {
             ...ensuredPlan,
             currentLesson: nextLessonDay,
-            lastLessonGeneratedAt: now,
             lastLessonDate: todayStr,
             activeLesson: newLesson,
             updatedAt: now
