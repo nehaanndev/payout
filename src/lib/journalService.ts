@@ -11,6 +11,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  deleteDoc,
 } from "firebase/firestore";
 
 import { db } from "./firebase";
@@ -110,6 +111,14 @@ export const updateJournalPublicStatus = async (
     serverUpdatedAt: serverTimestamp(),
     updatedAt: new Date().toISOString(),
   });
+};
+
+export const deleteJournalEntry = async (
+  journalId: string,
+  entryId: string
+) => {
+  const entryRef = doc(db, "journals", journalId, "entries", entryId);
+  await deleteDoc(entryRef);
 };
 
 export const saveJournalEntry = async (

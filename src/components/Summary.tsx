@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, ChevronDown, Edit2, Share2 } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Edit2, Share2, Trash2 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ interface SummaryProps {
   onSelectGroup: (group: Group) => void;
   onShareGroup: (group: Group) => void;
   onEditGroup: (group: Group) => void;
+  onDeleteGroup: (group: Group) => void;
   onCreateGroup: () => void;
   isNight?: boolean;
 }
@@ -79,6 +80,7 @@ export default function Summary({
   onSelectGroup,
   onShareGroup,
   onEditGroup,
+  onDeleteGroup,
   onCreateGroup,
   isNight = false,
 }: SummaryProps) {
@@ -215,7 +217,7 @@ export default function Summary({
           >
             Create a group
           </Button>
-      </CardContent>
+        </CardContent>
       </Card>
     );
   }
@@ -253,8 +255,8 @@ export default function Summary({
             totalGotten > 0
               ? `Money owed to you: ${formatMoney(totalGotten, currency)}`
               : totalOwe > 0
-              ? `You owe: ${formatMoney(totalOwe, currency)}`
-              : "Everything’s settled";
+                ? `You owe: ${formatMoney(totalOwe, currency)}`
+                : "Everything’s settled";
 
           return (
             <Card
@@ -316,6 +318,25 @@ export default function Summary({
                       >
                         Open group
                         <ArrowUpRight className="ml-2 h-4 w-4" />
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className={cn("text-red-500 hover:text-red-700 hover:bg-red-50")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (group.createdBy !== fullUserId) {
+                            alert("Only the group creator can delete this group.");
+                            return;
+                          }
+                          if (confirm("Are you sure you want to delete this group? This action cannot be undone.")) {
+                            onDeleteGroup(group);
+                          }
+                        }}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
                       </Button>
                     </div>
                   </div>

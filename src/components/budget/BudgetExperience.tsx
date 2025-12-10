@@ -76,6 +76,7 @@ import {
   saveBudgetMetadata,
   listBudgetsForMember,
   renameBudget,
+  deleteBudgetDocument,
 } from "@/lib/budgetService";
 import { getUserProfile, isUserPlus } from "@/lib/userService";
 import { UpgradeDialog } from "@/components/UpgradeDialog";
@@ -1973,6 +1974,21 @@ const BudgetExperience = () => {
   }, [router]);
 
 
+  const handleDeleteBudget = useCallback(async () => {
+    if (!budgetId || !member) return;
+    if (!confirm("Are you sure you want to delete this budget? This action cannot be undone.")) return;
+
+    try {
+      setLoading(true);
+      await deleteBudgetDocument(budgetId);
+      await refreshBudgetList(member.id);
+      handleSwitchBudgetView();
+    } catch (error) {
+      console.error("Failed to delete budget:", error);
+      setBudgetListError("We couldn't delete the budget. Please try again.");
+      setLoading(false);
+    }
+  }, [budgetId, member, refreshBudgetList, handleSwitchBudgetView]);
 
   const budgetMenuSections = useMemo(() => {
     const sections = [];
@@ -1997,6 +2013,11 @@ const BudgetExperience = () => {
             label: "Create new budget",
             onClick: openCreateBudgetDialog,
           },
+          {
+            label: "Delete budget",
+            onClick: handleDeleteBudget,
+            className: "text-red-600 focus:text-red-600 focus:bg-red-50",
+          }
         ],
       });
     } else {
@@ -2011,7 +2032,7 @@ const BudgetExperience = () => {
       });
     }
     return sections;
-  }, [budgetId, handleCopyShareLink, handleSwitchBudgetView, mode, openCreateBudgetDialog, shareLink, toggleMode]);
+  }, [budgetId, handleCopyShareLink, handleSwitchBudgetView, mode, openCreateBudgetDialog, shareLink, toggleMode, handleDeleteBudget]);
 
   const userSlot = (
     <DropdownMenu>
@@ -2039,7 +2060,7 @@ const BudgetExperience = () => {
           </React.Fragment>
         ))}
       </DropdownMenuContent>
-    </DropdownMenu>
+    </DropdownMenu >
   );
 
   const createBudgetDialog = (
@@ -2845,22 +2866,54 @@ const BudgetExperience = () => {
                           ? "1 collaborator"
                           : `${collaborators} collaborators`;
                     return (
-                      <button
+                      <div
                         key={budget.id}
-                        type="button"
-                        onClick={() => handleSelectBudget(budget.id)}
-                        className="flex w-full items-center justify-between rounded-2xl border border-emerald-100 bg-white px-4 py-4 text-left shadow-sm transition hover:border-emerald-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                        className="flex w-full items-center justify-between rounded-2xl border border-emerald-100 bg-white px-4 py-4 shadow-sm transition hover:border-emerald-200 hover:shadow-md"
                       >
-                        <div className="space-y-1">
-                          <p className="text-base font-semibold text-slate-900">
-                            {budget.title || GENERIC_BUDGET_TITLE}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {formatUpdatedLabel(budget.updatedAt)} · {collaboratorLabel}
-                          </p>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectBudget(budget.id)}
+                          className="flex flex-1 items-center justify-between text-left focus:outline-none"
+                        >
+                          <div className="space-y-1">
+                            <p className="text-base font-semibold text-slate-900">
+                              {budget.title || GENERIC_BUDGET_TITLE}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {formatUpdatedLabel(budget.updatedAt)} · {collaboratorLabel}
+                            </p>
+                          </div>
+                        </button>
+                        <div className="flex items-center gap-2 pl-4">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!confirm("Are you sure you want to delete this budget? This action cannot be undone.")) return;
+                              try {
+                                setLoading(true);
+                                await deleteBudgetDocument(budget.id);
+                                if (member) await refreshBudgetList(member.id);
+                              } catch (error) {
+                                console.error("Failed to delete budget:", error);
+                                setBudgetListError("We couldn't delete the budget. Please try again.");
+                              } finally {
+                                setLoading(false);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                          <ChevronRight
+                            className="h-5 w-5 cursor-pointer text-emerald-500"
+                            aria-hidden="true"
+                            onClick={() => handleSelectBudget(budget.id)}
+                          />
                         </div>
-                        <ChevronRight className="h-5 w-5 text-emerald-500" aria-hidden="true" />
-                      </button>
+                      </div>
+
                     );
                   })}
                 </div>
