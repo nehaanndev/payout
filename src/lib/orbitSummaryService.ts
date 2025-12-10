@@ -338,12 +338,11 @@ export const recordLearningLesson = async (
       },
     ];
 
-  const totalLessons = existing.totalLessons ?? lesson.totalDays ?? 7;
-  const currentLesson = Math.min(totalLessons, Math.max(existing.currentLesson ?? 0, lesson.day));
-
+  // NOTE: We intentionally do NOT update currentLesson here.
+  // The plan-lesson API is the single source of truth for lesson advancement.
+  // This function only records completed lessons for display purposes.
   const updatedPlan = {
     ...existing,
-    currentLesson,
     completedLessons: nextCompleted,
     updatedAt: now,
   };

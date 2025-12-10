@@ -41,6 +41,7 @@ import { FlowPlan, FlowTask, FlowReflection, FlowCategory } from "@/types/flow";
 import { uploadOrbitAttachment, ORBIT_UPLOAD_MAX_BYTES } from "@/lib/orbitStorage";
 import { FLOW_MOOD_OPTIONS, getFlowMoodOption } from "@/lib/flowMood";
 import { generateId } from "@/lib/id";
+import { isMorningHours } from "@/lib/dateUtils";
 import {
   getUserGroups,
   getUserGroupsById,
@@ -198,7 +199,7 @@ const normalizeTaskTitle = (title: string) => title.trim().toLowerCase();
 
 export default function DailyDashboardPage() {
   const hour = new Date().getHours();
-  const isMorning = hour < 17;
+  const isMorning = isMorningHours(hour);
   const isSunday = new Date().getDay() === 0;
   const { theme, setTheme, isNight } = useToodlTheme(
     isMorning ? "morning" : "night"

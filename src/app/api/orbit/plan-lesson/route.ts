@@ -8,6 +8,7 @@ import {
     generateLearningLesson,
     depthToLessons,
 } from "@/lib/learningService";
+import { getLocalDateKey, isSameDay } from "@/lib/dateUtils";
 
 
 export async function GET(request: NextRequest) {
@@ -34,20 +35,11 @@ export async function GET(request: NextRequest) {
         // Ensure roadmap exists
         const ensuredPlan = await ensureLearningRoadmap(userId, plan);
 
-        // Determine "today"
-        // If client provided date, use it. Else use server date.
-        // We prefer client date to match user timezone.
-        const todayStr = clientDate || new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+        // Determine "today" - prefer client date for timezone correctness
+        const todayStr = clientDate || getLocalDateKey();
 
-        // Check lastLessonDate
-        const lastLessonDateStr = ensuredPlan.lastLessonDate;
-
-        // logic:
-        // if the plan says we already generated a lesson for "todayStr", return it.
-        // This is robust against timezone shifts because "todayStr" comes from the user's local time.
-
-        if (lastLessonDateStr === todayStr && ensuredPlan.activeLesson) {
-            // Same day, return cached lesson
+        // If we already have a lesson for today, return it without advancing
+        if (isSameDay(ensuredPlan.lastLessonDate, todayStr) && ensuredPlan.activeLesson) {
             return NextResponse.json({ lesson: ensuredPlan.activeLesson });
         }
 

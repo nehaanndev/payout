@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { OrbitLearningLesson, OrbitLearningPlan } from "@/types/orbit";
 import { LearningLessonCard } from "./LearningLessonCard";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getLocalDateKey, isSameDay } from "@/lib/dateUtils";
 
 interface LearningCardLoaderProps {
     plan: OrbitLearningPlan;
@@ -39,11 +40,10 @@ export function LearningCardLoader({ plan, isNight, userId, isVisible }: Learnin
         // 3. If no (or different day), call API.
 
         const checkAndFetch = async () => {
-            const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
-            const lastGenDate = plan.lastLessonDate; // Use explicit date field if available
+            const todayStr = getLocalDateKey(); // Use centralized utility
 
             // If we have a lesson for *this local date*, use it.
-            if (lastGenDate === todayStr && plan.activeLesson) {
+            if (isSameDay(plan.lastLessonDate, todayStr) && plan.activeLesson) {
                 setLesson(plan.activeLesson);
                 setHasFetched(true);
                 return;
