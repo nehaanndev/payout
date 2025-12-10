@@ -6,18 +6,16 @@ import {
   saveDailySummary,
   getInsightPreferences,
   getLearningPlans,
-  recordLearningLesson,
 } from "@/lib/orbitSummaryService";
 import {
   ensureLearningRoadmap,
-  generateLearningLesson,
   depthToLessons,
-  buildFallbackLesson,
 } from "@/lib/learningService";
 import { fetchFlowPlanSnapshot } from "@/lib/flowService";
 import { getFlowDateKey } from "@/lib/flowService";
 import { listBudgetsForMember, fetchBudgetMonthSnapshot } from "@/lib/budgetService";
 import { getMonthKey as getBudgetMonthKey } from "@/lib/budgetService";
+import { isMorningHours } from "@/lib/dateUtils";
 import type { FlowPlan } from "@/types/flow";
 import type { SharedLink } from "@/types/share";
 import type {
@@ -27,7 +25,6 @@ import type {
   WorkTaskHighlight,
   OrbitInsightType,
   OrbitLearningPlan,
-  OrbitLearningLesson,
 } from "@/types/orbit";
 
 function getTodayDateKey(): string {
@@ -41,10 +38,7 @@ function getYesterdayDateKey(): string {
   return getFlowDateKey(yesterday);
 }
 
-function isMorning(): boolean {
-  const hour = new Date().getHours();
-  return hour < 17; // Before noon
-}
+// Using centralized isMorningHours() from dateUtils
 
 const sortPreferenceTopics = (topics?: Record<string, number>) => {
   if (!topics) {
@@ -301,6 +295,7 @@ export async function GET(request: NextRequest) {
 
     const dateKey = getTodayDateKey();
 
+    // Get active learning plans (for informational purposes only)
     const plans = await getLearningPlans(userId);
     const activePlans: OrbitLearningPlan[] = [];
 
@@ -313,72 +308,20 @@ export async function GET(request: NextRequest) {
 
     const existingDaily = await getDailySummary(userId, dateKey);
 
-    // Check if we need to generate/update lessons
-    // We do this if:
-    // 1. We have active plans
-    // 2. AND (No existing summary OR existing summary is missing lessons for some active plans)
-    // Note: We don't strictly check for "planUpdatedSinceSummary" for every plan to keep it simple, 
-    // but we ensure every active plan has a lesson in the payload.
-
-    let lessons: OrbitLearningLesson[] = existingDaily?.payload?.learningLessons ?? [];
-
-    // Backfill from legacy single lesson if needed
-    if (existingDaily?.payload?.learningLesson && lessons.length === 0) {
-      lessons.push(existingDaily.payload.learningLesson);
-    }
-
-
-    const missingLessonPlans = activePlans.filter(p => {
-      // Heuristic: check if we have a lesson that looks like it belongs to this plan
-      // Since we don't store planId on lesson, we match by topic/title roughly
-      return !lessons.some(l => l.title.includes(p.topic));
-    });
-
-    if (missingLessonPlans.length > 0) {
-      const newLessons = await Promise.all(missingLessonPlans.map(p => generateLearningLesson(p)));
-      const validNewLessons = newLessons.filter((l): l is OrbitLearningLesson => l !== null);
-
-      if (validNewLessons.length > 0) {
-        lessons = [...lessons, ...validNewLessons];
-
-        // Save the new lessons
-        // Valid lessons now have planId
-        await Promise.all(validNewLessons.map(l => recordLearningLesson(userId, l)));
-
-        // Update the summary payload
-        if (existingDaily?.payload) {
-          const patchedSummary: DailySummaryPayload = {
-            ...existingDaily.payload,
-            learningLessons: lessons,
-            learningLesson: lessons[0] || null, // Keep legacy field populated
-            insights: [], // Clear insights if we are adding learning (product decision: learning replaces insights?)
-          };
-          const summaryId = lessons[0]?.title ?? existingDaily.shareId ?? "ai-summary";
-          await saveDailySummary(userId, dateKey, patchedSummary, summaryId);
-          return NextResponse.json(patchedSummary);
-        }
-      }
-    }
-
+    // If we have an existing summary for today, return it
+    // NOTE: Lessons are no longer generated here. The client uses /api/orbit/plan-lesson 
+    // to fetch lessons, which properly handles day advancement.
     if (existingDaily?.payload) {
-      // Ensure we return the list
-      const payload = {
-        ...existingDaily.payload,
-        learningLessons: lessons,
-        learningLesson: lessons[0] || null,
-      };
-      return NextResponse.json(payload);
+      return NextResponse.json(existingDaily.payload);
     }
 
     // If no existing summary, check if we should generate one.
     // If it's NOT morning AND no active plans, return restriction message.
-    if (!isMorning() && activePlans.length === 0) {
+    if (!isMorningHours() && activePlans.length === 0) {
       return NextResponse.json({ message: "Daily summaries are only available in the morning" }, { status: 200 });
     }
 
-    // Proceed to generate full summary (even if afternoon, if we have learning plans)
-
-    // (Removed isMorning check here to allow generation if learning plans exist)
+    // Proceed to generate daily overview (without lessons - those come from plan-lesson API)
 
     // Get user interests
     const interests = await getUserInterests(userId);
@@ -433,38 +376,24 @@ export async function GET(request: NextRequest) {
 
     const insightPreferences = await getInsightPreferences(userId);
 
-    const generatedLessons = await Promise.all(activePlans.map(p => generateLearningLesson(p)));
-    const validLessons = generatedLessons.filter((l): l is OrbitLearningLesson => l !== null);
-
-    // If we failed to generate AI lessons, try fallbacks
-    if (validLessons.length < activePlans.length) {
-      activePlans.forEach(p => {
-        if (!validLessons.some(l => l.title.includes(p.topic))) {
-          validLessons.push(buildFallbackLesson(p));
-        }
-      });
-    }
-
-    // Generate personalized summary
+    // Generate personalized summary (without lessons - handled by plan-lesson API)
     const summary = await generatePersonalizedSummary(
       yesterdayFlow,
       yesterdayOrbit,
       yesterdayBudget,
       interestList,
       insightPreferences,
-      { skipInsights: validLessons.length > 0 }
+      { skipInsights: activePlans.length > 0 }
     );
 
-    summary.learningLessons = validLessons;
-    summary.learningLesson = validLessons[0] || null; // Legacy
-
-    if (validLessons.length > 0) {
+    // Clear lesson fields - lessons are fetched via /api/orbit/plan-lesson 
+    // This prevents the double-increment bug where daily-summary was also advancing lessons
+    if (activePlans.length > 0) {
       summary.insights = [];
-      await Promise.all(validLessons.map(l => recordLearningLesson(userId, l)));
     }
 
     // Persist that we generated something today so we can avoid duplicates later
-    const summaryId = summary.insights[0]?.id ?? summary.learningLessons?.[0]?.title ?? "ai-summary";
+    const summaryId = summary.insights[0]?.id ?? "ai-summary";
     await saveDailySummary(userId, dateKey, summary, summaryId);
 
     return NextResponse.json(summary);
