@@ -9,6 +9,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  deleteDoc,
 } from "firebase/firestore";
 
 import { db } from "./firebase";
@@ -245,6 +246,11 @@ export const listBudgetsForMember = async (memberId: string) => {
     (docSnap) =>
       ({ id: docSnap.id, ...(docSnap.data() as Omit<BudgetDocument, "id">) }) as BudgetDocument
   );
+};
+
+export const deleteBudgetDocument = async (budgetId: string) => {
+  const ref = doc(db, "budgets", budgetId);
+  await deleteDoc(ref);
 };
 
 export const renameBudget = async (budgetId: string, title: string) => {

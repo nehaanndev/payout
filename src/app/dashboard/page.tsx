@@ -58,7 +58,13 @@ import { listSharedLinks } from "@/lib/shareService";
 import type { Group, Member, Expense } from "@/types/group";
 import type { Settlement } from "@/types/settlement";
 import type { BudgetDocument, BudgetMonth, BudgetLedgerEntry } from "@/types/budget";
-import { type CurrencyCode, fromMinor, FRACTION_DIGITS } from "@/lib/currency_core";
+import {
+  CurrencyCode,
+  fromMinor,
+  FRACTION_DIGITS,
+
+} from "@/lib/currency_core";
+
 import type { SharedLink } from "@/types/share";
 import { extractTagsFromText, mergeTagLists } from "@/lib/tagHelpers";
 import type {
@@ -105,6 +111,7 @@ type BudgetPulseSummary = {
   streak: number;
   onPace: boolean | null;
   currency: CurrencyCode;
+  id: string;
 };
 
 const MAX_TIMELINE_ITEMS = 4;
@@ -2177,6 +2184,7 @@ function buildBudgetPulseSummary(
     streak,
     onPace,
     currency: "USD",
+    id: budget.id,
   };
 }
 
