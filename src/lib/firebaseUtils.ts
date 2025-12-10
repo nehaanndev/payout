@@ -97,6 +97,22 @@ export const updateGroupMembers = async (
   }
 };
 
+/**
+ * Deletes a group by ID
+ * @param groupId - The ID of the group to delete
+ */
+export const deleteGroup = async (groupId: string) => {
+  if (!groupId) return;
+  try {
+    const groupRef = doc(db, "groups", groupId);
+    await deleteDoc(groupRef);
+    console.log(`Group ${groupId} deleted successfully`);
+  } catch (error) {
+    console.error("Error deleting group:", error);
+    throw error;
+  }
+};
+
 import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
 import { getDocs, query, where } from "firebase/firestore";
 import { Expense, Group, Member } from "@/types/group";

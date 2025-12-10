@@ -38,6 +38,7 @@ import {
   fetchJournalEntryByDate,
   updateJournalPublicStatus,
   fetchLatestJournalEntry,
+  deleteJournalEntry,
 } from "@/lib/journalService";
 import {
   auth,
@@ -84,6 +85,7 @@ import {
   Clock,
   FileEdit,
   NotebookPen,
+  Trash2,
 } from "lucide-react";
 
 type JournalQuestion = {
@@ -1136,6 +1138,23 @@ const JournalExperience = () => {
     }
   };
 
+  const handleDeleteEntry = async (entryId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!journalId || !member) return;
+    if (!confirm("Are you sure you want to delete this entry?")) return;
+
+    try {
+      setLibraryLoading(true);
+      await deleteJournalEntry(journalId, entryId);
+      await loadLibraryEntries(journalId);
+    } catch (error) {
+      console.error("Failed to delete entry:", error);
+      alert("Failed to delete entry. Please try again.");
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
   if (!authChecked) {
     return (
       <div className={cn(
@@ -2015,13 +2034,11 @@ const JournalExperience = () => {
                       );
                       const updatedStamp = formatTimestamp(entry.updatedAt);
                       return (
-                        <button
+
+                        <div
                           key={entry.id}
-                          type="button"
-                          disabled={entryLoading}
-                          onClick={() => void handleSelectEntry(entry.id)}
                           className={cn(
-                            "group w-full rounded-2xl border px-4 py-3 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+                            "group relative w-full rounded-2xl border px-4 py-3 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
                             isNight
                               ? "border-white/15 bg-slate-800/60 hover:border-rose-400/50 hover:bg-slate-800/80"
                               : "border-slate-200 bg-white hover:border-rose-200 hover:bg-rose-50/30",
@@ -2029,55 +2046,76 @@ const JournalExperience = () => {
                           )}
                         >
                           <div className="flex items-start gap-3">
-                            <div className={cn(
-                              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
-                              isNight
-                                ? "bg-white/10 text-rose-300"
-                                : "bg-rose-100 text-rose-600"
-                            )}>
-                              <Calendar className="h-5 w-5" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className={cn("text-sm font-semibold", themeUtils.text.primary(isNight))}>
-                                  {displayDate}
-                                </span>
-                                <span className={cn("text-xs flex items-center gap-1", themeUtils.text.muted(isNight))}>
-                                  <Clock className="h-3 w-3" />
-                                  {updatedStamp}
-                                </span>
+                            <button
+                              type="button"
+                              disabled={entryLoading}
+                              onClick={() => void handleSelectEntry(entry.id)}
+                              className="flex flex-1 items-start gap-3 text-left"
+                            >
+                              <div className={cn(
+                                "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+                                isNight
+                                  ? "bg-white/10 text-rose-300"
+                                  : "bg-rose-100 text-rose-600"
+                              )}>
+                                <Calendar className="h-5 w-5" />
                               </div>
-                              <div className={cn("mt-2 flex flex-wrap items-center gap-2 text-sm", themeUtils.text.secondary(isNight))}>
-                                {entry.mood ? (
-                                  <Badge className={cn(
-                                    "flex items-center gap-1",
-                                    isNight
-                                      ? "bg-rose-500/20 text-rose-200 border-rose-400/30"
-                                      : "bg-rose-100 text-rose-700"
-                                  )} variant="secondary">
-                                    <Smile className="h-3 w-3" />
-                                    {entry.mood}
-                                  </Badge>
-                                ) : null}
-                                {entry.snippet ? (
-                                  <span className={cn("line-clamp-2 text-left text-sm italic", themeUtils.text.muted(isNight))}>
-                                    &quot;{entry.snippet}&quot;
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className={cn("text-sm font-semibold", themeUtils.text.primary(isNight))}>
+                                    {displayDate}
                                   </span>
-                                ) : (
-                                  <span className={cn("text-sm flex items-center gap-1", themeUtils.text.muted(isNight))}>
-                                    <FileText className="h-3 w-3" />
-                                    No snippet saved
+                                  <span className={cn("text-xs flex items-center gap-1", themeUtils.text.muted(isNight))}>
+                                    <Clock className="h-3 w-3" />
+                                    {updatedStamp}
                                   </span>
+                                </div>
+                                <div className={cn("mt-2 flex flex-wrap items-center gap-2 text-sm", themeUtils.text.secondary(isNight))}>
+                                  {entry.mood ? (
+                                    <Badge className={cn(
+                                      "flex items-center gap-1",
+                                      isNight
+                                        ? "bg-rose-500/20 text-rose-200 border-rose-400/30"
+                                        : "bg-rose-100 text-rose-700"
+                                    )} variant="secondary">
+                                      <Smile className="h-3 w-3" />
+                                      {entry.mood}
+                                    </Badge>
+                                  ) : null}
+                                  {entry.snippet ? (
+                                    <span className={cn("line-clamp-2 text-left text-sm italic", themeUtils.text.muted(isNight))}>
+                                      &quot;{entry.snippet}&quot;
+                                    </span>
+                                  ) : (
+                                    <span className={cn("text-sm flex items-center gap-1", themeUtils.text.muted(isNight))}>
+                                      <FileText className="h-3 w-3" />
+                                      No snippet saved
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => handleDeleteEntry(entry.id, e)}
+                                className={cn(
+                                  "p-2 rounded-full opacity-0 transition-opacity group-hover:opacity-100",
+                                  isNight ? "hover:bg-slate-700 text-red-400" : "hover:bg-rose-100 text-red-500"
                                 )}
-                              </div>
+                                title="Delete entry"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                              <ArrowRight className={cn(
+                                "h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1",
+                                themeUtils.text.muted(isNight)
+                              )} />
                             </div>
-                            <ArrowRight className={cn(
-                              "h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1",
-                              themeUtils.text.muted(isNight)
-                            )} />
                           </div>
-                        </button>
+                        </div>
                       );
+
                     })}
                   </div>
                 </div>

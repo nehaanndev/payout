@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { getUserGroups, getExpenses, createGroup, updateGroupMembers, getUserGroupsById, getSettlements, addSettlement, confirmSettlement } from "@/lib/firebaseUtils";
+import { getUserGroups, getExpenses, createGroup, updateGroupMembers, getUserGroupsById, getSettlements, addSettlement, confirmSettlement, deleteGroup } from "@/lib/firebaseUtils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Group, Expense, Member } from '@/types/group';
@@ -524,6 +524,17 @@ export default function ExpenseSplitter({
       console.error("Failed to confirm settlement", error);
       alert("We couldn't mark this settlement as received. Please try again.");
     }
+  }
+
+
+  const handleDeleteGroup = async (group: Group) => {
+    try {
+      await deleteGroup(group.id);
+      setSavedGroups((prev) => prev.filter((g) => g.id !== group.id));
+    } catch (error) {
+      console.error("Failed to delete group", error);
+      alert("Failed to delete group. Please try again.");
+    }
   };
 
   return (
@@ -595,7 +606,9 @@ export default function ExpenseSplitter({
               setWizardStep('details');
               setShowCreateTab(true);
               setActiveTab('create');
-            }} onCreateGroup={startNewGroup}
+            }}
+            onDeleteGroup={handleDeleteGroup}
+            onCreateGroup={startNewGroup}
             isNight={isNight}
           />
           {showSettlementModal && settlementGroup && (
