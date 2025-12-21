@@ -43,13 +43,14 @@ export function calculateOpenBalances(
   }[]
 ): Record<string, number> {
   const raw = calculateRawBalances(members, expenses);
+  // 3️⃣ Subtracts any settlements from the raw balances.
   settlements
     .filter((settlement) => settlement.status !== "pending")
     .forEach(s => {
-      // payer paid off some of their debt ⇒ decrease their balance
-      raw[s.payerId] = (raw[s.payerId] ?? 0) - s.amount;
-      // payee received money ⇒ increase their balance
-      raw[s.payeeId] = (raw[s.payeeId] ?? 0) + s.amount;
+      // payer paid off some of their debt ⇒ INCREASE their balance (towards 0)
+      raw[s.payerId] = (raw[s.payerId] ?? 0) + s.amount;
+      // payee received money ⇒ DECREASE their balance (towards 0)
+      raw[s.payeeId] = (raw[s.payeeId] ?? 0) - s.amount;
     });
   return raw;
 }
@@ -182,10 +183,10 @@ export function calculateOpenBalancesMinor(
     .forEach(s => {
       // Convert settlement amount to minor units
       const settlementMinor = toMinor(s.amount, currency);
-      // payer paid off some of their debt ⇒ decrease their balance
-      raw[s.payerId] = (raw[s.payerId] ?? 0) - settlementMinor;
-      // payee received money ⇒ increase their balance
-      raw[s.payeeId] = (raw[s.payeeId] ?? 0) + settlementMinor;
+      // payer paid off some of their debt ⇒ increase their balance (towards 0)
+      raw[s.payerId] = (raw[s.payerId] ?? 0) + settlementMinor;
+      // payee received money ⇒ decrease their balance (towards 0)
+      raw[s.payeeId] = (raw[s.payeeId] ?? 0) - settlementMinor;
     });
   return raw;
 }

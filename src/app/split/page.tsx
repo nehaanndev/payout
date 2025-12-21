@@ -244,9 +244,17 @@ export default function Home() {
 
   const handlePaymentPreferencesSave = async ({
     paypalMeLink,
+    zelleId,
+    venmoId,
+    cashAppId,
+    preferredPaymentMethod,
     suppressPaypalPrompt,
   }: {
     paypalMeLink: string | null;
+    zelleId: string | null;
+    venmoId: string | null;
+    cashAppId: string | null;
+    preferredPaymentMethod: import('@/types/settlement').SettlementMethod | null;
     suppressPaypalPrompt: boolean;
   }) => {
     if (!session) {
@@ -254,6 +262,10 @@ export default function Home() {
     }
     await updateExpensePaymentPreferences(session.uid, {
       paypalMeLink,
+      zelleId,
+      venmoId,
+      cashAppId,
+      preferredPaymentMethod,
       suppressPaypalPrompt,
     });
     const base =
@@ -261,6 +273,10 @@ export default function Home() {
     setPaymentPreferences({
       ...base,
       paypalMeLink,
+      zelleId,
+      venmoId,
+      cashAppId,
+      preferredPaymentMethod,
       suppressPaypalPrompt,
       updatedAt: new Date().toISOString(),
     });
@@ -495,6 +511,10 @@ export default function Home() {
         open={paymentDialogMode !== null}
         mode={paymentDialogMode ?? "settings"}
         initialLink={paymentPreferences?.paypalMeLink ?? null}
+        initialZelleId={paymentPreferences?.zelleId ?? null}
+        initialVenmoId={paymentPreferences?.venmoId ?? null}
+        initialCashAppId={paymentPreferences?.cashAppId ?? null}
+        initialPreferredMethod={paymentPreferences?.preferredPaymentMethod ?? null}
         initialSuppressPrompt={
           paymentPreferences?.suppressPaypalPrompt ?? false
         }
