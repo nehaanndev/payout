@@ -289,7 +289,7 @@ export default function SettlementModal({
                           {settlement.method && ` via ${PAYMENT_METHOD_INFO[settlement.method]?.label || settlement.method}`}
                         </p>
                         {settlement.paymentNote && (
-                          <p className="text-xs text-slate-500 italic mt-0.5">"{settlement.paymentNote}"</p>
+                          <p className="text-xs text-slate-500 italic mt-0.5">&quot;{settlement.paymentNote}&quot;</p>
                         )}
                       </div>
                       <Button
