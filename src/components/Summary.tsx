@@ -249,7 +249,7 @@ export default function Summary({
 
       <div className="space-y-4">
         {sortedSummaries.map((summary) => {
-          const { group, currency, totalSpentMajor, totalSpentMinor, totalOwe, totalGotten } = summary;
+          const { group, currency, totalSpentMajor, totalSpentMinor, totalOwe, totalGotten, settlements } = summary;
           const expanded = expandedGroups[group.id] ?? false;
           const statusSummary =
             totalGotten > 0
@@ -272,6 +272,12 @@ export default function Summary({
                   <p className="text-base font-semibold text-slate-900">{group.name}</p>
                 </div>
                 <div className="flex items-center gap-3">
+                  {settlements.some(s => s.status === 'pending' && s.payeeId === fullUserId) && (
+                    <span className="flex h-3 w-3 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
+                    </span>
+                  )}
                   {statusBadge(totalOwe, totalGotten, currency)}
                   <ChevronDown
                     className={`h-5 w-5 text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`}

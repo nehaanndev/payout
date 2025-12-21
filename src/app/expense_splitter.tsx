@@ -641,6 +641,7 @@ export default function ExpenseSplitter({
                   [settlementGroup.id]: updated,
                 }));
               }}
+              onConfirmSettlement={handleConfirmSettlement}
             />
           )}
         </TabsContent>
