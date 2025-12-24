@@ -223,7 +223,8 @@ export default function DailyDashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [_userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [_showUpgradeDialog, setShowUpgradeDialog] = useState(false);
-  const [newsItem, setNewsItem] = useState<OrbitInsightCard | null>(null);
+  const [selectedNewsItem, setSelectedNewsItem] = useState<OrbitInsightCard | null>(null);
+  const [newsItems, setNewsItems] = useState<OrbitInsightCard[]>([]);
   const [isNewsReaderOpen, setIsNewsReaderOpen] = useState(false);
   const [isPlus, setIsPlus] = useState(false);
 
@@ -232,33 +233,30 @@ export default function DailyDashboardPage() {
     if (!user || !isPlus) return;
     const fetchNews = async () => {
       // If we already have news local state, skip
-      if (newsItem) return;
+      if (newsItems.length > 0) return;
 
       try {
-        let topic = "Future Technology";
-        const interestsData = await getUserInterests(user.uid);
-        if (interestsData?.interests?.length) {
-          topic = interestsData.interests[Math.floor(Math.random() * interestsData.interests.length)];
-        }
-
         const response = await fetch("/api/orbit/news/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ topic, userId: user.uid }),
+          body: JSON.stringify({ userId: user.uid }),
         });
         if (response.ok) {
           const data = await response.json();
-          if (data.news) setNewsItem(data.news);
+          // The API now returns { news: OrbitInsightCard[] }
+          if (data.news && Array.isArray(data.news) && data.news.length > 0) {
+            setNewsItems(data.news);
+          }
         }
       } catch (err) {
         console.error("Failed to fetch news", err);
       }
     };
     fetchNews();
-  }, [user, isPlus, newsItem]);
+  }, [user, isPlus, newsItems]);
 
   const handleNewsClick = (item: OrbitInsightCard) => {
-    setNewsItem(item);
+    setSelectedNewsItem(item);
     setIsNewsReaderOpen(true);
   };
   const [flowPlan, setFlowPlan] = useState<FlowPlan | null>(null);
@@ -1407,8 +1405,8 @@ export default function DailyDashboardPage() {
                   )}
                   <div className="space-y-6">
                     <NewsFeedCard
-                      insights={newsItem ? [newsItem] : (dailySummary?.insights?.filter(i => i.type === 'news') ?? [])}
-                      loading={dailySummaryLoading && !newsItem}
+                      insights={newsItems.length > 0 ? newsItems : (dailySummary?.insights?.filter(i => i.type === 'news') ?? [])}
+                      loading={dailySummaryLoading && newsItems.length === 0}
                       isNight={isNight}
                       isPlus={isPlus}
                       setShowUpgrade={() => setShowUpgradeDialog(true)}
@@ -1460,8 +1458,8 @@ export default function DailyDashboardPage() {
                   />
                   <div className="mt-6">
                     <NewsFeedCard
-                      insights={newsItem ? [newsItem] : (dailySummary?.insights?.filter(i => i.type === 'news') ?? [])}
-                      loading={dailySummaryLoading && !newsItem}
+                      insights={newsItems.length > 0 ? newsItems : (dailySummary?.insights?.filter(i => i.type === 'news') ?? [])}
+                      loading={dailySummaryLoading && newsItems.length === 0}
                       isNight={isNight}
                       isPlus={isPlus}
                       setShowUpgrade={() => setShowUpgradeDialog(true)}
@@ -1688,7 +1686,7 @@ export default function DailyDashboardPage() {
       <NewsReaderDialog
         open={isNewsReaderOpen}
         onOpenChange={setIsNewsReaderOpen}
-        newsItem={newsItem}
+        newsItem={selectedNewsItem}
         isNight={isNight}
       />
     </>

@@ -11,6 +11,12 @@ export type UserInterests = {
   updatedAt: string;
 };
 
+export type NewsPreferences = {
+  lastShownTopics: string[]; // List of topics shown in the last batch
+  lastShownDate: string; // YYYY-MM-DD
+  updatedAt: string;
+};
+
 export type OrbitLearningLesson = {
   title: string;
   day: number;

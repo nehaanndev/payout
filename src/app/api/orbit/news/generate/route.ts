@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateDailyNews } from "@/lib/newsService";
+import { generateDailyNews, generateNewsFeed } from "@/lib/newsService";
 
 export async function POST(request: NextRequest) {
     try {
-        const { topic, userId } = await request.json();
+        const { userId } = await request.json();
 
-        if (!topic || !userId) {
-            return NextResponse.json(
-                { error: "Topic and userId are required" },
-                { status: 400 }
-            );
+        if (!userId) {
+            return NextResponse.json({ error: "Missing userId" }, { status: 400 });
         }
 
-        const newsCard = await generateDailyNews(topic, userId);
+        // Agentic News Logic
+        console.log(`[API] Generating news feed for user: ${userId}`);
+        const cards = await generateNewsFeed(userId);
 
-        return NextResponse.json({ news: newsCard });
+        return NextResponse.json({ news: cards });
     } catch (error) {
         console.error("Error generating news in API:", error);
         return NextResponse.json(

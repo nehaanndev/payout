@@ -2,6 +2,7 @@ import { db } from "./firebase";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { OrbitInsightCard } from "@/types/orbit";
 import { generateId } from "@/lib/id";
+import { NewsAgent } from "@/lib/newsAgent";
 
 // Collection for storing cached daily news by topic
 const dailyNewsDoc = (topic: string, date: string) =>
@@ -13,12 +14,61 @@ type AiNewsResponse = {
     paragraphs: string[];
     imageKeywords: string;
     referenceUrl?: string | null;
+    images?: string[];
+};
+
+import { getNewsPreferences, saveNewsPreferences, getUserInterests } from "./orbitSummaryService";
+import { NewsPreferences } from "@/types/orbit";
+
+// ... existing imports ...
+
+export const getDailyNewsTopics = async (userId: string, interests: string[]): Promise<string[]> => {
+    if (!interests || interests.length === 0) return ["Future Technology"];
+    if (interests.length <= 3) return interests;
+
+    const prefs = await getNewsPreferences(userId);
+    const lastShown = prefs?.lastShownTopics || [];
+
+    // Filter out topics shown recently
+    const candles = interests.filter(t => !lastShown.includes(t));
+
+    // If we have enough fresh candidates, pick 3 random ones
+    if (candles.length >= 3) {
+        return candles.sort(() => 0.5 - Math.random()).slice(0, 3);
+    }
+
+    // If not enough fresh ones, take all fresh ones + random others to fill 3
+    const needed = 3 - candles.length;
+    const recycled = interests.filter(t => !candles.includes(t)).sort(() => 0.5 - Math.random()).slice(0, needed);
+
+    return [...candles, ...recycled];
+};
+
+export const generateNewsFeed = async (userId: string): Promise<OrbitInsightCard[]> => {
+    const interestsData = await getUserInterests(userId);
+    const interests = interestsData?.interests || ["Future Technology"];
+    const topics = await getDailyNewsTopics(userId, interests);
+
+    console.log(`[NewsService] Selected topics for ${userId}:`, topics);
+
+    // Generate in parallel
+    const cards = await Promise.all(topics.map(topic => generateDailyNews(topic, userId)));
+
+    // Save preferences
+    await saveNewsPreferences(userId, {
+        lastShownTopics: topics,
+        lastShownDate: new Date().toISOString().slice(0, 10),
+        updatedAt: new Date().toISOString()
+    });
+
+    return cards.filter(c => c !== null) as OrbitInsightCard[];
 };
 
 export const generateDailyNews = async (
     topic: string,
-    _userId: string // passed for potential personalization later, currently unused
+    _userId: string
 ): Promise<OrbitInsightCard | null> => {
+    // ... existing implementation ...
     const today = new Date().toISOString().slice(0, 10);
     const normalizedTopic = topic.trim().toLowerCase();
     const docRef = dailyNewsDoc(normalizedTopic, today);
@@ -43,71 +93,15 @@ export const generateDailyNews = async (
         console.warn("[NewsService] Cache check failed (likely permission denied). Proceeding to generation.", error);
     }
 
-    // 2. Generate with OpenAI
-    const apiKey = process.env.OPENAI_API_KEY;
-    console.log("[NewsService] API Key configured?", !!apiKey, apiKey ? `(Length: ${apiKey.length})` : "(Missing)");
-
-    if (!apiKey) {
-        console.warn("[NewsService] OPENAI_API_KEY not configured. Returning fallback news.");
-        return getFallbackNews(topic, "Missing OPENAI_API_KEY env var");
-    }
-
+    // 2. Generate with NewsAgent (Grounded Search)
     try {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-                model: "gpt-4o",
-                response_format: { type: "json_object" },
-                messages: [
-                    {
-                        role: "system",
-                        content: `You are an expert tech news curator. Generate a daily news summary for the topic: "${topic}".
-Current Date: ${today}
-Strictly focus on news and events from the last 24 hours.
-Return a JSON object with:
-- title: string (catchy headline, specific to the news event)
-- summary: string (2-sentence overview for a dashboard card)
-- paragraphs: string[] (3-4 short paragraphs, 3 sentences max each, telling the full story)
-- imageKeywords: string (3-4 comma-separated keywords to find a relevant image on Unsplash)
-- referenceUrl: string | null (URL to a credible news source covering this story, or null if synthesising general trends)
-Tone: professional, forward-looking, engaging. Avoid jargon where possible.`,
-                    },
-                    {
-                        role: "user",
-                        content: `Generate the latest news for ${topic} from today, ${today}. Focus on specific announcements or events.`,
-                    },
-                ],
-                temperature: 0.5,
-                max_tokens: 600,
-            }),
-        });
-
-        if (!response.ok) {
-            console.error("[NewsService] OpenAI error:", response.status, await response.text());
-            return getFallbackNews(topic, `OpenAI API Error: ${response.status}`);
-        }
-
-        const result = await response.json();
-        const content = result?.choices?.[0]?.message?.content;
-        if (!content) return getFallbackNews(topic, "OpenAI returned empty content");
-
-        const parsed = JSON.parse(content) as AiNewsResponse;
+        const parsed = await NewsAgent.generate(topic);
 
         // 3. Construct Card
-        // Note: Real unsplash search requires an API, for now we can either use a placeholder or keywords with a specific source if available.
-        // Better mock: simple unsplash source url with keywords
-        // const dynamicImage = `https://source.unsplash.com/1600x900/?${encodeURIComponent(parsed.imageKeywords)}`;
-        // Actually source.unsplash is deprecated/unreliable for some. Let's use the keywords in a search URL structure or similar if possible, 
-        // but for now let's stick to a generic tech image or leave it blank to let the UI handle fallback, 
-        // OR effectively use the provided mock image from before but maybe randomized.
-        // Let's try the keyword approach but fallback safely.
-
-        // Using a reliable random tech image since source.unsplash is deprecated
-        const randomTechImage = "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1000&auto=format&fit=crop";
+        // Try to use a real image from the search, fallback to random tech image
+        const heroImage = (parsed.images && parsed.images.length > 0)
+            ? parsed.images[0]
+            : "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1000&auto=format&fit=crop";
 
         const card: OrbitInsightCard = {
             id: generateId(),
@@ -117,8 +111,8 @@ Tone: professional, forward-looking, engaging. Avoid jargon where possible.`,
             summary: parsed.summary,
             paragraphs: parsed.paragraphs,
             mediaType: "image",
-            imageUrl: randomTechImage, // keeping it safe
-            referenceUrl: parsed.referenceUrl || `https://www.google.com/search?q=${encodeURIComponent(parsed.title)}`,
+            imageUrl: heroImage,
+            referenceUrl: parsed.referenceUrl,
         };
 
         // 4. Cache Result
@@ -135,8 +129,9 @@ Tone: professional, forward-looking, engaging. Avoid jargon where possible.`,
         return card;
 
     } catch (error: unknown) {
-        console.error("Error generating news:", error);
-        return getFallbackNews(topic, `Exception: ${(error as Error).message}`);
+        console.error("Error generating news with Agent:", error);
+        // Fallback to "We couldn't find fresh news" instead of hallucinating
+        return getFallbackNews(topic, `Agent Error: ${(error as Error).message}`);
     }
 };
 
