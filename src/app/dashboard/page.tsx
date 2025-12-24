@@ -19,7 +19,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import { UpgradeDialog } from "@/components/UpgradeDialog";
 import { ReflectionsExperience } from "@/components/reflections/ReflectionsExperience";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
@@ -48,6 +50,7 @@ import {
   getExpenses,
   getSettlements,
 } from "@/lib/firebaseUtils";
+import { getUserInterests } from "@/lib/orbitSummaryService";
 import {
   listBudgetsForMember,
   fetchBudgetMonthSnapshot,
@@ -75,8 +78,13 @@ import type {
   WorkTaskHighlight,
   OrbitLearningPlan,
 } from "@/types/orbit";
+import { getUserProfile, isUserPlus } from "@/lib/userService";
+import type { UserProfile } from "@/types/user";
 import { OnboardingWizard, type ToodlIntent } from "@/components/onboarding/OnboardingWizard";
 import { LearningCarousel } from "@/components/orbit/LearningCarousel";
+import { NewsReaderDialog } from "@/components/orbit/NewsReaderDialog";
+
+
 
 const THEMES = {
   morning: {
@@ -214,6 +222,46 @@ export default function DailyDashboardPage() {
   const defaultMoodId = FLOW_MOOD_OPTIONS[0]?.id ?? "calm";
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [newsItem, setNewsItem] = useState<OrbitInsightCard | null>(null);
+  const [isNewsReaderOpen, setIsNewsReaderOpen] = useState(false);
+  const [isPlus, setIsPlus] = useState(false);
+
+  // AI News Fetch Logic
+  useEffect(() => {
+    if (!user || !isPlus) return;
+    const fetchNews = async () => {
+      // If we already have news local state, skip
+      if (newsItem) return;
+
+      try {
+        let topic = "Future Technology";
+        const interestsData = await getUserInterests(user.uid);
+        if (interestsData?.interests?.length) {
+          topic = interestsData.interests[Math.floor(Math.random() * interestsData.interests.length)];
+        }
+
+        const response = await fetch("/api/orbit/news/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic, userId: user.uid }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.news) setNewsItem(data.news);
+        }
+      } catch (err) {
+        console.error("Failed to fetch news", err);
+      }
+    };
+    fetchNews();
+  }, [user, isPlus, newsItem]);
+
+  const handleNewsClick = (item: OrbitInsightCard) => {
+    setNewsItem(item);
+    setIsNewsReaderOpen(true);
+  };
   const [flowPlan, setFlowPlan] = useState<FlowPlan | null>(null);
   const [flowLoading, setFlowLoading] = useState(false);
   const [flowError, setFlowError] = useState<string | null>(null);
@@ -299,9 +347,20 @@ export default function DailyDashboardPage() {
     [user]
   );
 
+
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (current) => {
       setUser(current);
+      if (current) {
+        getUserProfile(current.uid).then((p) => {
+          setUserProfile(p);
+          setIsPlus(isUserPlus(p));
+        });
+      } else {
+        setUserProfile(null);
+        setIsPlus(false);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -380,7 +439,36 @@ export default function DailyDashboardPage() {
         }
 
         if (!cancelled) {
-          setDailySummary(data as DailySummaryPayload);
+          const summaryPayload = data as DailySummaryPayload;
+          // MOCK DATA FOR NEWS FEED - To be removed when backend is ready
+          if (summaryPayload && summaryPayload.insights) {
+            const hasNews = summaryPayload.insights.some(i => i.type === 'news');
+            if (!hasNews) {
+              summaryPayload.insights.push({
+                id: 'mock-news-1',
+                title: 'The Future of Remote Work',
+                summary: 'How distributed teams are changing the global economy.',
+                type: 'news',
+                topic: 'Work Trends',
+                paragraphs: ['Remote work is not just a trend; it is a fundamental shift in how we structure our lives.'],
+                imageUrl: 'https://images.unsplash.com/photo-1593642632823-8f7853670f6e?auto=format&fit=crop&w=800&q=80',
+                mediaType: 'image',
+                referenceUrl: 'https://example.com'
+              });
+              summaryPayload.insights.push({
+                id: 'mock-news-2',
+                title: 'AI Productivity Tools',
+                summary: 'Top 5 AI tools to boost your daily workflow.',
+                type: 'news',
+                topic: 'Technology',
+                paragraphs: ['From writing assistants to code generators, AI is reshaping productivity.'],
+                mediaType: 'image',
+                imageUrl: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=800&q=80',
+                referenceUrl: 'https://example.com'
+              });
+            }
+          }
+          setDailySummary(summaryPayload);
           setInsightVotes({});
           setInsightMessages({});
         }
@@ -1319,7 +1407,14 @@ export default function DailyDashboardPage() {
                     <SkeletonBanner label={flowError ?? "Sign in to see Flow insights"} />
                   )}
                   <div className="space-y-6">
-                    <DailyWorkSummaryCard summary={dailySummary} loading={dailySummaryLoading} isNight={isNight} />
+                    <NewsFeedCard
+                      insights={newsItem ? [newsItem] : (dailySummary?.insights?.filter(i => i.type === 'news') ?? [])}
+                      loading={dailySummaryLoading && !newsItem}
+                      isNight={isNight}
+                      isPlus={isPlus}
+                      setShowUpgrade={() => setShowUpgradeDialog(true)}
+                      onItemClick={handleNewsClick}
+                    />
                     <DailyRecommendationCard
                       summary={dailySummary}
                       loading={dailySummaryLoading}
@@ -1364,6 +1459,16 @@ export default function DailyDashboardPage() {
                     onReflect={() => router.push("/flow")}
                     onOpenFlow={() => router.push("/flow")}
                   />
+                  <div className="mt-6">
+                    <NewsFeedCard
+                      insights={newsItem ? [newsItem] : (dailySummary?.insights?.filter(i => i.type === 'news') ?? [])}
+                      loading={dailySummaryLoading && !newsItem}
+                      isNight={isNight}
+                      isPlus={isPlus}
+                      setShowUpgrade={() => setShowUpgradeDialog(true)}
+                      onItemClick={handleNewsClick}
+                    />
+                  </div>
                   <div className="mt-6">
                     {activePlans.length > 0 ? (
                       <LearningCarousel
@@ -1579,6 +1684,14 @@ export default function DailyDashboardPage() {
         </div>
       )}
 
+
+
+      <NewsReaderDialog
+        open={isNewsReaderOpen}
+        onOpenChange={setIsNewsReaderOpen}
+        newsItem={newsItem}
+        isNight={isNight}
+      />
     </>
   );
 }
@@ -3108,6 +3221,7 @@ function InsightCarousel({
 
 
 
+
 function WorkTaskListSection({
   label,
   tasks,
@@ -3151,3 +3265,208 @@ function WorkTaskListSection({
     </div>
   );
 }
+
+function NewsFeedCard({
+  insights,
+  loading,
+  isNight,
+  isPlus,
+  setShowUpgrade,
+  onItemClick,
+}: {
+  insights: OrbitInsightCard[];
+  loading: boolean;
+  isNight: boolean;
+  isPlus: boolean;
+  setShowUpgrade: () => void;
+  onItemClick?: (item: OrbitInsightCard) => void;
+}) {
+  const tone = isNight ? "text-indigo-200" : "text-slate-600";
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+
+  // Reset index when insights change
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [insights.length]);
+
+  const totalInsights = insights.length;
+  const currentInsight = totalInsights > 0 ? insights[activeIndex % totalInsights] : null;
+
+  const handleNext = () => {
+    if (totalInsights < 2) return;
+    setActiveIndex((prev) => (prev + 1) % totalInsights);
+  };
+
+  const handlePrevious = () => {
+    if (totalInsights < 2) return;
+    setActiveIndex((prev) => (prev - 1 + totalInsights) % totalInsights);
+  };
+
+  return (
+    <>
+      <Card
+        className={cn(
+          "rounded-[28px] p-6 shadow-sm overflow-hidden relative transition-all",
+          isNight
+            ? "border-white/20 bg-gradient-to-br from-indigo-900/60 via-violet-900/40 to-purple-900/60 text-white"
+            : "border-indigo-200 bg-gradient-to-br from-indigo-50 via-violet-50 to-purple-50 text-slate-900",
+          (!isPlus || onItemClick) && "cursor-pointer hover:shadow-md hover:scale-[1.01]"
+        )}
+        onClick={() => {
+          if (!isPlus) {
+            setShowUpgrade();
+          } else if (onItemClick && currentInsight) {
+            onItemClick(currentInsight);
+          }
+        }}
+      >
+        <CardHeader className="p-0 relative z-10">
+          <div className="mb-2 flex items-center gap-2">
+            <Sparkles className={cn("h-5 w-5", isNight ? "text-indigo-300" : "text-indigo-500")} />
+            <p
+              className={cn(
+                "text-xs font-semibold uppercase tracking-[0.35em]",
+                isNight ? "text-indigo-200" : "text-indigo-500"
+              )}
+            >
+              Daily Brief
+            </p>
+          </div>
+          <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-slate-900")}>
+            Today's Headlines
+          </CardTitle>
+        </CardHeader>
+
+        <CardContent className="mt-4 p-0 relative z-10">
+          {loading ? (
+            <div className={cn("flex items-center gap-3 text-sm p-4", tone)}>
+              <Spinner size="sm" className="text-current" />
+              {"Curating your news feed..."}
+            </div>
+          ) : !isPlus ? (
+            <div className="relative rounded-2xl overflow-hidden min-h-[200px] flex flex-col items-center justify-center p-6 text-center">
+              {/* Blurred background content mockup */}
+              <div className="absolute inset-0 opacity-20 blur-sm pointer-events-none select-none">
+                <div className="h-4 w-3/4 bg-current rounded mb-2 mx-auto" />
+                <div className="h-4 w-1/2 bg-current rounded mb-4 mx-auto" />
+                <div className="h-32 w-full bg-current rounded-xl opacity-10" />
+              </div>
+
+              <div className="relative z-20 max-w-sm space-y-4">
+                <p className={cn("font-medium", isNight ? "text-indigo-100" : "text-indigo-900")}>
+                  Unlock your personalized daily news feed.
+                </p>
+                <p className={cn("text-sm", isNight ? "text-indigo-200" : "text-indigo-700")}>
+                  Get media-rich stories and insights curated just for you.
+                </p>
+                <Button
+                  onClick={() => setShowUpgradeDialog(true)}
+                  className={cn(
+                    "w-full sm:w-auto font-semibold shadow-lg",
+                    isNight ? "bg-white text-indigo-900 hover:bg-indigo-50" : "bg-indigo-600 text-white hover:bg-indigo-700"
+                  )}
+                >
+                  Unlock News Feed
+                </Button>
+              </div>
+            </div>
+          ) : currentInsight ? (
+            <div className="space-y-4">
+              {/* Navigation if multiple */}
+              {totalInsights > 1 && (
+                <div className="flex items-center justify-end gap-2 mb-2">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={handlePrevious}
+                    className={cn("h-8 w-8 rounded-full", isNight ? "hover:bg-white/10" : "hover:bg-indigo-100")}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className={cn("text-xs font-semibold tabular-nums", tone)}>
+                    {activeIndex + 1} / {totalInsights}
+                  </span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={handleNext}
+                    className={cn("h-8 w-8 rounded-full", isNight ? "hover:bg-white/10" : "hover:bg-indigo-100")}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300" key={currentInsight.id}>
+                {/* Media Section */}
+                {(currentInsight.imageUrl || currentInsight.videoUrl) && (
+                  <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-slate-900/10">
+                    {currentInsight.videoUrl ? (
+                      <video
+                        src={currentInsight.videoUrl}
+                        controls
+                        className="h-full w-full object-cover"
+                        poster={currentInsight.imageUrl ?? undefined}
+                      />
+                    ) : (
+                      <Image
+                        src={currentInsight.imageUrl!}
+                        alt={currentInsight.title}
+                        fill
+                        className="object-cover"
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Content Section */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={cn("text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                      isNight ? "bg-white/10 text-indigo-200" : "bg-indigo-100 text-indigo-700"
+                    )}>
+                      {currentInsight.topic}
+                    </span>
+                  </div>
+                  <h3 className={cn("text-lg font-bold leading-tight mb-2", isNight ? "text-white" : "text-slate-900")}>
+                    {currentInsight.title}
+                  </h3>
+                  <p className={cn("text-sm leading-relaxed mb-4", tone)}>
+                    {currentInsight.summary}
+                  </p>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2">
+                    {currentInsight.referenceUrl && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn("gap-2 text-xs", isNight ? "border-white/20 bg-white/5 text-white hover:bg-white/10" : "")}
+                        onClick={() => window.open(currentInsight.referenceUrl!, '_blank')}
+                      >
+                        Read Full Story <ExternalLink className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className={cn("py-8 text-center", tone)}>
+              <p>No news stories for today yet.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <UpgradeDialog
+        open={showUpgradeDialog}
+        onOpenChange={setShowUpgradeDialog}
+        featureName="News Feed"
+        limitDescription="daily news & insights"
+      />
+    </>
+  );
+}
+

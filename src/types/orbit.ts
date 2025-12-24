@@ -88,6 +88,9 @@ export type OrbitInsightCard = {
   paragraphs: string[];
   type: OrbitInsightType;
   referenceUrl?: string | null;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  mediaType?: "image" | "video" | "none"; // Defaults to 'none' if undefined
 };
 
 export type OrbitInsightPreferences = {
