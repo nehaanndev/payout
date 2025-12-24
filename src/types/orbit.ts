@@ -11,6 +11,12 @@ export type UserInterests = {
   updatedAt: string;
 };
 
+export type NewsPreferences = {
+  lastShownTopics: string[]; // List of topics shown in the last batch
+  lastShownDate: string; // YYYY-MM-DD
+  updatedAt: string;
+};
+
 export type OrbitLearningLesson = {
   title: string;
   day: number;
@@ -88,6 +94,9 @@ export type OrbitInsightCard = {
   paragraphs: string[];
   type: OrbitInsightType;
   referenceUrl?: string | null;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  mediaType?: "image" | "video" | "none"; // Defaults to 'none' if undefined
 };
 
 export type OrbitInsightPreferences = {

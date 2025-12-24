@@ -9,6 +9,7 @@ import {
   OrbitLearningPlan,
   OrbitLearningLesson,
   OrbitLesson,
+  NewsPreferences,
 } from "@/types/orbit";
 import { generateId } from "@/lib/id";
 
@@ -25,6 +26,22 @@ const insightPreferencesDoc = (userId: string) =>
 const learningPlanDoc = (userId: string) =>
   doc(db, "users", userId, "preferences", "orbit-learning-plan");
 
+const newsPreferencesDoc = (userId: string) =>
+  doc(db, "users", userId, "preferences", "news-prefs");
+
+export const getNewsPreferences = async (userId: string): Promise<NewsPreferences | null> => {
+  if (!userId) return null;
+  const snap = await getDoc(newsPreferencesDoc(userId));
+  if (snap.exists()) {
+    return snap.data() as NewsPreferences;
+  }
+  return null;
+};
+
+export const saveNewsPreferences = async (userId: string, prefs: NewsPreferences) => {
+  if (!userId) return;
+  await setDoc(newsPreferencesDoc(userId), { ...prefs, serverUpdatedAt: serverTimestamp() }, { merge: true });
+};
 
 export const getUserInterests = async (userId: string): Promise<UserInterests | null> => {
   if (!userId) {
