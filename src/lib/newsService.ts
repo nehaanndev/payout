@@ -8,17 +8,9 @@ import { NewsAgent } from "@/lib/newsAgent";
 const dailyNewsDoc = (topic: string, date: string) =>
     doc(db, "system", "daily-news", topic, date);
 
-type AiNewsResponse = {
-    title: string;
-    summary: string;
-    paragraphs: string[];
-    imageKeywords: string;
-    referenceUrl?: string | null;
-    images?: string[];
-};
+
 
 import { getNewsPreferences, saveNewsPreferences, getUserInterests } from "./orbitSummaryService";
-import { NewsPreferences } from "@/types/orbit";
 
 // ... existing imports ...
 
@@ -66,6 +58,7 @@ export const generateNewsFeed = async (userId: string): Promise<OrbitInsightCard
 
 export const generateDailyNews = async (
     topic: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _userId: string
 ): Promise<OrbitInsightCard | null> => {
     // ... existing implementation ...

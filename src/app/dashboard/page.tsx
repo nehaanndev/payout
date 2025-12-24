@@ -49,7 +49,6 @@ import {
   getExpenses,
   getSettlements,
 } from "@/lib/firebaseUtils";
-import { getUserInterests } from "@/lib/orbitSummaryService";
 import {
   listBudgetsForMember,
   fetchBudgetMonthSnapshot,
@@ -220,9 +219,11 @@ export default function DailyDashboardPage() {
   );
   const defaultMoodId = FLOW_MOOD_OPTIONS[0]?.id ?? "calm";
   const router = useRouter();
+  /* eslint-disable @typescript-eslint/no-unused-vars */
   const [user, setUser] = useState<User | null>(null);
   const [_userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [_showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  /* eslint-enable @typescript-eslint/no-unused-vars */
   const [selectedNewsItem, setSelectedNewsItem] = useState<OrbitInsightCard | null>(null);
   const [newsItems, setNewsItems] = useState<OrbitInsightCard[]>([]);
   const [isNewsReaderOpen, setIsNewsReaderOpen] = useState(false);

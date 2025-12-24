@@ -1,4 +1,3 @@
-import { generateId } from "@/lib/id";
 import * as cheerio from "cheerio";
 
 type GoogleSearchResult = {
@@ -180,7 +179,7 @@ Output Format: JSON only.`;
             const parsed = JSON.parse(content) as NewsAgentResponse;
             parsed.images = scrapedImages; // Attach found images
             return parsed;
-        } catch (e) {
+        } catch {
             console.error("Failed to parse OpenAI JSON", content);
             throw new Error("Invalid JSON from OpenAI");
         }
