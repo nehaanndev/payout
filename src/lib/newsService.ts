@@ -17,7 +17,7 @@ type AiNewsResponse = {
 
 export const generateDailyNews = async (
     topic: string,
-    userId: string // passed for potential personalization later, currently unused
+    _userId: string // passed for potential personalization later, currently unused
 ): Promise<OrbitInsightCard | null> => {
     const today = new Date().toISOString().slice(0, 10);
     const normalizedTopic = topic.trim().toLowerCase();
@@ -98,10 +98,9 @@ Tone: professional, forward-looking, engaging. Avoid jargon where possible.`,
         const parsed = JSON.parse(content) as AiNewsResponse;
 
         // 3. Construct Card
-        const imageUrl = `https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=1000&auto=format&fit=crop`;
         // Note: Real unsplash search requires an API, for now we can either use a placeholder or keywords with a specific source if available.
         // Better mock: simple unsplash source url with keywords
-        const dynamicImage = `https://source.unsplash.com/1600x900/?${encodeURIComponent(parsed.imageKeywords)}`;
+        // const dynamicImage = `https://source.unsplash.com/1600x900/?${encodeURIComponent(parsed.imageKeywords)}`;
         // Actually source.unsplash is deprecated/unreliable for some. Let's use the keywords in a search URL structure or similar if possible, 
         // but for now let's stick to a generic tech image or leave it blank to let the UI handle fallback, 
         // OR effectively use the provided mock image from before but maybe randomized.
@@ -135,9 +134,9 @@ Tone: professional, forward-looking, engaging. Avoid jargon where possible.`,
 
         return card;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error generating news:", error);
-        return getFallbackNews(topic, `Exception: ${error.message}`);
+        return getFallbackNews(topic, `Exception: ${(error as Error).message}`);
     }
 };
 

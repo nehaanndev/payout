@@ -19,7 +19,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { UpgradeDialog } from "@/components/UpgradeDialog";
 import { ReflectionsExperience } from "@/components/reflections/ReflectionsExperience";
@@ -222,8 +221,8 @@ export default function DailyDashboardPage() {
   const defaultMoodId = FLOW_MOOD_OPTIONS[0]?.id ?? "calm";
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+  const [_userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [_showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [newsItem, setNewsItem] = useState<OrbitInsightCard | null>(null);
   const [isNewsReaderOpen, setIsNewsReaderOpen] = useState(false);
   const [isPlus, setIsPlus] = useState(false);
@@ -2822,81 +2821,7 @@ function ReflectionStreakCard({
   );
 }
 
-function DailyWorkSummaryCard({
-  summary,
-  loading,
-  isNight,
-}: {
-  summary: DailySummaryPayload | null;
-  loading: boolean;
-  isNight: boolean;
-}) {
-  const tone = isNight ? "text-indigo-200" : "text-indigo-600";
-  return (
-    <Card
-      className={cn(
-        "rounded-[28px] p-6 shadow-sm",
-        isNight
-          ? "border-white/20 bg-gradient-to-br from-indigo-900/60 via-violet-900/40 to-purple-900/60 text-white"
-          : "border-indigo-200 bg-gradient-to-br from-indigo-50 via-violet-50 to-purple-50 text-slate-900"
-      )}
-    >
-      <CardHeader className="p-0">
-        <div className="mb-2 flex items-center gap-2">
-          <Sparkles className={cn("h-5 w-5", isNight ? "text-indigo-300" : "text-indigo-500")} />
-          <p
-            className={cn(
-              "text-xs font-semibold uppercase tracking-[0.35em]",
-              isNight ? "text-indigo-200" : "text-indigo-500"
-            )}
-          >
-            Daily work story
-          </p>
-        </div>
-        <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-slate-900")}>
-          Your morning read
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="mt-4 space-y-5">
-        {loading ? (
-          <div className={cn("flex items-center gap-3 text-sm", tone)}>
-            <Spinner size="sm" className="text-current" />
-            {"Gathering yesterday's wins..."}
-          </div>
-        ) : summary ? (
-          <>
-            <div className="space-y-3">
-              {summary.overview.map((paragraph, index) => (
-                <p
-                  key={index}
-                  className={cn("text-sm leading-relaxed", isNight ? "text-indigo-100" : "text-slate-700")}
-                >
-                  {paragraph}
-                </p>
-              ))}
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <WorkTaskListSection
-                label="Work wins"
-                tasks={summary.completedWork}
-                emptyText="Flow didn't capture any work wins yesterday."
-                isNight={isNight}
-              />
-              <WorkTaskListSection
-                label="Carryovers"
-                tasks={summary.pendingWork}
-                emptyText="No work carryovers - plan a fresh priority."
-                isNight={isNight}
-              />
-            </div>
-          </>
-        ) : (
-          <p className={cn("text-sm", tone)}>No summary just yet. Check back tomorrow morning.</p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+
 
 function DailyRecommendationCard({
   summary,
@@ -3334,7 +3259,7 @@ function NewsFeedCard({
             </p>
           </div>
           <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-slate-900")}>
-            Today's Headlines
+            Today&apos;s Headlines
           </CardTitle>
         </CardHeader>
 
