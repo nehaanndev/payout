@@ -17,6 +17,7 @@ import {
     Sun,
     Settings,
     MessageSquare,
+    Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
@@ -78,6 +79,11 @@ export function MobileNav({ user, isAnon = false, tier = 'free', onSignOut }: Mo
             label: "Orbit",
             href: "/orbit",
             icon: Globe,
+        },
+        {
+            label: "Quest",
+            href: "/quest",
+            icon: Target,
         },
     ];
 
