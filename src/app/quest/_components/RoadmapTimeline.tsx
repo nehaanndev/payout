@@ -11,8 +11,40 @@ type RoadmapTimelineProps = {
     endDate: string;
 };
 
-// Emoji icons for different quests
-const QUEST_ICONS = ["🎬", "📖", "🎹", "📝", "🎯", "💡", "🚀", "🌟"];
+// Color palette for quest pills (20 harmonious colors)
+const QUEST_COLORS = [
+    { bg: "bg-rose-500", text: "text-white" },
+    { bg: "bg-sky-500", text: "text-white" },
+    { bg: "bg-amber-500", text: "text-white" },
+    { bg: "bg-emerald-500", text: "text-white" },
+    { bg: "bg-violet-500", text: "text-white" },
+    { bg: "bg-orange-500", text: "text-white" },
+    { bg: "bg-teal-500", text: "text-white" },
+    { bg: "bg-pink-500", text: "text-white" },
+    { bg: "bg-indigo-500", text: "text-white" },
+    { bg: "bg-lime-500", text: "text-white" },
+    { bg: "bg-cyan-500", text: "text-white" },
+    { bg: "bg-fuchsia-500", text: "text-white" },
+    { bg: "bg-red-500", text: "text-white" },
+    { bg: "bg-blue-500", text: "text-white" },
+    { bg: "bg-yellow-500", text: "text-slate-900" },
+    { bg: "bg-green-500", text: "text-white" },
+    { bg: "bg-purple-500", text: "text-white" },
+    { bg: "bg-stone-500", text: "text-white" },
+    { bg: "bg-slate-600", text: "text-white" },
+    { bg: "bg-zinc-500", text: "text-white" },
+];
+
+// Extract 1-2 letter abbreviation from quest title
+function getQuestAbbreviation(title: string): string {
+    const words = title.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return "?";
+    if (words.length === 1) {
+        return words[0].substring(0, 2).toUpperCase();
+    }
+    // Take first letter of first two words
+    return (words[0][0] + words[1][0]).toUpperCase();
+}
 
 export function RoadmapTimeline({
     quests,
@@ -22,11 +54,14 @@ export function RoadmapTimeline({
 }: RoadmapTimelineProps) {
     const today = new Date().toISOString().split("T")[0];
 
-    // Create quest-to-icon mapping
-    const questIcons = useMemo(() => {
-        const map = new Map<string, string>();
+    // Create quest-to-color mapping
+    const questStyles = useMemo(() => {
+        const map = new Map<string, { colorIndex: number; abbr: string }>();
         quests.forEach((q, i) => {
-            map.set(q.id, QUEST_ICONS[i % QUEST_ICONS.length]);
+            map.set(q.id, {
+                colorIndex: i % QUEST_COLORS.length,
+                abbr: getQuestAbbreviation(q.title),
+            });
         });
         return map;
     }, [quests]);
@@ -54,7 +89,8 @@ export function RoadmapTimeline({
         const milestones: Array<{
             questId: string;
             questTitle: string;
-            icon: string;
+            colorIndex: number;
+            abbr: string;
             count: number;
         }> = [];
 
@@ -63,10 +99,12 @@ export function RoadmapTimeline({
                 (m) => m.assignedDate === date
             );
             if (dayMilestones.length > 0) {
+                const style = questStyles.get(quest.id);
                 milestones.push({
                     questId: quest.id,
                     questTitle: quest.title,
-                    icon: questIcons.get(quest.id) || "📚",
+                    colorIndex: style?.colorIndex ?? 0,
+                    abbr: style?.abbr ?? "?",
                     count: dayMilestones.length,
                 });
             }
@@ -128,18 +166,29 @@ export function RoadmapTimeline({
 
                             {/* Milestones */}
                             <div className="mt-1 flex flex-col items-center gap-0.5">
-                                {milestones.slice(0, 3).map((m) => (
-                                    <div
-                                        key={m.questId}
-                                        className="flex items-center gap-0.5 text-xs"
-                                        title={m.questTitle}
-                                    >
-                                        <span>{m.icon}</span>
-                                        {m.count > 1 && (
-                                            <span className="text-slate-500">{m.count}</span>
-                                        )}
-                                    </div>
-                                ))}
+                                {milestones.slice(0, 3).map((m) => {
+                                    const color = QUEST_COLORS[m.colorIndex];
+                                    return (
+                                        <div
+                                            key={m.questId}
+                                            className="flex items-center gap-0.5"
+                                            title={m.questTitle}
+                                        >
+                                            <span
+                                                className={cn(
+                                                    "flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-bold",
+                                                    color.bg,
+                                                    color.text
+                                                )}
+                                            >
+                                                {m.abbr}
+                                            </span>
+                                            {m.count > 1 && (
+                                                <span className="text-[10px] text-slate-500">{m.count}</span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                                 {milestones.length > 3 && (
                                     <span className="text-[10px] text-slate-400">
                                         +{milestones.length - 3}
@@ -169,12 +218,24 @@ export function RoadmapTimeline({
 
             {/* Legend */}
             <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-500">
-                {quests.map((quest) => (
-                    <div key={quest.id} className="flex items-center gap-1">
-                        <span>{questIcons.get(quest.id)}</span>
-                        <span>{quest.title}</span>
-                    </div>
-                ))}
+                {quests.map((quest) => {
+                    const style = questStyles.get(quest.id);
+                    const color = QUEST_COLORS[style?.colorIndex ?? 0];
+                    return (
+                        <div key={quest.id} className="flex items-center gap-1.5">
+                            <span
+                                className={cn(
+                                    "flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold",
+                                    color.bg,
+                                    color.text
+                                )}
+                            >
+                                {style?.abbr ?? "?"}
+                            </span>
+                            <span>{quest.title}</span>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );
