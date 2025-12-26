@@ -15,6 +15,7 @@ import {
     Sun,
     Settings,
     MessageSquare,
+    Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
@@ -64,6 +65,11 @@ export function AppSidebar({ user, isAnon = false, tier = 'free', onSignOut }: A
             label: "Flow",
             href: "/flow",
             icon: Workflow,
+        },
+        {
+            label: "Quest",
+            href: "/quest",
+            icon: Target,
         },
         {
             label: "Orbit",
