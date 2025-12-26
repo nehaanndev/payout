@@ -86,7 +86,8 @@ export async function scheduleQuestToFlow(
 export async function syncProgressFromFlow(
     userId: string,
     quest: Quest,
-    timezone: string
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _timezone: string
 ): Promise<{ updated: boolean; completedCount: number; updatedSyllabus: QuestMilestone[] }> {
     let updated = false;
     let completedCount = quest.completedUnits;
@@ -177,11 +178,10 @@ function findBestSlot(
     // Sort by start time
     occupiedSlots.sort((a, b) => a.start - b.start);
 
-    // Find first gap that fits
+
+    // Track day boundaries for fallback
     const dayStart = timeToMinutes(workStart);
     const dayEnd = timeToMinutes(workEnd);
-
-    let searchStart = dayStart;
 
     // Prefer morning slots (9am-12pm) for growth tasks
     const preferredSlots = [

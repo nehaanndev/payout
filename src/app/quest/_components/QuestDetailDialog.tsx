@@ -35,7 +35,7 @@ import { FlowTaskStatus } from "@/types/flow";
 import { updateQuest, deleteQuest } from "@/lib/questService";
 import { saveFlowPlan, fetchFlowPlanSnapshot } from "@/lib/flowService";
 import { cn } from "@/lib/utils";
-import { extractSubmodules, Submodule } from "./QuestCard";
+import { extractSubmodules } from "./QuestCard";
 
 type QuestDetailDialogProps = {
     quest: Quest | null;
@@ -553,7 +553,7 @@ export function QuestDetailDialog({
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete Quest?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will permanently delete "{quest.title}" and remove all {quest.syllabus.filter(m => m.flowTaskId).length} linked tasks from Flow.
+                            This will permanently delete &ldquo;{quest.title}&rdquo; and remove all {quest.syllabus.filter(m => m.flowTaskId).length} linked tasks from Flow.
                             This cannot be undone.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -575,7 +575,7 @@ export function QuestDetailDialog({
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete Resource?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will remove all sessions for "{deleteSubmoduleTarget}" and their linked Flow tasks.
+                            This will remove all sessions for &ldquo;{deleteSubmoduleTarget}&rdquo; and their linked Flow tasks.
                             This cannot be undone.
                         </AlertDialogDescription>
                     </AlertDialogHeader>

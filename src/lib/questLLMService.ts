@@ -1,4 +1,4 @@
-import { Quest, QuestMilestone, ClarifyingQuestion } from "@/types/quest";
+import { QuestMilestone, ClarifyingQuestion } from "@/types/quest";
 import { generateId } from "@/lib/id";
 
 // Generate clarifying questions based on quest type and title
@@ -16,21 +16,21 @@ export async function generateClarifyingQuestions(
     const systemPrompt =
         type === "known"
             ? `You are helping a user plan a goal where they know exactly what to do (e.g., watch a playlist, read a book).
-Generate 3-5 clarifying questions to understand the scope. Return JSON array with:
+Generate 3 - 5 clarifying questions to understand the scope.Return JSON array with:
 - id: unique string
-- question: the question text
-- inputType: "text" | "number" | "select" | "days"
-- options: array of options if inputType is "select"
-- required: boolean
+    - question: the question text
+        - inputType: "text" | "number" | "select" | "days"
+            - options: array of options if inputType is "select"
+                - required: boolean
 
-Ask about: total units (videos/pages/chapters), unit duration, daily time commitment, available days.`
-            : `You are helping a user plan a goal where they need guidance on HOW to achieve it (e.g., learn piano, understand ML).
-Generate 3-5 clarifying questions to understand their level and preferences. Return JSON array with:
-- id: unique string
-- question: the question text
-- inputType: "text" | "number" | "select" | "days"
-- options: array of options if inputType is "select"
-- required: boolean
+Ask about: total units(videos / pages / chapters), unit duration, daily time commitment, available days.`
+            : `You are helping a user plan a goal where they need guidance on HOW to achieve it(e.g., learn piano, understand ML).
+    Generate 3 - 5 clarifying questions to understand their level and preferences.Return JSON array with:
+    - id: unique string
+        - question: the question text
+            - inputType: "text" | "number" | "select" | "days"
+                - options: array of options if inputType is "select"
+                    - required: boolean
 
 Ask about: current skill level, learning style preference, daily time commitment, specific focus areas.`;
 
@@ -39,7 +39,7 @@ Ask about: current skill level, learning style preference, daily time commitment
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
+                Authorization: `Bearer ${apiKey} `,
             },
             body: JSON.stringify({
                 model: "gpt-4o-mini",
@@ -48,7 +48,7 @@ Ask about: current skill level, learning style preference, daily time commitment
                     { role: "system", content: systemPrompt },
                     {
                         role: "user",
-                        content: `Goal: "${title}". Target completion: ${endDate}. Generate clarifying questions.`,
+                        content: `Goal: "${title}".Target completion: ${endDate}. Generate clarifying questions.`,
                     },
                 ],
                 temperature: 0.3,
@@ -86,14 +86,14 @@ export async function generateResourceSuggestions(
 
 Based on the user's goal, suggest 4-6 REAL, well-known books or resources. Focus on quality over quantity.
 
-Return JSON with "suggestions" array. Each item:
-- title: string (exact book title + author, e.g., "Atomic Habits by James Clear")
-- description: string (1-2 sentence summary of why this book helps)
-- estimatedPages: number (approximate page count)
-- durationMinutes: number (estimated reading time, ~2 min per page)
-- resourceType: "book" | "video" | "article" | "course"
+Return JSON with "suggestions" array.Each item:
+- title: string(exact book title + author, e.g., "Atomic Habits by James Clear")
+    - description: string(1 - 2 sentence summary of why this book helps)
+        - estimatedPages: number(approximate page count)
+            - durationMinutes: number(estimated reading time, ~2 min per page)
+                - resourceType: "book" | "video" | "article" | "course"
 
-IMPORTANT: Only suggest real, published books or resources. No made-up titles.`;
+IMPORTANT: Only suggest real, published books or resources.No made - up titles.`;
 
     const userPrompt = `Goal: "${title}"
 ${feedback ? `User wants: ${feedback}` : ""}
@@ -105,7 +105,7 @@ Suggest 5 books or resources to help achieve this goal.`;
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
+                Authorization: `Bearer ${apiKey} `,
             },
             body: JSON.stringify({
                 model: "gpt-4o",
@@ -142,7 +142,7 @@ Suggest 5 books or resources to help achieve this goal.`;
             }, index: number): QuestMilestone => ({
                 id: generateId(),
                 day: index + 1,
-                title: item.title ?? `Resource ${index + 1}`,
+                title: item.title ?? `Resource ${index + 1} `,
                 description: item.description ?? "",
                 durationMinutes: item.durationMinutes ?? (item.estimatedPages ? item.estimatedPages * 2 : 360),
                 resourceType: (item.resourceType as QuestMilestone["resourceType"]) ?? "article",
@@ -156,7 +156,8 @@ Suggest 5 books or resources to help achieve this goal.`;
 }
 
 // Fallback book suggestions for common goals
-function buildFallbackBookSuggestions(title: string): QuestMilestone[] {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function buildFallbackBookSuggestions(_title: string): QuestMilestone[] {
     // Generic personal development books as fallback
     const fallbackBooks = [
         {
@@ -214,32 +215,32 @@ export async function generateSyllabus(
 
     const dayCount = getDaysBetween(startDate, endDate, availableDays);
 
-    const systemPrompt = `You are an expert curriculum designer. Create a practical learning syllabus.
+    const systemPrompt = `You are an expert curriculum designer.Create a practical learning syllabus.
 
-IMPORTANT: Use REAL YouTube videos and articles where possible. For each milestone, suggest concrete resources.
+    IMPORTANT: Use REAL YouTube videos and articles where possible.For each milestone, suggest concrete resources.
 
-Return JSON with "syllabus" array. Each item:
-- day: number (1 to ${dayCount})
-- title: string (specific lesson title)
-- description: string (what they'll learn)
-- durationMinutes: number (realistic duration)
-- resourceUrl: string (YouTube URL or article link if known, or "search:[query]" for user to find)
-- resourceType: "video" | "article" | "practice"
+Return JSON with "syllabus" array.Each item:
+- day: number(1 to ${dayCount})
+    - title: string(specific lesson title)
+        - description: string(what they'll learn)
+            - durationMinutes: number(realistic duration)
+        - resourceUrl: string(YouTube URL or article link if known, or "search:[query]" for user to find)
+    - resourceType: "video" | "article" | "practice"
 
 Make the syllabus comprehensive but achievable within ${dailyMinutes} minutes per day.`;
 
     const userPrompt = `Create a syllabus for: "${title}"
 User context: ${JSON.stringify(answers)}
-Available: ${dayCount} days, ${dailyMinutes} min/day
+Available: ${dayCount} days, ${dailyMinutes} min / day
 Days: ${availableDays.join(", ")}
-${feedback ? `User feedback: ${feedback}` : ""}`;
+${feedback ? `User feedback: ${feedback}` : ""} `;
 
     try {
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
+                Authorization: `Bearer ${apiKey} `,
             },
             body: JSON.stringify({
                 model: "gpt-4o",
@@ -277,7 +278,7 @@ ${feedback ? `User feedback: ${feedback}` : ""}`;
             }, index: number): QuestMilestone => ({
                 id: generateId(),
                 day: item.day ?? index + 1,
-                title: item.title ?? `Lesson ${index + 1}`,
+                title: item.title ?? `Lesson ${index + 1} `,
                 description: item.description ?? "",
                 durationMinutes: item.durationMinutes ?? dailyMinutes,
                 resourceUrl: item.resourceUrl,
@@ -418,8 +419,8 @@ function buildFallbackSyllabus(
     return Array.from({ length: Math.min(days, 14) }, (_, i) => ({
         id: generateId(),
         day: i + 1,
-        title: `${title}: Session ${i + 1}`,
-        description: `Work on ${title}`,
+        title: `${title}: Session ${i + 1} `,
+        description: `Work on ${title} `,
         durationMinutes: dailyMinutes,
         status: "pending" as const,
     }));

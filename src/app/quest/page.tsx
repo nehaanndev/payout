@@ -5,7 +5,7 @@ import { Plus, Target, Calendar, Clock, TrendingUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { Quest, DailyLoad } from "@/types/quest";
+import { Quest } from "@/types/quest";
 import {
     getUserQuests,
     calculateDailyLoad,
