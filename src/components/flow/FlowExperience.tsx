@@ -2087,10 +2087,15 @@ export function FlowExperience() {
                                         </Badge>
                                       </div>
                                       <h3 className={cn(
-                                        "text-base font-semibold",
+                                        "text-base font-semibold flex items-center gap-2",
                                         isNight ? statusColors.text : "text-slate-900"
                                       )}>
                                         {task.title}
+                                        {(task.title.startsWith("🎯 Quest:") || task.title.startsWith("📚")) && (
+                                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/50 dark:text-amber-400">
+                                            Quest
+                                          </span>
+                                        )}
                                       </h3>
                                       <p className={cn(
                                         "text-sm font-medium",
