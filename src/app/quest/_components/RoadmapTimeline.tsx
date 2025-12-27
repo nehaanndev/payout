@@ -68,20 +68,16 @@ export function RoadmapTimeline({
         return map;
     }, [quests]);
 
-    // Generate dates array (using UTC to avoid timezone/DST issues)
+    // Generate dates array using local timezone (consistent with display)
     const dates = useMemo(() => {
         const result: string[] = [];
-        // Parse as UTC to avoid timezone issues
-        const [startYear, startMonth, startDay] = startDate.split("-").map(Number);
-        const [endYear, endMonth, endDay] = endDate.split("-").map(Number);
-        const start = Date.UTC(startYear, startMonth - 1, startDay);
-        const end = Date.UTC(endYear, endMonth - 1, endDay);
-        const oneDay = 24 * 60 * 60 * 1000;
+        // Use parseLocalDate to interpret date strings in local timezone
+        const start = parseLocalDate(startDate);
+        const end = parseLocalDate(endDate);
 
-        for (let ts = start; ts <= end; ts += oneDay) {
-            const d = new Date(ts);
-            const dateStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-            result.push(dateStr);
+        // Iterate through each day
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            result.push(getLocalDateKey(d));
         }
         return result;
     }, [startDate, endDate]);
