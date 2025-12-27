@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Quest, DailyLoad } from "@/types/quest";
 import { cn } from "@/lib/utils";
+import { getLocalDateKey, parseLocalDate } from "@/lib/dateUtils";
 
 type RoadmapTimelineProps = {
     quests: Quest[];
@@ -52,7 +53,8 @@ export function RoadmapTimeline({
     startDate,
     endDate,
 }: RoadmapTimelineProps) {
-    const today = new Date().toISOString().split("T")[0];
+    // Use getLocalDateKey to get today's date in local timezone
+    const today = getLocalDateKey();
 
     // Create quest-to-color mapping
     const questStyles = useMemo(() => {
@@ -121,7 +123,8 @@ export function RoadmapTimeline({
                     const isPast = date < today;
                     const load = dailyLoads.find((l) => l.date === date);
                     const milestones = getMilestonesForDate(date);
-                    const dateObj = new Date(date);
+                    // Use parseLocalDate to avoid UTC interpretation of YYYY-MM-DD strings
+                    const dateObj = parseLocalDate(date);
 
                     return (
                         <div
