@@ -12,6 +12,7 @@ import { useToodlTheme } from "@/hooks/useToodlTheme";
 import { cn } from "@/lib/utils";
 import { SplitSettingsSection } from "@/components/settings/SplitSettingsSection";
 import { OrbitSettingsSection } from "@/components/settings/OrbitSettingsSection";
+import { InterestsSettingsSection } from "@/components/settings/InterestsSettingsSection";
 
 export default function SettingsPage() {
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -189,6 +190,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="mx-auto max-w-2xl space-y-8 mt-8">
+                <InterestsSettingsSection />
                 <SplitSettingsSection />
                 <OrbitSettingsSection />
             </div>

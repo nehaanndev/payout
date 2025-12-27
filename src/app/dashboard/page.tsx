@@ -82,6 +82,7 @@ import type { UserProfile } from "@/types/user";
 import { OnboardingWizard, type ToodlIntent } from "@/components/onboarding/OnboardingWizard";
 import { LearningCarousel } from "@/components/orbit/LearningCarousel";
 import { NewsReaderDialog } from "@/components/orbit/NewsReaderDialog";
+import { InterestWizard } from "@/components/orbit/InterestWizard";
 
 
 
@@ -228,6 +229,7 @@ export default function DailyDashboardPage() {
   const [selectedNewsItem, setSelectedNewsItem] = useState<OrbitInsightCard | null>(null);
   const [newsItems, setNewsItems] = useState<OrbitInsightCard[]>([]);
   const [isNewsReaderOpen, setIsNewsReaderOpen] = useState(false);
+  const [showInterestWizard, setShowInterestWizard] = useState(false);
   const [isPlus, setIsPlus] = useState(false);
 
   // AI News Fetch Logic
@@ -260,6 +262,12 @@ export default function DailyDashboardPage() {
   const handleNewsClick = (item: OrbitInsightCard) => {
     setSelectedNewsItem(item);
     setIsNewsReaderOpen(true);
+  };
+
+  const handleInterestWizardComplete = () => {
+    setShowInterestWizard(false);
+    // Clear existing news so it refetches with updated interests
+    setNewsItems([]);
   };
   const [flowPlan, setFlowPlan] = useState<FlowPlan | null>(null);
   const [flowLoading, setFlowLoading] = useState(false);
@@ -1414,6 +1422,7 @@ export default function DailyDashboardPage() {
                       isPlus={isPlus}
                       setShowUpgrade={() => setShowUpgradeDialog(true)}
                       onItemClick={handleNewsClick}
+                      onEditInterests={() => setShowInterestWizard(true)}
                     />
                     <DailyRecommendationCard
                       summary={dailySummary}
@@ -1467,6 +1476,7 @@ export default function DailyDashboardPage() {
                       isPlus={isPlus}
                       setShowUpgrade={() => setShowUpgradeDialog(true)}
                       onItemClick={handleNewsClick}
+                      onEditInterests={() => setShowInterestWizard(true)}
                     />
                   </div>
                   <div className="mt-6">
@@ -1692,6 +1702,19 @@ export default function DailyDashboardPage() {
         newsItem={selectedNewsItem}
         isNight={isNight}
       />
+
+      {/* Interest Wizard Dialog */}
+      <Dialog open={showInterestWizard} onOpenChange={setShowInterestWizard}>
+        <DialogContent className="max-w-lg p-0 border-0 bg-transparent shadow-none">
+          {user && (
+            <InterestWizard
+              userId={user.uid}
+              onComplete={handleInterestWizardComplete}
+              dark={isNight}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -3199,6 +3222,7 @@ function NewsFeedCard({
   isPlus,
   setShowUpgrade,
   onItemClick,
+  onEditInterests,
 }: {
   insights: OrbitInsightCard[];
   loading: boolean;
@@ -3206,6 +3230,7 @@ function NewsFeedCard({
   isPlus: boolean;
   setShowUpgrade: () => void;
   onItemClick?: (item: OrbitInsightCard) => void;
+  onEditInterests?: () => void;
 }) {
   const tone = isNight ? "text-indigo-200" : "text-slate-600";
   const [activeIndex, setActiveIndex] = useState(0);
@@ -3248,16 +3273,32 @@ function NewsFeedCard({
         }}
       >
         <CardHeader className="p-0 relative z-10">
-          <div className="mb-2 flex items-center gap-2">
-            <Sparkles className={cn("h-5 w-5", isNight ? "text-indigo-300" : "text-indigo-500")} />
-            <p
-              className={cn(
-                "text-xs font-semibold uppercase tracking-[0.35em]",
-                isNight ? "text-indigo-200" : "text-indigo-500"
-              )}
-            >
-              Daily Brief
-            </p>
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className={cn("h-5 w-5", isNight ? "text-indigo-300" : "text-indigo-500")} />
+              <p
+                className={cn(
+                  "text-xs font-semibold uppercase tracking-[0.35em]",
+                  isNight ? "text-indigo-200" : "text-indigo-500"
+                )}
+              >
+                Daily Brief
+              </p>
+            </div>
+            {isPlus && onEditInterests && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditInterests();
+                }}
+                className={cn(
+                  "text-xs font-medium underline underline-offset-2 hover:opacity-80 transition-opacity",
+                  isNight ? "text-indigo-300" : "text-indigo-500"
+                )}
+              >
+                Edit interests
+              </button>
+            )}
           </div>
           <CardTitle className={cn("text-xl", isNight ? "text-white" : "text-slate-900")}>
             Today&apos;s Headlines
