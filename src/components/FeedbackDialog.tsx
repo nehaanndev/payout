@@ -116,6 +116,8 @@ export function FeedbackDialog({ user, open, onOpenChange, trigger }: FeedbackDi
                                 <SelectItem value="budget">Pulse</SelectItem>
                                 <SelectItem value="journal">Story</SelectItem>
                                 <SelectItem value="orbit">Orbit</SelectItem>
+                                <SelectItem value="flow">Flow</SelectItem>
+                                <SelectItem value="quest">Quest</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

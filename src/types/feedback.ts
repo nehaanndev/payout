@@ -1,4 +1,4 @@
-export type AppName = 'dashboard' | 'split' | 'budget' | 'journal' | 'orbit' | 'general';
+export type AppName = 'dashboard' | 'split' | 'budget' | 'journal' | 'orbit' | 'flow' | 'quest' | 'general';
 
 export interface Feedback {
     id: string;
