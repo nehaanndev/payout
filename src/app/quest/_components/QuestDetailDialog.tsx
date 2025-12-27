@@ -36,7 +36,7 @@ import { updateQuest, deleteQuest } from "@/lib/questService";
 import { saveFlowPlan, fetchFlowPlanSnapshot } from "@/lib/flowService";
 import { cn } from "@/lib/utils";
 import { extractSubmodules } from "./QuestCard";
-import { getLocalDateKey } from "@/lib/dateUtils";
+import { getLocalDateKey, parseLocalDate } from "@/lib/dateUtils";
 
 type QuestDetailDialogProps = {
     quest: Quest | null;
@@ -244,7 +244,8 @@ export function QuestDetailDialog({
 
     const formatDate = (dateStr: string) => {
         if (dateStr === "unassigned") return "Unassigned";
-        const date = new Date(dateStr + "T12:00:00");
+        // Use parseLocalDate to correctly interpret date string in local timezone
+        const date = parseLocalDate(dateStr);
         const todayStr = getLocalDateKey();
         const tomorrowDate = new Date();
         tomorrowDate.setDate(tomorrowDate.getDate() + 1);
@@ -269,7 +270,8 @@ export function QuestDetailDialog({
     };
 
     const formatShortDate = (dateStr: string) => {
-        const date = new Date(dateStr + "T12:00:00");
+        // Use parseLocalDate to correctly interpret date string in local timezone
+        const date = parseLocalDate(dateStr);
         return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     };
 
