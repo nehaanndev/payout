@@ -75,10 +75,17 @@ export function RoadmapTimeline({
         const start = parseLocalDate(startDate);
         const end = parseLocalDate(endDate);
 
+        console.log("[RoadmapTimeline] startDate string:", startDate);
+        console.log("[RoadmapTimeline] parsed start:", start.toString());
+        console.log("[RoadmapTimeline] today:", getLocalDateKey());
+
         // Iterate through each day
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            result.push(getLocalDateKey(d));
+            const dateKey = getLocalDateKey(d);
+            result.push(dateKey);
         }
+
+        console.log("[RoadmapTimeline] first 5 dates:", result.slice(0, 5));
         return result;
     }, [startDate, endDate]);
 
