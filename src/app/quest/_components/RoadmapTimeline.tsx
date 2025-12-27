@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Quest, DailyLoad } from "@/types/quest";
 import { cn } from "@/lib/utils";
+import { getLocalDateKey, parseLocalDate } from "@/lib/dateUtils";
 
 type RoadmapTimelineProps = {
     quests: Quest[];
@@ -52,7 +53,8 @@ export function RoadmapTimeline({
     startDate,
     endDate,
 }: RoadmapTimelineProps) {
-    const today = new Date().toISOString().split("T")[0];
+    // Use getLocalDateKey to get today's date in local timezone
+    const today = getLocalDateKey();
 
     // Create quest-to-color mapping
     const questStyles = useMemo(() => {
@@ -66,21 +68,24 @@ export function RoadmapTimeline({
         return map;
     }, [quests]);
 
-    // Generate dates array (using UTC to avoid timezone/DST issues)
+    // Generate dates array using local timezone (consistent with display)
     const dates = useMemo(() => {
         const result: string[] = [];
-        // Parse as UTC to avoid timezone issues
-        const [startYear, startMonth, startDay] = startDate.split("-").map(Number);
-        const [endYear, endMonth, endDay] = endDate.split("-").map(Number);
-        const start = Date.UTC(startYear, startMonth - 1, startDay);
-        const end = Date.UTC(endYear, endMonth - 1, endDay);
-        const oneDay = 24 * 60 * 60 * 1000;
+        // Use parseLocalDate to interpret date strings in local timezone
+        const start = parseLocalDate(startDate);
+        const end = parseLocalDate(endDate);
 
-        for (let ts = start; ts <= end; ts += oneDay) {
-            const d = new Date(ts);
-            const dateStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-            result.push(dateStr);
+        console.log("[RoadmapTimeline] startDate string:", startDate);
+        console.log("[RoadmapTimeline] parsed start:", start.toString());
+        console.log("[RoadmapTimeline] today:", getLocalDateKey());
+
+        // Iterate through each day
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateKey = getLocalDateKey(d);
+            result.push(dateKey);
         }
+
+        console.log("[RoadmapTimeline] first 5 dates:", result.slice(0, 5));
         return result;
     }, [startDate, endDate]);
 
@@ -121,7 +126,8 @@ export function RoadmapTimeline({
                     const isPast = date < today;
                     const load = dailyLoads.find((l) => l.date === date);
                     const milestones = getMilestonesForDate(date);
-                    const dateObj = new Date(date);
+                    // Use parseLocalDate to avoid UTC interpretation of YYYY-MM-DD strings
+                    const dateObj = parseLocalDate(date);
 
                     return (
                         <div

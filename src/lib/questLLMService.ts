@@ -1,5 +1,6 @@
 import { QuestMilestone, ClarifyingQuestion } from "@/types/quest";
 import { generateId } from "@/lib/id";
+import { getLocalDateKey, parseLocalDate } from "@/lib/dateUtils";
 
 // Generate clarifying questions based on quest type and title
 export async function generateClarifyingQuestions(
@@ -445,13 +446,15 @@ function getAvailableDates(
         "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"
     ];
     const dates: string[] = [];
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    // Use parseLocalDate to avoid UTC interpretation issues
+    const start = parseLocalDate(startDate);
+    const end = parseLocalDate(endDate);
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const dayName = dayNames[d.getDay()];
         if (availableDays.length === 0 || availableDays.includes(dayName)) {
-            dates.push(d.toISOString().split("T")[0]);
+            // Use getLocalDateKey for consistent YYYY-MM-DD formatting
+            dates.push(getLocalDateKey(d));
         }
     }
 

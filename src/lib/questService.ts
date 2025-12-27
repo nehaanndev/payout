@@ -14,6 +14,7 @@ import {
 import { db } from "@/lib/firebase";
 import { Quest, QuestMilestone, DailyLoad } from "@/types/quest";
 import { generateId } from "@/lib/id";
+import { getLocalDateKey, parseLocalDate } from "@/lib/dateUtils";
 
 const questsCollection = (userId: string) =>
     collection(db, "users", userId, "quests");
@@ -139,16 +140,12 @@ export const calculateDailyLoad = (
 ): DailyLoad[] => {
     const loads: Map<string, DailyLoad> = new Map();
 
-    // Initialize all dates (using UTC to avoid timezone/DST issues)
-    const [startYear, startMonth, startDay] = startDate.split("-").map(Number);
-    const [endYear, endMonth, endDay] = endDate.split("-").map(Number);
-    const start = Date.UTC(startYear, startMonth - 1, startDay);
-    const end = Date.UTC(endYear, endMonth - 1, endDay);
-    const oneDay = 24 * 60 * 60 * 1000;
+    // Initialize all dates using local timezone (consistent with display)
+    const start = parseLocalDate(startDate);
+    const end = parseLocalDate(endDate);
 
-    for (let ts = start; ts <= end; ts += oneDay) {
-        const d = new Date(ts);
-        const dateKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateKey = getLocalDateKey(d);
         loads.set(dateKey, {
             date: dateKey,
             totalMinutes: 0,

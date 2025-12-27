@@ -35,6 +35,7 @@ import { distributeMilestones } from "@/lib/questLLMService";
 import { scheduleQuestToFlow } from "@/lib/questFlowBridge";
 import { cn } from "@/lib/utils";
 import { generateId } from "@/lib/id";
+import { getLocalDateKey, parseLocalDate } from "@/lib/dateUtils";
 
 type QuestWizardProps = {
     open: boolean;
@@ -91,7 +92,7 @@ export function QuestWizard({
     const [endDate, setEndDate] = useState(() => {
         const d = new Date();
         d.setDate(d.getDate() + 14);
-        return d.toISOString().split("T")[0];
+        return getLocalDateKey(d);
     });
 
     // Known syllabus details
@@ -134,7 +135,7 @@ export function QuestWizard({
     }, [open]);
 
     // Calculate dates and capacity
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateKey();
     const currentDailyLoads = useMemo(
         () => calculateDailyLoad(existingQuests, today, endDate),
         [existingQuests, today, endDate]
@@ -153,8 +154,9 @@ export function QuestWizard({
             "saturday",
         ];
         let count = 0;
-        const start = new Date(today);
-        const end = new Date(endDate);
+        // Use parseLocalDate to avoid UTC interpretation
+        const start = parseLocalDate(today);
+        const end = parseLocalDate(endDate);
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
             if (availableDays.includes(dayNames[d.getDay()])) {
                 count++;

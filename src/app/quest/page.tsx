@@ -17,6 +17,7 @@ import { QuestCard } from "./_components/QuestCard";
 import { QuestWizard } from "./_components/QuestWizard";
 import { QuestDetailDialog } from "./_components/QuestDetailDialog";
 import { cn } from "@/lib/utils";
+import { getLocalDateKey, parseLocalDate } from "@/lib/dateUtils";
 
 export default function QuestPage() {
     const { user } = useAuth();
@@ -33,15 +34,16 @@ export default function QuestPage() {
 
         // Extend if any quest ends later
         for (const quest of quests) {
-            const questEnd = new Date(quest.endDate);
+            // Use parseLocalDate to avoid UTC interpretation
+            const questEnd = parseLocalDate(quest.endDate);
             if (questEnd > endDate) {
                 endDate.setTime(questEnd.getTime());
             }
         }
 
         return {
-            start: today.toISOString().split("T")[0],
-            end: endDate.toISOString().split("T")[0],
+            start: getLocalDateKey(today),
+            end: getLocalDateKey(endDate),
         };
     }, [quests]);
 
@@ -57,7 +59,7 @@ export default function QuestPage() {
     );
 
     // Get today's tasks
-    const todayKey = new Date().toISOString().split("T")[0];
+    const todayKey = getLocalDateKey();
     const todayLoad = dailyLoads.find((l) => l.date === todayKey);
 
     // Load quests
@@ -215,7 +217,7 @@ export default function QuestPage() {
                                         )}
                                     >
                                         <span className="text-xs text-slate-500">
-                                            {new Date(load.date).toLocaleDateString("en-US", {
+                                            {parseLocalDate(load.date).toLocaleDateString("en-US", {
                                                 weekday: "short",
                                                 day: "numeric",
                                             })}
