@@ -27,3 +27,12 @@ export function isSameDay(dateKey1: string | undefined, dateKey2: string | undef
 export function isMorningHours(hour: number = new Date().getHours()): boolean {
     return hour < 17;
 }
+
+/**
+ * Parse a YYYY-MM-DD date string as a local date (not UTC).
+ * This avoids timezone issues where `new Date("2024-01-01")` is interpreted as UTC midnight.
+ */
+export function parseLocalDate(dateStr: string): Date {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    return new Date(year, month - 1, day);
+}

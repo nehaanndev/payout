@@ -36,6 +36,7 @@ import { updateQuest, deleteQuest } from "@/lib/questService";
 import { saveFlowPlan, fetchFlowPlanSnapshot } from "@/lib/flowService";
 import { cn } from "@/lib/utils";
 import { extractSubmodules } from "./QuestCard";
+import { getLocalDateKey } from "@/lib/dateUtils";
 
 type QuestDetailDialogProps = {
     quest: Quest | null;
@@ -144,7 +145,7 @@ export function QuestDetailDialog({
                                 ...t,
                                 status: flowStatus,
                                 estimateMinutes:
-                                    newStatus === "done" && milestone.assignedDate! > new Date().toISOString().split("T")[0]
+                                    newStatus === "done" && milestone.assignedDate! > getLocalDateKey()
                                         ? 0
                                         : t.estimateMinutes,
                             };
@@ -244,11 +245,13 @@ export function QuestDetailDialog({
     const formatDate = (dateStr: string) => {
         if (dateStr === "unassigned") return "Unassigned";
         const date = new Date(dateStr + "T12:00:00");
-        const today = new Date().toISOString().split("T")[0];
-        const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+        const todayStr = getLocalDateKey();
+        const tomorrowDate = new Date();
+        tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+        const tomorrowStr = getLocalDateKey(tomorrowDate);
 
-        if (dateStr === today) return "Today";
-        if (dateStr === tomorrow) return "Tomorrow";
+        if (dateStr === todayStr) return "Today";
+        if (dateStr === tomorrowStr) return "Tomorrow";
 
         return date.toLocaleDateString("en-US", {
             weekday: "short",
@@ -270,7 +273,7 @@ export function QuestDetailDialog({
         return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     };
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateKey();
 
     return (
         <>
