@@ -1706,6 +1706,7 @@ export default function DailyDashboardPage() {
       {/* Interest Wizard Dialog */}
       <Dialog open={showInterestWizard} onOpenChange={setShowInterestWizard}>
         <DialogContent className="max-w-lg p-0 border-0 bg-transparent shadow-none">
+          <DialogTitle className="sr-only">Edit Interests</DialogTitle>
           {user && (
             <InterestWizard
               userId={user.uid}

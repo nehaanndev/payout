@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Sparkles, Loader2, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
@@ -106,6 +106,7 @@ export function InterestsSettingsSection() {
 
             <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
                 <DialogContent className="max-w-lg p-0 border-0 bg-transparent shadow-none">
+                    <DialogTitle className="sr-only">Edit Interests</DialogTitle>
                     {auth.currentUser && (
                         <InterestWizard
                             userId={auth.currentUser.uid}
