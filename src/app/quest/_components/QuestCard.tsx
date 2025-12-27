@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Quest, QuestMilestone } from "@/types/quest";
 import { cn } from "@/lib/utils";
+import { parseLocalDate } from "@/lib/dateUtils";
 
 type QuestCardProps = {
     quest: Quest;
@@ -90,12 +91,13 @@ export function QuestCard({ quest, onClick }: QuestCardProps) {
     };
 
     const formatDate = (dateStr: string) => {
-        const date = new Date(dateStr + "T12:00:00");
+        // Use parseLocalDate to avoid UTC interpretation offset
+        const date = parseLocalDate(dateStr);
         return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     };
 
     const daysRemaining = Math.ceil(
-        (new Date(quest.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        (parseLocalDate(quest.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
     );
 
     return (
