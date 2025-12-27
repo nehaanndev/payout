@@ -7,12 +7,13 @@ import {
   ArrowRight,
   Brain,
   Globe,
+  GraduationCap,
   MessageCircle,
+  Newspaper,
   NotebookPen,
   Sparkles,
   Wallet,
   Workflow,
-  Zap,
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 
@@ -59,6 +60,14 @@ const PRODUCT_SPOTLIGHT: SpotlightProduct[] = [
     href: "/flow",
   },
   {
+    name: "Quest",
+    tagline: "Learn something new",
+    icon: GraduationCap,
+    accent: "from-purple-500/15 via-violet-400/10 to-purple-500/0",
+    description: "AI-powered learning paths tailored to your goals.",
+    href: "/quest",
+  },
+  {
     name: "Orbit",
     tagline: "Save important things",
     icon: Globe,
@@ -100,10 +109,16 @@ const HOW_IT_WORKS_STEPS: WorkflowStep[] = [
     icon: Brain,
   },
   {
-    title: "Get personalized recommendations",
+    title: "Learn with Quest",
     description:
-      "Toodl learns from your past schedule to suggest the best times for deep work, meetings, and breaks.",
-    icon: Zap,
+      "Pick a topic you want to master. AI creates a personalized syllabus and teaches you in daily bite-sized lessons.",
+    icon: GraduationCap,
+  },
+  {
+    title: "Stay informed with your news feed",
+    description:
+      "Get curated news articles based on your interests. AI finds content you'll actually want to read.",
+    icon: Newspaper,
   },
   {
     title: "Toodl Mind ties it all together",
@@ -167,10 +182,10 @@ export function LandingPage({
                 <span className="text-3xl font-extrabold tracking-tight text-slate-900">Toodl</span>
               </div>
               <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl lg:text-6xl">
-                Plan your life.
+                AI that plans your life.
               </h1>
               <p className="text-lg text-slate-600 lg:text-xl">
-                One app for your money, tasks, journals, and family.
+                One intelligent assistant for your money, tasks, journals, news, and goals—powered by AI that learns how you live.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button
@@ -214,7 +229,7 @@ export function LandingPage({
                     What each helper does
                   </p>
                   <span className="text-[11px] font-medium uppercase tracking-[0.35em] text-emerald-500">
-                    Bills · Budget · Plan · Journal · Save
+                    Bills · Budget · Plan · Journal · Learn · News
                   </span>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
