@@ -3305,7 +3305,7 @@ function NewsFeedCard({
                   <Button
                     size="icon"
                     variant="ghost"
-                    onClick={handlePrevious}
+                    onClick={(e) => { e.stopPropagation(); handlePrevious(); }}
                     className={cn("h-8 w-8 rounded-full", isNight ? "hover:bg-white/10" : "hover:bg-indigo-100")}
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -3316,7 +3316,7 @@ function NewsFeedCard({
                   <Button
                     size="icon"
                     variant="ghost"
-                    onClick={handleNext}
+                    onClick={(e) => { e.stopPropagation(); handleNext(); }}
                     className={cn("h-8 w-8 rounded-full", isNight ? "hover:bg-white/10" : "hover:bg-indigo-100")}
                   >
                     <ChevronRight className="h-4 w-4" />

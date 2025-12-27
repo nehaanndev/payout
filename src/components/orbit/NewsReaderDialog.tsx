@@ -2,7 +2,6 @@
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { OrbitInsightCard } from "@/types/orbit";
-import { X } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -43,15 +42,6 @@ export function NewsReaderDialog({
                         />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-4 right-4 text-white hover:bg-white/20 rounded-full"
-                        onClick={() => onOpenChange(false)}
-                    >
-                        <X className="h-5 w-5" />
-                    </Button>
 
                     <div className="absolute bottom-6 left-6 right-6">
                         <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/20 text-white backdrop-blur-sm mb-3">
