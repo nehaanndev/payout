@@ -43,6 +43,7 @@ import { uploadOrbitAttachment, ORBIT_UPLOAD_MAX_BYTES } from "@/lib/orbitStorag
 import { FLOW_MOOD_OPTIONS, getFlowMoodOption } from "@/lib/flowMood";
 import { generateId } from "@/lib/id";
 import { isMorningHours } from "@/lib/dateUtils";
+import { getHeadline } from "@/data/dashboardHeadlines";
 import {
   getUserGroups,
   getUserGroupsById,
@@ -1018,6 +1019,7 @@ export default function DailyDashboardPage() {
 
   const palette = THEMES[theme];
   const greetingName = user?.displayName?.split(" ")[0] ?? "friend";
+  const headline = useMemo(() => getHeadline(new Date()), []);
 
 
 
@@ -1321,7 +1323,7 @@ export default function DailyDashboardPage() {
               </div>
               <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <h1 className={cn("text-3xl font-bold", theme === "night" && "text-white")}>Hey {greetingName}, keep the loop kind.</h1>
+                  <h1 className={cn("text-3xl font-bold", theme === "night" && "text-white")}>Hey {greetingName}, {headline}</h1>
                   <p className={cn("text-base", theme === "night" ? "text-indigo-100" : "text-slate-600")}>
                     See → Do → Feel → Reflect without bouncing tabs.
                   </p>
