@@ -8,11 +8,14 @@ import { Toaster } from "@/components/ui/toaster";
 
 // app/layout.tsx
 export const metadata = {
-  title: "Toodl: AI-first ledger for Split, Pulse, Story, Flow, Orbit",
+  title: "Toodl | The AI-First Ledger",
   description:
     "Start a conversation with Toodl AI and watch Split, Pulse, Story, Flow, and Orbit stay perfectly in sync across bills, budgets, journals, plans, and saves.",
+  icons: {
+    icon: "/brand/toodl-logo.png",
+  },
   openGraph: {
-    title: "Toodl: AI-first ledger",
+    title: "Toodl | The AI-First Ledger",
     description:
       "Tell the AI once—Split settles tabs, Pulse steers budgets, Story journals, Flow plans, and Orbit keeps every spark.",
     url: "https://toodl.co",

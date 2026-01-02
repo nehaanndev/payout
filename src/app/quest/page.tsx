@@ -5,6 +5,9 @@ import { Plus, Target, Calendar, Clock, TrendingUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { ensureUserProfile } from "@/lib/userService";
+import { type UserProfile } from "@/types/user";
+import { UpgradeDialog } from "@/components/UpgradeDialog";
 import { Quest } from "@/types/quest";
 import {
     getUserQuests,
@@ -25,6 +28,8 @@ export default function QuestPage() {
     const [loading, setLoading] = useState(true);
     const [wizardOpen, setWizardOpen] = useState(false);
     const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [upgradeOpen, setUpgradeOpen] = useState(false);
 
     // Calculate date range for roadmap
     const dateRange = useMemo(() => {
@@ -69,6 +74,10 @@ export default function QuestPage() {
         const loadQuests = async () => {
             setLoading(true);
             try {
+                // Fetch profile first
+                const profile = await ensureUserProfile(user);
+                setUserProfile(profile);
+
                 const userQuests = await getUserQuests(user.uid);
 
                 // Sync progress from Flow for each quest
@@ -101,7 +110,7 @@ export default function QuestPage() {
         };
 
         loadQuests();
-    }, [user?.uid]);
+    }, [user]); // Changed dependency to full user object since ensureUserProfile needs it
 
     const activeQuests = quests.filter(
         (q) => q.status === "active" || q.status === "planning"
@@ -162,7 +171,14 @@ export default function QuestPage() {
                         </div>
                     </div>
                     <Button
-                        onClick={() => setWizardOpen(true)}
+                        onClick={() => {
+                            const isPlus = userProfile?.tier === "plus";
+                            if (!isPlus && quests.length >= 1) {
+                                setUpgradeOpen(true);
+                            } else {
+                                setWizardOpen(true);
+                            }
+                        }}
                         className="gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25 hover:from-amber-600 hover:to-orange-700"
                     >
                         <Plus className="h-4 w-4" />
@@ -300,7 +316,14 @@ export default function QuestPage() {
                                 Start your first quest to track your goals
                             </p>
                             <Button
-                                onClick={() => setWizardOpen(true)}
+                                onClick={() => {
+                                    const isPlus = userProfile?.tier === "plus";
+                                    if (!isPlus && quests.length >= 1) {
+                                        setUpgradeOpen(true);
+                                    } else {
+                                        setWizardOpen(true);
+                                    }
+                                }}
                                 variant="outline"
                                 className="gap-2"
                             >
@@ -357,6 +380,11 @@ export default function QuestPage() {
                         onDelete={handleQuestDelete}
                     />
                 )}
+
+                <UpgradeDialog
+                    open={upgradeOpen}
+                    onOpenChange={setUpgradeOpen}
+                />
             </div>
         </div>
     );
