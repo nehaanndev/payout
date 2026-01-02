@@ -84,6 +84,7 @@ import { cn } from "@/lib/utils";
 import { useToodlTheme } from "@/hooks/useToodlTheme";
 import { getUserProfile, isUserPlus } from "@/lib/userService";
 import { UpgradeDialog } from "@/components/UpgradeDialog";
+import { LessonDialog } from "@/components/orbit/LessonDialog";
 import type { UserProfile } from "@/types/user";
 
 type ScratchPadFilter = SharedLinkStatus | "all";
@@ -2051,79 +2052,16 @@ export function ScratchPadExperience() {
           ) : null}
         </DialogContent>
       </Dialog>
-      <Dialog
+      <LessonDialog
+        lesson={selectedLesson}
         open={Boolean(selectedLesson)}
         onOpenChange={(open) => {
           if (!open) {
             setSelectedLesson(null);
           }
         }}
-      >
-        <DialogContent className={cn(
-          "max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border",
-          isNight ? "border-white/10 bg-slate-900/90 text-white" : "border-emerald-100 bg-white/95 text-slate-900"
-        )}>
-          {selectedLesson ? (
-            <>
-              <DialogHeader className="space-y-1 text-left">
-                <DialogTitle className={cn("text-xl font-semibold", isNight ? "text-white" : "text-slate-900")}>
-                  {selectedLesson.title}
-                </DialogTitle>
-                <DialogDescription className={cn("text-xs", isNight ? "text-indigo-200/80" : "text-emerald-700")}>
-                  Day {selectedLesson.day} of {selectedLesson.totalDays} · Saved lesson
-                </DialogDescription>
-              </DialogHeader>
-              <p className={cn("text-sm", isNight ? "text-indigo-200" : "text-slate-700")}>
-                {selectedLesson.overview}
-              </p>
-              <div className="mt-3 space-y-3 text-sm leading-relaxed">
-                {selectedLesson.paragraphs?.map((paragraph, index) => (
-                  <p key={index} className={isNight ? "text-indigo-100" : "text-slate-700"}>
-                    {paragraph}
-                  </p>
-                ))}
-              </div>
-              {selectedLesson.quiz?.length ? (
-                <div className="mt-6 space-y-3 rounded-2xl border border-dashed border-emerald-200/60 p-4">
-                  <p className={cn("text-xs font-semibold uppercase tracking-[0.35em]", isNight ? "text-indigo-200" : "text-emerald-700")}>
-                    Quick quiz
-                  </p>
-                  {selectedLesson.quiz.map((item, idx) => (
-                    <div key={idx} className={cn(
-                      "space-y-2 rounded-xl border px-3 py-2",
-                      isNight ? "border-white/10 bg-white/5" : "border-slate-200 bg-slate-50"
-                    )}>
-                      <p className={cn("text-sm font-semibold", isNight ? "text-white" : "text-slate-900")}>
-                        {item.question}
-                      </p>
-                      <ul className="space-y-1 text-sm">
-                        {item.answers.map((answer, answerIdx) => (
-                          <li
-                            key={answerIdx}
-                            className={cn(
-                              "rounded-lg border px-3 py-2",
-                              isNight ? "border-white/10 text-indigo-100" : "border-slate-200 text-slate-700",
-                              answer === item.correctAnswer &&
-                              (isNight ? "border-emerald-300/70 bg-emerald-500/10" : "border-emerald-200 bg-emerald-50")
-                            )}
-                          >
-                            {answer}
-                            {answer === item.correctAnswer ? (
-                              <span className={cn("ml-2 text-xs font-semibold", isNight ? "text-emerald-200" : "text-emerald-700")}>
-                                ✓
-                              </span>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+        isNight={isNight}
+      />
       <Dialog open={showReflections} onOpenChange={setShowReflections}>
         <DialogContent className="max-w-4xl h-[80vh] p-0 overflow-hidden flex flex-col">
           <DialogHeader className="sr-only">
