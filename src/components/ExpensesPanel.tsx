@@ -772,7 +772,7 @@ export default function ExpensesPanel({
                       </p>
                     </div>
                     <div className={cn("text-2xl font-bold mb-1", isNight ? "text-indigo-200" : "text-indigo-600")}>
-                      {pendingSettlements.length ? formatMoneySafeGivenCurrency(pendingTotal, currency) : "—"}
+                      {pendingSettlements.length ? formatMoney(toMinor(pendingTotal, currency), currency) : "—"}
                     </div>
                     <p className={cn("text-xs leading-relaxed", isNight ? "text-indigo-200/80" : "text-slate-500")}>
                       {pendingSettlements.length
