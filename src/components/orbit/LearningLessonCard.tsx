@@ -134,7 +134,7 @@ export function LearningLessonCard({
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent
                     className={cn(
-                        "max-w-3xl max-h-[85vh] border-none p-0 flex flex-col",
+                        "max-w-3xl max-h-[85vh] border-none p-0 flex flex-col overflow-hidden",
                         isNight ? "bg-slate-900/90 text-white" : "bg-white/95 text-slate-900"
                     )}
                 >
