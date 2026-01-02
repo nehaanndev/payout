@@ -79,10 +79,11 @@ import type {
 } from "@/types/orbit";
 import { getUserProfile, isUserPlus } from "@/lib/userService";
 import type { UserProfile } from "@/types/user";
-import { OnboardingWizard, type ToodlIntent } from "@/components/onboarding/OnboardingWizard";
 import { LearningCarousel } from "@/components/orbit/LearningCarousel";
 import { NewsReaderDialog } from "@/components/orbit/NewsReaderDialog";
 import { InterestWizard } from "@/components/orbit/InterestWizard";
+
+export type ToodlIntent = "split" | "pulse" | "flow" | "orbit" | "all";
 
 
 
@@ -306,10 +307,8 @@ export default function DailyDashboardPage() {
   const [anchorAddState, setAnchorAddState] = useState<Record<string, "adding" | "added">>({});
   const [activePlans, setActivePlans] = useState<OrbitLearningPlan[]>([]);
 
-  // Onboarding / Intent State
+  // Intent State - default to "all" (no onboarding wizard)
   const [intent, setIntent] = useState<ToodlIntent | null>(null);
-  const [showWizard, setShowWizard] = useState(false);
-  const [wizardChecked, setWizardChecked] = useState(false);
 
   const shouldShow = useCallback((feature: "split" | "pulse" | "flow" | "orbit") => {
     if (!intent) return false;
@@ -320,19 +319,8 @@ export default function DailyDashboardPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem("toodl_intent") as ToodlIntent | null;
-    if (stored) {
-      setIntent(stored);
-    } else {
-      setShowWizard(true);
-    }
-    setWizardChecked(true);
+    setIntent(stored ?? "all");
   }, []);
-
-  const handleWizardComplete = (selected: ToodlIntent) => {
-    setIntent(selected);
-    setShowWizard(false);
-    window.localStorage.setItem("toodl_intent", selected);
-  };
 
   const timezone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -1282,11 +1270,8 @@ export default function DailyDashboardPage() {
 
   return (
     <>
-      {/* Onboarding Wizard Overlay */}
-      {showWizard && <OnboardingWizard onComplete={handleWizardComplete} />}
-
-      {/* Main Content - Only show if wizard is checked and (not showing wizard OR wizard is done) */}
-      {wizardChecked && !showWizard && (
+      {/* Main Content */}
+      {intent && (
         <div className={cn("min-h-screen pb-24 transition-colors duration-700", palette.gradient)}>
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8">
             {/* Header & Search */}
@@ -1682,7 +1667,10 @@ export default function DailyDashboardPage() {
                 <p className="text-sm text-slate-500 mb-3">Looking for more tools?</p>
                 <Button
                   variant="outline"
-                  onClick={() => handleWizardComplete("all")}
+                  onClick={() => {
+                    setIntent("all");
+                    window.localStorage.setItem("toodl_intent", "all");
+                  }}
                   className="rounded-full border-slate-200 text-slate-600 hover:bg-slate-50"
                 >
                   <Sparkles className="mr-2 h-4 w-4" />
