@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 import { ensureUserProfile } from "@/lib/userService";
 import type { UserProfile } from "@/types/user";
+import { GuidedTour, TOUR_COMPLETED_KEY } from "@/components/onboarding/GuidedTour";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -17,6 +18,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [isAnon, setIsAnon] = useState(false);
+    const [showTour, setShowTour] = useState(false);
+
+    // Check if this is a first-time user on mount
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const tourCompleted = window.localStorage.getItem(TOUR_COMPLETED_KEY);
+            if (!tourCompleted) {
+                setShowTour(true);
+            }
+        }
+    }, []);
+
+    const handleTourComplete = () => {
+        setShowTour(false);
+        // The GuidedTour component already sets localStorage
+    };
 
     useEffect(() => {
         // Check for anonymous user
@@ -65,6 +82,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="min-h-screen">
+            {/* Guided Tour for first-time users */}
+            {showTour && <GuidedTour onComplete={handleTourComplete} />}
+
             <AppSidebar
                 user={user}
                 isAnon={isAnon}
