@@ -732,7 +732,7 @@ export default function ExpensesPanel({
                     </div>
                     <p className={cn("text-xs leading-relaxed", isNight ? "text-emerald-200/80" : "text-slate-500")}>
                       {totalOwedToYou > 0
-                        ? `From ${Math.max(membersWhoOweYou.length, 1)} roommate${Math.max(membersWhoOweYou.length, 1) > 1 ? "s" : ""
+                        ? `From ${Math.max(membersWhoOweYou.length, 1)} member${Math.max(membersWhoOweYou.length, 1) > 1 ? "s" : ""
                         }`
                         : "No one owes you right now."}
                     </p>
@@ -772,7 +772,7 @@ export default function ExpensesPanel({
                       </p>
                     </div>
                     <div className={cn("text-2xl font-bold mb-1", isNight ? "text-indigo-200" : "text-indigo-600")}>
-                      {pendingSettlements.length ? formatMoney(pendingTotal, currency) : "—"}
+                      {pendingSettlements.length ? formatMoney(toMinor(pendingTotal, currency), currency) : "—"}
                     </div>
                     <p className={cn("text-xs leading-relaxed", isNight ? "text-indigo-200/80" : "text-slate-500")}>
                       {pendingSettlements.length

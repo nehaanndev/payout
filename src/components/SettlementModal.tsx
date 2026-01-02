@@ -282,7 +282,7 @@ export default function SettlementModal({
                     <div key={settlement.id} className="flex items-center justify-between bg-white dark:bg-slate-900 rounded-lg p-3 border border-indigo-100 dark:border-indigo-900 shadow-sm">
                       <div>
                         <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                          {payerName} sent {formatMoney(settlement.amount, currency)}
+                          {payerName} sent {formatMoney(toMinor(settlement.amount, currency), currency)}
                         </p>
                         <p className="text-xs text-slate-500">
                           {new Date(settlement.createdAt).toLocaleDateString()}
@@ -329,7 +329,9 @@ export default function SettlementModal({
             {selectedPayeeMember && configuredMethods.length > 0 && (
               <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 p-3 space-y-2">
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  {selectedPayeeMember.firstName} accepts:
+                  {isMarkSettledMode
+                    ? `How did ${selectedPayeeMember.firstName} pay you?`
+                    : `${selectedPayeeMember.firstName} accepts:`}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {configuredMethods.map((method) => {
@@ -446,7 +448,11 @@ export default function SettlementModal({
             disabled={!selectedPayee || !amount}
             onClick={handleSave}
           >
-            {isPartialPayment ? `Pay ${formatMoney(enteredAmountMinor, currency)}` : 'Save'}
+            {isMarkSettledMode
+              ? 'Mark received'
+              : isPartialPayment
+                ? `Pay ${formatMoney(enteredAmountMinor, currency)}`
+                : 'Record payment'}
           </Button>
         </DialogFooter>
       </DialogContent>
