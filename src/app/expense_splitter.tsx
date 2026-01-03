@@ -506,7 +506,7 @@ export default function ExpenseSplitter({
   };
 
   const handleConfirmSettlement = async (settlement: Settlement) => {
-    if (!activeGroupId) {
+    if (!settlementGroup) {
       return;
     }
     if (settlement.payeeId !== currentUserId) {
@@ -514,11 +514,11 @@ export default function ExpenseSplitter({
       return;
     }
     try {
-      await confirmSettlement(activeGroupId, settlement.id, currentUserId);
-      const updated = await getSettlements(activeGroupId);
+      await confirmSettlement(settlementGroup.id, settlement.id, currentUserId);
+      const updated = await getSettlements(settlementGroup.id);
       setSettlementsByGroup((prev) => ({
         ...prev,
-        [activeGroupId]: updated,
+        [settlementGroup.id]: updated,
       }));
     } catch (error) {
       console.error("Failed to confirm settlement", error);
@@ -528,6 +528,16 @@ export default function ExpenseSplitter({
 
 
   const handleDeleteGroup = async (group: Group) => {
+    // Permission check: ID must match either session UID or anon ID
+    const isCreator =
+      group.createdBy === session?.uid ||
+      group.createdBy === anonUser?.id;
+
+    if (!isCreator) {
+      alert("Only the group creator can delete this group.");
+      return;
+    }
+
     try {
       await deleteGroup(group.id);
       setSavedGroups((prev) => prev.filter((g) => g.id !== group.id));

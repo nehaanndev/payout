@@ -22,7 +22,7 @@ import { Member, Expense } from "@/types/group";
 import { Settlement, SettlementMethod } from "@/types/settlement";
 import { CurrencyCode, formatMoney, fromMinor, toMinor } from "@/lib/currency_core";
 import { Textarea } from "@/components/ui/textarea";
-import { Wallet, Smartphone, CreditCard, Banknote, CircleDollarSign, HelpCircle, Check, AlertCircle } from "lucide-react";
+import { Wallet, Smartphone, CreditCard, Banknote, CircleDollarSign, HelpCircle, Check, AlertCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SettlementModalProps {
@@ -124,6 +124,7 @@ export default function SettlementModal({
   );
   const [paymentMethod, setPaymentMethod] = useState<SettlementMethod>("cash");
   const [paymentNote, setPaymentNote] = useState("");
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const selectedPayeeMember = useMemo(
     () => members.find((member) => member.id === selectedPayee) ?? null,
@@ -295,10 +296,24 @@ export default function SettlementModal({
                       <Button
                         size="sm"
                         variant="default"
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                        onClick={() => onConfirmSettlement?.(settlement)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white min-w-[80px]"
+                        disabled={confirmingId === settlement.id}
+                        onClick={async () => {
+                          if (onConfirmSettlement) {
+                            setConfirmingId(settlement.id);
+                            try {
+                              await onConfirmSettlement(settlement);
+                            } finally {
+                              setConfirmingId(null);
+                            }
+                          }
+                        }}
                       >
-                        Approve
+                        {confirmingId === settlement.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Approve"
+                        )}
                       </Button>
                     </div>
                   );
