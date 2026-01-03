@@ -332,10 +332,6 @@ export default function Summary({
                         className={cn("text-red-500 hover:text-red-700 hover:bg-red-50")}
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (group.createdBy !== fullUserId) {
-                            alert("Only the group creator can delete this group.");
-                            return;
-                          }
                           if (confirm("Are you sure you want to delete this group? This action cannot be undone.")) {
                             onDeleteGroup(group);
                           }
