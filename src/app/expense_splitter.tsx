@@ -444,7 +444,7 @@ export default function ExpenseSplitter({
       }
       const newId = await createGroup(
         groupName,
-        session?.email ?? '',
+        session ? session.uid : anonUser!.id,
         members,
         currency
       );
@@ -528,10 +528,11 @@ export default function ExpenseSplitter({
 
 
   const handleDeleteGroup = async (group: Group) => {
-    // Permission check: ID must match either session UID or anon ID
+    // Permission check: ID must match either session UID or anon ID or (legacy) email
     const isCreator =
       group.createdBy === session?.uid ||
-      group.createdBy === anonUser?.id;
+      group.createdBy === anonUser?.id ||
+      (session?.email && group.createdBy === session.email);
 
     if (!isCreator) {
       alert("Only the group creator can delete this group.");
