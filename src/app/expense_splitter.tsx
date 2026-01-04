@@ -506,7 +506,11 @@ export default function ExpenseSplitter({
   };
 
   const handleConfirmSettlement = async (settlement: Settlement) => {
-    if (!settlementGroup) {
+    // Falls back to activeGroup so it works from ExpensesPanel too
+    const targetGroup = settlementGroup || activeGroup;
+
+    if (!targetGroup) {
+      console.error("No group context found for settlement confirmation");
       return;
     }
     if (settlement.payeeId !== currentUserId) {
@@ -514,11 +518,11 @@ export default function ExpenseSplitter({
       return;
     }
     try {
-      await confirmSettlement(settlementGroup.id, settlement.id, currentUserId);
-      const updated = await getSettlements(settlementGroup.id);
+      await confirmSettlement(targetGroup.id, settlement.id, currentUserId);
+      const updated = await getSettlements(targetGroup.id);
       setSettlementsByGroup((prev) => ({
         ...prev,
-        [settlementGroup.id]: updated,
+        [targetGroup.id]: updated,
       }));
     } catch (error) {
       console.error("Failed to confirm settlement", error);
