@@ -187,13 +187,20 @@ export const fetchJournalEntryById = async (
 
 export const fetchJournalEntryByDate = async (
   journalId: string,
-  entryDate: string
+  entryDate: string,
+  entryType?: string
 ): Promise<JournalEntry | null> => {
   if (!entryDate) {
     return null;
   }
   const entriesRef = collection(db, "journals", journalId, "entries");
-  const q = query(entriesRef, where("entryDate", "==", entryDate), limit(1));
+  let q = query(entriesRef, where("entryDate", "==", entryDate));
+
+  if (entryType) {
+    q = query(q, where("entryType", "==", entryType));
+  }
+
+  q = query(q, limit(1));
   const snapshot = await getDocs(q);
   if (snapshot.empty) {
     return null;
