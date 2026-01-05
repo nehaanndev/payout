@@ -412,7 +412,7 @@ const BlogPostView = ({
                 </div>
               )}
               <h1 className={cn("font-serif text-4xl font-bold tracking-tight md:text-5xl", themeUtils.text.primary(isNight))}>
-                Journal Entry
+                {answers.blogTitle || "Journal Entry"}
               </h1>
               <p className={cn("text-lg", themeUtils.text.secondary(isNight))}>
                 {formatDisplayDate(answers.entryDate)}
@@ -425,11 +425,16 @@ const BlogPostView = ({
                   {step.questions.map((question) => {
                     const answer = answers[question.id];
                     if (!answer) return null;
+                    if (question.id === "blogTitle") return null;
+                    const hideLabel = question.id === "blogBody";
+
                     return (
                       <div key={question.id} className="space-y-3">
-                        <h3 className={cn("font-serif text-xl font-semibold", themeUtils.text.primary(isNight))}>
-                          {question.label}
-                        </h3>
+                        {!hideLabel && (
+                          <h3 className={cn("font-serif text-xl font-semibold", themeUtils.text.primary(isNight))}>
+                            {question.label}
+                          </h3>
+                        )}
                         <div className={cn(
                           "prose prose-lg max-w-none leading-relaxed whitespace-pre-wrap",
                           isNight ? "prose-invert text-slate-300" : "text-slate-600"
