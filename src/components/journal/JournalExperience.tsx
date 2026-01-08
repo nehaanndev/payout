@@ -716,7 +716,7 @@ const JournalExperience = () => {
           // Preload today's entry if we haven't selected one
           if (!currentEntryId) {
             const today = new Date().toISOString().slice(0, 10);
-            let entry = await fetchJournalEntryByDate(journalId, today, "daily");
+            const entry = await fetchJournalEntryByDate(journalId, today, "daily");
             if (entry) {
               setAnswers({ ...entry.answers });
               setEntryMode(entry.entryType ?? "daily");
