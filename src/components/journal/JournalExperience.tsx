@@ -412,7 +412,7 @@ const BlogPostView = ({
                 </div>
               )}
               <h1 className={cn("font-serif text-4xl font-bold tracking-tight md:text-5xl", themeUtils.text.primary(isNight))}>
-                Journal Entry
+                {answers.blogTitle || "Journal Entry"}
               </h1>
               <p className={cn("text-lg", themeUtils.text.secondary(isNight))}>
                 {formatDisplayDate(answers.entryDate)}
@@ -425,11 +425,16 @@ const BlogPostView = ({
                   {step.questions.map((question) => {
                     const answer = answers[question.id];
                     if (!answer) return null;
+                    if (question.id === "blogTitle") return null;
+                    const hideLabel = question.id === "blogBody";
+
                     return (
                       <div key={question.id} className="space-y-3">
-                        <h3 className={cn("font-serif text-xl font-semibold", themeUtils.text.primary(isNight))}>
-                          {question.label}
-                        </h3>
+                        {!hideLabel && (
+                          <h3 className={cn("font-serif text-xl font-semibold", themeUtils.text.primary(isNight))}>
+                            {question.label}
+                          </h3>
+                        )}
                         <div className={cn(
                           "prose prose-lg max-w-none leading-relaxed whitespace-pre-wrap",
                           isNight ? "prose-invert text-slate-300" : "text-slate-600"
@@ -500,6 +505,9 @@ const JournalExperience = () => {
   );
   const [isPublic, setIsPublic] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [isVisitor, setIsVisitor] = useState(false);
+
+  const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
 
   const [entryMode, setEntryMode] = useState<EntryMode>("daily");
   const [currentStep, setCurrentStep] = useState<number>(0);
@@ -675,6 +683,7 @@ const JournalExperience = () => {
     };
   }, [journalId, member?.id, persistJournalToUrl]);
 
+
   useEffect(() => {
     if (!journalId) {
       return;
@@ -682,6 +691,7 @@ const JournalExperience = () => {
     let active = true;
     setLoadingJournal(true);
     setInvalidJournal(false);
+    setIsVisitor(false);
 
     const hydrate = async () => {
       try {
@@ -697,31 +707,40 @@ const JournalExperience = () => {
         const publicStatus = doc.isPublic ?? false;
         setIsPublic(publicStatus);
 
-        if (!member && publicStatus) {
-          const today = new Date().toISOString().slice(0, 10);
-          let entry = await fetchJournalEntryByDate(journalId, today);
-          if (!entry) {
-            entry = await fetchLatestJournalEntry(journalId);
+        const isMember = member && (doc.memberIds?.includes(member.id) || doc.members?.some(m => m.id === member.id));
+        const isOwnerCheck = member && (doc.ownerIds?.includes(member.id) ?? false);
+
+        if (isMember) {
+          setIsOwner(Boolean(isOwnerCheck));
+          await ensureMemberOnJournal(journalId, member!);
+          // Preload today's entry if we haven't selected one
+          if (!currentEntryId) {
+            const today = new Date().toISOString().slice(0, 10);
+            const entry = await fetchJournalEntryByDate(journalId, today, "daily");
+            if (entry) {
+              setAnswers({ ...entry.answers });
+              setEntryMode(entry.entryType ?? "daily");
+              setSelectedMood(entry.mood ?? null);
+              setLastSavedAt(entry.updatedAt);
+              setHasUnsavedChanges(false);
+              setCurrentEntryId(entry.id);
+            }
           }
+        } else if (publicStatus) {
+          // Not a member, but public -> Visitor (Read Only)
+          setIsVisitor(true);
+          setIsOwner(false);
+          // Load latest entry for visitor to see
+          const entry = await fetchLatestJournalEntry(journalId);
           if (entry) {
             setAnswers({ ...entry.answers });
             setEntryMode(entry.entryType ?? "daily");
             setSelectedMood(entry.mood ?? null);
-            setLastSavedAt(entry.updatedAt);
-            setHasUnsavedChanges(false);
           }
-        }
-
-        if (member) {
-          const isOwnerCheck = doc.ownerIds?.includes(member.id) ?? false;
-          setIsOwner(isOwnerCheck);
-          await ensureMemberOnJournal(journalId, member);
         } else {
-          setIsOwner(false);
-          if (!publicStatus) {
-            setInvalidJournal(true);
-            return;
-          }
+          // Private and not a member
+          setInvalidJournal(true);
+          return;
         }
 
         if (!active) {
@@ -745,7 +764,7 @@ const JournalExperience = () => {
     return () => {
       active = false;
     };
-  }, [journalId, member, persistJournalToUrl]);
+  }, [journalId, member, persistJournalToUrl, currentEntryId]);
 
   const handleTogglePublic = async (checked: boolean) => {
     if (!journalId || !isOwner) return;
@@ -932,6 +951,7 @@ const JournalExperience = () => {
     setHasUnsavedChanges(true);
     setLastSavedAt(null);
     setSaveError(null);
+    setCurrentEntryId(null);
   }, []);
 
   const handleSelectMood = (moodValue: string) => {
@@ -1073,7 +1093,11 @@ const JournalExperience = () => {
         setSelectedMood(entry.mood ?? null);
         setLastSavedAt(entry.updatedAt);
         setHasUnsavedChanges(false);
-        setCurrentStep(0);
+        setCurrentEntryId(entry.id);
+
+        // When selecting a past entry, jump to summary (preview) mode
+        setCurrentStep(totalSteps);
+
         setLibraryOpen(false);
       } catch (error) {
         console.error("Failed to load journal entry:", error);
@@ -1082,7 +1106,7 @@ const JournalExperience = () => {
         setEntryLoading(false);
       }
     },
-    [journalId]
+    [journalId, totalSteps]
   );
 
   const handleSaveEntry = async () => {
@@ -1107,16 +1131,31 @@ const JournalExperience = () => {
         setJournalId(newJournalId);
         persistJournalToUrl(newJournalId);
       }
+
       let existingEntry: JournalEntry | null = null;
-      if (targetJournalId && normalizedAnswers.entryDate) {
+      let targetEntryId = currentEntryId;
+
+      // Logic:
+      // 1. If we have a currentEntryId, we are strictly UPDATING that entry.
+      // 2. If NO currentEntryId:
+      //    a. If Daily: Check if a Daily entry exists for this date. If yes -> Update it. If no -> Create new.
+      //    b. If Blog: ALWAYS Create new (do not carry over ID).
+
+      if (!targetEntryId && targetJournalId && normalizedAnswers.entryDate && entryMode === "daily") {
         existingEntry = await fetchJournalEntryByDate(
           targetJournalId,
-          normalizedAnswers.entryDate
+          normalizedAnswers.entryDate,
+          "daily"
         );
+        if (existingEntry) {
+          targetEntryId = existingEntry.id;
+        }
       }
+
+      const entryId = targetEntryId ?? generateId();
       const ensuredJournalId = targetJournalId as string;
       const entry: JournalEntry = {
-        id: existingEntry?.id ?? generateId(),
+        id: entryId,
         journalId: ensuredJournalId,
         memberId: member.id,
         entryDate: normalizedAnswers.entryDate || null,
@@ -1126,9 +1165,11 @@ const JournalExperience = () => {
         updatedAt: nowIso,
         entryType: entryMode,
       };
+
       await saveJournalEntry(ensuredJournalId, entry);
       setLastSavedAt(nowIso);
       setHasUnsavedChanges(false);
+      setCurrentEntryId(entryId); // Update current ID to the one we just saved
       void loadLibraryEntries(ensuredJournalId);
     } catch (error) {
       console.error("Failed to save journal entry:", error);
@@ -1320,7 +1361,7 @@ const JournalExperience = () => {
     );
   }
 
-  if (!member && isPublic) {
+  if ((!member || isVisitor) && isPublic) {
     return (
       <BlogPostView
         answers={answers}
@@ -1408,7 +1449,19 @@ const JournalExperience = () => {
                   <button
                     key={mode}
                     type="button"
-                    onClick={() => setEntryMode(mode)}
+                    onClick={() => {
+                      setEntryMode(mode);
+                      // If we switch modes, we should essentially start fresh unless we are strictly editing.
+                      // But simplest UX: if switching to Blog, clear ID so it creates new.
+                      // If switching back to Daily, fetchJournalEntryByDate will catch existing daily.
+                      // Ideally: check if the 'currentEntryId' matches the new mode?
+                      // For now, let's just clear currentEntryId if we switch mode, to avoid confusion.
+                      // EXCEPT if we are jumping between viewing a daily and a blog?
+                      // "New Blog" button vs "Daily" button.
+                      // Let's just reset ID on mode switch to be safe.
+                      setCurrentEntryId(null);
+                      setHasUnsavedChanges(true); // Treat as new draft
+                    }}
                     className={cn(
                       "group relative rounded-2xl border px-4 py-4 text-left transition-all duration-200",
                       isActive
@@ -1451,9 +1504,7 @@ const JournalExperience = () => {
               })}
             </div>
           </div>
-          <p className={cn("text-sm font-medium uppercase tracking-[0.35em]", themeUtils.text.muted(isNight))}>
-            Journal ID · {journalId ?? "Not saved yet"}
-          </p>
+          <div className="h-2" />
         </header>
 
         <Card className={cn(
@@ -1923,7 +1974,7 @@ const JournalExperience = () => {
                   )}
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Back
+                  {isSummaryStep ? "Edit" : "Back"}
                 </Button>
                 <Button
                   variant="outline"
