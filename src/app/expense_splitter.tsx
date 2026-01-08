@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { getUserGroups, getExpenses, createGroup, updateGroupMembers, getUserGroupsById, getSettlements, addSettlement, confirmSettlement, deleteGroup, deleteSettlement } from "@/lib/firebaseUtils";
+import { getUserGroups, getExpenses, createGroup, updateGroupMembers, getUserGroupsById, getSettlements, addSettlement, confirmSettlement, deleteGroup, deleteSettlement, unconfirmSettlement } from "@/lib/firebaseUtils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Group, Expense, Member } from '@/types/group';
@@ -536,6 +536,16 @@ export default function ExpenseSplitter({
 
     if (!targetGroup) return;
 
+    // Security check: Find the settlement to ensure current user is the payee
+    const groupSettlements = settlementsByGroup[targetGroup.id] || [];
+    const settlement = groupSettlements.find(s => s.id === settlementId);
+
+    if (settlement && settlement.payeeId !== currentUserId) {
+      console.warn("Only the payee can reject/delete a settlement");
+      alert("Only the receiver of this payment can mark it as not received.");
+      return;
+    }
+
     if (!confirm("Are you sure you want to mark this as NOT received? This will delete the settlement record.")) {
       return;
     }
@@ -550,6 +560,28 @@ export default function ExpenseSplitter({
     } catch (error) {
       console.error("Failed to delete settlement", error);
       alert("Failed to delete settlement. Please try again.");
+    }
+  };
+
+  const handleUndoSettlement = async (settlementId: string) => {
+    // Falls back to activeGroup so it works from ExpensesPanel too
+    const targetGroup = settlementGroup || activeGroup;
+
+    if (!targetGroup) return;
+
+    // Optional: confirm with user?
+    // if (!confirm("Undo this settlement? It will go back to 'Pending' status.")) return;
+
+    try {
+      await unconfirmSettlement(targetGroup.id, settlementId);
+      const updated = await getSettlements(targetGroup.id);
+      setSettlementsByGroup((prev) => ({
+        ...prev,
+        [targetGroup.id]: updated,
+      }));
+    } catch (error) {
+      console.error("Failed to undo settlement", error);
+      alert("Failed to undo settlement. Please try again.");
     }
   };
 
@@ -681,6 +713,7 @@ export default function ExpenseSplitter({
               }}
               onConfirmSettlement={handleConfirmSettlement}
               onRejectSettlement={handleDeleteSettlement}
+              onUndoSettlement={handleUndoSettlement}
             />
           )}
         </TabsContent>
@@ -744,6 +777,7 @@ export default function ExpenseSplitter({
               }}
               onConfirmSettlement={handleConfirmSettlement}
               onRejectSettlement={handleDeleteSettlement}
+              onUndoSettlement={handleUndoSettlement}
             />
           )}
         </TabsContent>
