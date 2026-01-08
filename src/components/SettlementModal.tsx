@@ -44,6 +44,7 @@ interface SettlementModalProps {
   ) => Promise<void>;
   onConfirmSettlement?: (settlement: Settlement) => Promise<void>;
   onRejectSettlement?: (settlementId: string) => Promise<void>;
+  onUndoSettlement?: (settlementId: string) => Promise<void>;
   isMarkSettledMode?: boolean;
 }
 
@@ -87,6 +88,7 @@ export default function SettlementModal({
   onSave,
   onConfirmSettlement,
   onRejectSettlement,
+  onUndoSettlement,
   isMarkSettledMode = false,
 }: SettlementModalProps) {
   // 1️⃣ Compute open balances including past settlements using minor units
@@ -321,8 +323,8 @@ export default function SettlementModal({
                         <div className="ml-2">
                           <Button
                             size="sm"
-                            variant="ghost"
-                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                            variant="outline"
+                            className="text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-900/20"
                             onClick={() => onRejectSettlement(settlement.id)}
                           >
                             Mark not received
@@ -334,6 +336,51 @@ export default function SettlementModal({
                 })}
               </div>
             </div>
+          )}
+
+          {/* Confirmed Approvals Section (Undo) */}
+          {onUndoSettlement && (
+            (() => {
+              const confirmedByYou = settlements.filter(
+                s => s.status === 'confirmed' && s.payeeId === currentUserId
+              ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+              if (confirmedByYou.length === 0) return null;
+
+              return (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/30 p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+                    <Check className="h-4 w-4" />
+                    <h3 className="text-sm font-semibold">Confirmed Payments</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {confirmedByYou.map(settlement => {
+                      const payerName = members.find(m => m.id === settlement.payerId)?.firstName ?? 'Unknown';
+                      return (
+                        <div key={settlement.id} className="flex items-center justify-between bg-white dark:bg-slate-900 rounded-lg p-3 border border-emerald-100 dark:border-emerald-900 shadow-sm">
+                          <div>
+                            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                              {payerName} sent {formatMoney(toMinor(settlement.amount, currency), currency)}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {new Date(settlement.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                            onClick={() => onUndoSettlement(settlement.id)}
+                          >
+                            Undo
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()
           )}
 
           <div className="space-y-4">

@@ -85,6 +85,7 @@ export interface ExpensesPanelProps {
   onExpensesChange: (newExpenses: Expense[]) => void;
   onConfirmSettlement: (settlement: Settlement) => Promise<void>;
   onRejectSettlement?: (settlementId: string) => Promise<void>;
+  onUndoSettlement?: (settlementId: string) => Promise<void>;
 }
 
 
@@ -120,6 +121,7 @@ export default function ExpensesPanel({
   onExpensesChange,
   onConfirmSettlement,
   onRejectSettlement,
+  onUndoSettlement,
   userProfile,
 }: ExpensesPanelProps) {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
@@ -911,12 +913,12 @@ export default function ExpensesPanel({
                                     {onRejectSettlement && (
                                       <Button
                                         size="sm"
-                                        variant="ghost"
+                                        variant="outline"
                                         className={cn(
                                           "ml-2 transition-all duration-200",
                                           isNight
-                                            ? "text-rose-200 hover:text-rose-100 hover:bg-rose-500/20"
-                                            : "text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                                            ? "border-rose-500/30 text-rose-300 hover:text-rose-200 hover:bg-rose-500/20 hover:border-rose-500/50"
+                                            : "border-rose-200 text-rose-600 hover:text-rose-700 hover:bg-rose-50 hover:border-rose-300"
                                         )}
                                         onClick={() => {
                                           void onRejectSettlement(settlement.id);
@@ -933,7 +935,26 @@ export default function ExpensesPanel({
                                   </span>
                                 )}
                               </div>
-                            ) : null}
+                            ) : (
+                              // Confirmed state
+                              <div className="flex justify-end pt-1">
+                                {isPayee && onUndoSettlement && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className={cn(
+                                      "transition-all duration-200",
+                                      isNight
+                                        ? "border-slate-700 text-slate-400 hover:text-slate-300 hover:bg-slate-800 hover:border-slate-600"
+                                        : "border-slate-200 text-slate-600 hover:text-slate-700 hover:bg-slate-50 hover:border-slate-300"
+                                    )}
+                                    onClick={() => onUndoSettlement(settlement.id)}
+                                  >
+                                    Undo
+                                  </Button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })}

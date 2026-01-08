@@ -354,6 +354,18 @@ export async function confirmSettlement(
   });
 }
 
+export async function unconfirmSettlement(
+  groupId: string,
+  settlementId: string
+) {
+  const ref = doc(db, 'groups', groupId, 'settlements', settlementId);
+  await updateDoc(ref, {
+    status: "pending",
+    confirmedBy: null,
+    confirmedAt: null,
+  });
+}
+
 export async function deleteSettlement(
   groupId: string,
   settlementId: string
