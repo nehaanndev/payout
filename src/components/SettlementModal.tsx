@@ -43,6 +43,7 @@ interface SettlementModalProps {
     paymentNote?: string
   ) => Promise<void>;
   onConfirmSettlement?: (settlement: Settlement) => Promise<void>;
+  onRejectSettlement?: (settlementId: string) => Promise<void>;
   isMarkSettledMode?: boolean;
 }
 
@@ -85,6 +86,7 @@ export default function SettlementModal({
   currency,
   onSave,
   onConfirmSettlement,
+  onRejectSettlement,
   isMarkSettledMode = false,
 }: SettlementModalProps) {
   // 1️⃣ Compute open balances including past settlements using minor units
@@ -315,6 +317,18 @@ export default function SettlementModal({
                           "Approve"
                         )}
                       </Button>
+                      {onRejectSettlement && (
+                        <div className="ml-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                            onClick={() => onRejectSettlement(settlement.id)}
+                          >
+                            Mark not received
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

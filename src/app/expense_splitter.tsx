@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { getUserGroups, getExpenses, createGroup, updateGroupMembers, getUserGroupsById, getSettlements, addSettlement, confirmSettlement, deleteGroup } from "@/lib/firebaseUtils";
+import { getUserGroups, getExpenses, createGroup, updateGroupMembers, getUserGroupsById, getSettlements, addSettlement, confirmSettlement, deleteGroup, deleteSettlement } from "@/lib/firebaseUtils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Group, Expense, Member } from '@/types/group';
@@ -530,6 +530,29 @@ export default function ExpenseSplitter({
     }
   }
 
+  const handleDeleteSettlement = async (settlementId: string) => {
+    // Falls back to activeGroup so it works from ExpensesPanel too
+    const targetGroup = settlementGroup || activeGroup;
+
+    if (!targetGroup) return;
+
+    if (!confirm("Are you sure you want to mark this as NOT received? This will delete the settlement record.")) {
+      return;
+    }
+
+    try {
+      await deleteSettlement(targetGroup.id, settlementId);
+      const updated = await getSettlements(targetGroup.id);
+      setSettlementsByGroup((prev) => ({
+        ...prev,
+        [targetGroup.id]: updated,
+      }));
+    } catch (error) {
+      console.error("Failed to delete settlement", error);
+      alert("Failed to delete settlement. Please try again.");
+    }
+  };
+
 
   const handleDeleteGroup = async (group: Group) => {
     // Permission check: ID must match either session UID or anon ID or (legacy) email
@@ -657,6 +680,7 @@ export default function ExpenseSplitter({
                 }));
               }}
               onConfirmSettlement={handleConfirmSettlement}
+              onRejectSettlement={handleDeleteSettlement}
             />
           )}
         </TabsContent>
@@ -719,6 +743,7 @@ export default function ExpenseSplitter({
                 );
               }}
               onConfirmSettlement={handleConfirmSettlement}
+              onRejectSettlement={handleDeleteSettlement}
             />
           )}
         </TabsContent>
