@@ -353,3 +353,11 @@ export async function confirmSettlement(
     confirmedAt: new Date().toISOString(),
   });
 }
+
+export async function deleteSettlement(
+  groupId: string,
+  settlementId: string
+) {
+  const ref = doc(db, 'groups', groupId, 'settlements', settlementId);
+  await deleteDoc(ref);
+}

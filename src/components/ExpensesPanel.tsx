@@ -84,6 +84,7 @@ export interface ExpensesPanelProps {
   onBack: () => void;      // wizard ←
   onExpensesChange: (newExpenses: Expense[]) => void;
   onConfirmSettlement: (settlement: Settlement) => Promise<void>;
+  onRejectSettlement?: (settlementId: string) => Promise<void>;
 }
 
 
@@ -118,6 +119,7 @@ export default function ExpensesPanel({
   onBack,
   onExpensesChange,
   onConfirmSettlement,
+  onRejectSettlement,
   userProfile,
 }: ExpensesPanelProps) {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
@@ -890,20 +892,40 @@ export default function ExpensesPanel({
                             {isPending ? (
                               <div className="flex justify-end pt-1">
                                 {isPayee ? (
-                                  <Button
-                                    size="sm"
-                                    className={cn(
-                                      "transition-all duration-200",
-                                      isNight
-                                        ? "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400 border-transparent hover:scale-105"
-                                        : "bg-emerald-600 text-white hover:bg-emerald-500 hover:scale-105"
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="default" // Changed from implicit default
+                                      className={cn(
+                                        "transition-all duration-200",
+                                        isNight
+                                          ? "bg-emerald-500/90 text-slate-900 hover:bg-emerald-400 border-transparent hover:scale-105"
+                                          : "bg-emerald-600 text-white hover:bg-emerald-500 hover:scale-105"
+                                      )}
+                                      onClick={() => {
+                                        void onConfirmSettlement(settlement);
+                                      }}
+                                    >
+                                      Mark as received
+                                    </Button>
+                                    {onRejectSettlement && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className={cn(
+                                          "ml-2 transition-all duration-200",
+                                          isNight
+                                            ? "text-rose-200 hover:text-rose-100 hover:bg-rose-500/20"
+                                            : "text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                                        )}
+                                        onClick={() => {
+                                          void onRejectSettlement(settlement.id);
+                                        }}
+                                      >
+                                        Mark not received
+                                      </Button>
                                     )}
-                                    onClick={() => {
-                                      void onConfirmSettlement(settlement);
-                                    }}
-                                  >
-                                    Mark as received
-                                  </Button>
+                                  </>
                                 ) : (
                                   <span className={cn("text-xs flex items-center gap-1.5", isNight ? "text-slate-300" : "text-slate-500")}>
                                     <Clock className="h-3 w-3" />
