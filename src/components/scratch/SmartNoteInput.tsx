@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Sparkles, RotateCcw, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -139,7 +140,7 @@ export function SmartNoteInput({
                     />
                 ) : (
                     <div className="prose prose-sm dark:prose-invert max-w-none p-3 min-h-[160px] overflow-auto">
-                        <ReactMarkdown>{noteBody}</ReactMarkdown>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{noteBody}</ReactMarkdown>
                     </div>
                 )}
             </div>

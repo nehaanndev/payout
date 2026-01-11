@@ -88,6 +88,7 @@ import { UpgradeDialog } from "@/components/UpgradeDialog";
 import { LessonDialog } from "@/components/orbit/LessonDialog";
 import type { UserProfile } from "@/types/user";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { SmartNoteInput } from "./SmartNoteInput";
 
 type ScratchPadFilter = SharedLinkStatus | "all";
@@ -1996,7 +1997,9 @@ export function ScratchPadExperience() {
                         </div>
                         <TabsContent value="view" className="mt-0 p-4 min-h-[220px]">
                           <div className="prose prose-sm dark:prose-invert max-w-none">
-                            <ReactMarkdown>{noteEditorBody}</ReactMarkdown>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {noteEditorBody}
+                            </ReactMarkdown>
                           </div>
                         </TabsContent>
                         <TabsContent value="edit" className="mt-0">
