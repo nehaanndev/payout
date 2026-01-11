@@ -53,6 +53,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   auth,
@@ -86,6 +87,9 @@ import { getUserProfile, isUserPlus } from "@/lib/userService";
 import { UpgradeDialog } from "@/components/UpgradeDialog";
 import { LessonDialog } from "@/components/orbit/LessonDialog";
 import type { UserProfile } from "@/types/user";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { SmartNoteInput } from "./SmartNoteInput";
 
 type ScratchPadFilter = SharedLinkStatus | "all";
 
@@ -1278,26 +1282,15 @@ export function ScratchPadExperience() {
                         </p>
                       </div>
                       <div className="space-y-3">
-                        <Textarea
-                          value={noteBody}
-                          onChange={(event) => setNoteBody(event.target.value)}
-                          placeholder="What do you want to remember?"
-                          className="min-h-[120px]"
+                        <SmartNoteInput
+                          noteBody={noteBody}
+                          setNoteBody={setNoteBody}
+                          noteTags={noteTags}
+                          setNoteTags={setNoteTags}
+                          tagSuggestions={tagStats.map((s) => s.tag)}
                           disabled={createBusy}
+                          isNight={isNight}
                         />
-                        <div className="space-y-1">
-                          <label className="text-sm font-medium text-slate-700" htmlFor="scratch-note-tags">
-                            Tags (optional)
-                          </label>
-                          <TagInput
-                            id="scratch-note-tags"
-                            value={noteTags}
-                            onValueChange={setNoteTags}
-                            suggestions={tagStats.map((s) => s.tag)}
-                            placeholder="brainstorm, follow-up"
-                            disabled={createBusy}
-                          />
-                        </div>
                         <div className="flex flex-wrap items-center gap-3">
                           <Button
                             onClick={handleCreateNote}
@@ -1981,14 +1974,47 @@ export function ScratchPadExperience() {
                   >
                     Note body
                   </label>
-                  <Textarea
-                    id="orbit-note-editor"
-                    value={noteEditorBody}
-                    onChange={(event) => setNoteEditorBody(event.target.value)}
-                    className="min-h-[220px]"
-                    placeholder="Add more context or edit the note."
-                    disabled={noteEditorBusy}
-                  />
+                  <div className={cn(
+                    "rounded-md border",
+                    isNight ? "border-slate-800 bg-slate-950/50" : "border-slate-200 bg-slate-50"
+                  )}>
+                    {noteEditorBusy ? (
+                      <Textarea
+                        id="orbit-note-editor"
+                        value={noteEditorBody}
+                        onChange={(event) => setNoteEditorBody(event.target.value)}
+                        className="min-h-[220px] bg-transparent border-0 focus-visible:ring-0"
+                        placeholder="Add more context or edit the note."
+                        disabled={noteEditorBusy}
+                      />
+                    ) : (
+                      <Tabs defaultValue="view" className="w-full">
+                        <div className="flex items-center justify-between border-b px-3 py-2">
+                          <TabsList className="h-7">
+                            <TabsTrigger value="view" className="text-xs h-6">Read</TabsTrigger>
+                            <TabsTrigger value="edit" className="text-xs h-6">Edit</TabsTrigger>
+                          </TabsList>
+                        </div>
+                        <TabsContent value="view" className="mt-0 p-4 min-h-[220px]">
+                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {noteEditorBody}
+                            </ReactMarkdown>
+                          </div>
+                        </TabsContent>
+                        <TabsContent value="edit" className="mt-0">
+                          <Textarea
+                            id="orbit-note-editor"
+                            value={noteEditorBody}
+                            onChange={(event) => setNoteEditorBody(event.target.value)}
+                            className="min-h-[220px] bg-transparent border-0 focus-visible:ring-0 rounded-none resize-y"
+                            placeholder="Add more context or edit the note."
+                            disabled={noteEditorBusy}
+                          />
+                        </TabsContent>
+                      </Tabs>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label
