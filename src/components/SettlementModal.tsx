@@ -22,7 +22,7 @@ import { Member, Expense } from "@/types/group";
 import { Settlement, SettlementMethod } from "@/types/settlement";
 import { CurrencyCode, formatMoney, fromMinor, toMinor } from "@/lib/currency_core";
 import { Textarea } from "@/components/ui/textarea";
-import { Wallet, Smartphone, CreditCard, Banknote, CircleDollarSign, HelpCircle, Check, AlertCircle, Loader2 } from "lucide-react";
+import { Wallet, Smartphone, CreditCard, Banknote, CircleDollarSign, HelpCircle, Check, AlertCircle, Loader2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SettlementModalProps {
@@ -102,19 +102,33 @@ export default function SettlementModal({
     };
 
   // 3️⃣ Build the payee list based on mode
-  const payees = isMarkSettledMode
-    ? plan.receives.map(({ from, amount }) => ({
-      id: from,
-      name: members.find(m => m.id === from)?.firstName ?? from,
-      owed: amount,
-      type: 'owed' as const,
-    }))
-    : plan.owes.map(({ to, amount }) => ({
-      id: to,
-      name: members.find(m => m.id === to)?.firstName ?? to,
-      owed: amount,
-      type: 'owe' as const,
-    }));
+  const payees = useMemo(() => {
+    if (isMarkSettledMode) {
+      return plan.receives.map(({ from, amount }) => ({
+        id: from,
+        name: members.find(m => m.id === from)?.firstName ?? from,
+        owed: amount,
+        type: 'owed' as const,
+      }));
+    } else {
+      // Filter out debts that are already covered by pending settlements
+      return plan.owes
+        .map(({ to, amount }) => {
+          // Calculate how much we already sent to this person that is pending
+          const pendingToThisPerson = settlements
+            .filter(s => s.payerId === currentUserId && s.payeeId === to && s.status === 'pending')
+            .reduce((sum, s) => sum + toMinor(s.amount, currency), 0);
+
+          return {
+            id: to,
+            name: members.find(m => m.id === to)?.firstName ?? to,
+            owed: amount - pendingToThisPerson,
+            type: 'owe' as const,
+          };
+        })
+        .filter(p => p.owed > 0);
+    }
+  }, [isMarkSettledMode, plan, members, settlements, currentUserId, currency]);
 
   // 4️⃣ Local state
   const [selectedPayee, setSelectedPayee] = useState<string>(
@@ -259,13 +273,20 @@ export default function SettlementModal({
     ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [settlements, currentUserId]);
 
+  // Find sent pending settlements
+  const sentPending = useMemo(() => {
+    return settlements.filter(
+      s => s.status === 'pending' && s.payerId === currentUserId
+    ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [settlements, currentUserId]);
+
   return (
     <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span>{isMarkSettledMode ? 'Mark as settled in' : 'Pay up in'}</span>
-            <Badge variant="secondary">{groupName}</Badge>
+            <Badge variant="secondary" className="dark:bg-slate-800 dark:text-slate-100">{groupName}</Badge>
           </DialogTitle>
         </DialogHeader>
 
@@ -330,6 +351,50 @@ export default function SettlementModal({
                             Mark not received
                           </Button>
                         </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* sentPending section */}
+          {sentPending.length > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/50 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                <Clock className="h-4 w-4" />
+                <h3 className="text-sm font-semibold">Sent (Waiting for Approval)</h3>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                You marked these as paid. Waiting for the recipient to confirm.
+              </p>
+              <div className="space-y-2">
+                {sentPending.map(settlement => {
+                  const payeeName = members.find(m => m.id === settlement.payeeId)?.firstName ?? 'Unknown';
+                  return (
+                    <div key={settlement.id} className="flex items-center justify-between bg-white dark:bg-slate-950 rounded-lg p-3 border border-slate-200 dark:border-slate-800 shadow-sm">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                          Sent {formatMoney(toMinor(settlement.amount, currency), currency)} to {payeeName}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {new Date(settlement.createdAt).toLocaleDateString()}
+                          {settlement.method && ` via ${PAYMENT_METHOD_INFO[settlement.method]?.label || settlement.method}`}
+                        </p>
+                        {settlement.paymentNote && (
+                          <p className="text-xs text-slate-500 italic mt-0.5">&quot;{settlement.paymentNote}&quot;</p>
+                        )}
+                      </div>
+                      {onRejectSettlement && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-slate-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => onRejectSettlement(settlement.id)}
+                        >
+                          Cancel
+                        </Button>
                       )}
                     </div>
                   );
