@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, ChevronDown, Edit2, Share2, Trash2 } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Edit2, Share2, Trash2, Clock } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import {
 import { Settlement } from "@/types/settlement";
 import { Expense, Group } from "@/types/group";
 import { getGroupCurrency, formatMoneyWithMinor } from "@/lib/currency";
-import { CurrencyCode, formatMoney } from "@/lib/currency_core";
+import { CurrencyCode, formatMoney, toMinor } from "@/lib/currency_core";
 
 interface SummaryProps {
   groups: Group[];
@@ -35,24 +35,33 @@ const memberLabel = (count: number) =>
 const statusBadge = (
   totalOwe: number,
   totalGotten: number,
+  isPendingSettlement: boolean,
   currency: CurrencyCode
 ) => {
+  if (isPendingSettlement) {
+    return (
+      <Badge variant="outline" className="border-indigo-300/70 text-indigo-700 bg-indigo-50/50 dark:border-indigo-700 dark:text-indigo-300 dark:bg-indigo-950/30">
+        <Clock className="w-3 h-3 mr-1" />
+        Settlement Pending
+      </Badge>
+    );
+  }
   if (totalOwe > 0) {
     return (
-      <Badge variant="outline" className="border-amber-300/70 text-amber-700">
+      <Badge variant="outline" className="border-amber-300/70 text-amber-700 dark:border-amber-700 dark:text-amber-400">
         You owe {formatMoney(totalOwe, currency)}
       </Badge>
     );
   }
   if (totalGotten > 0) {
     return (
-      <Badge variant="outline" className="border-emerald-300/70 text-emerald-700">
+      <Badge variant="outline" className="border-emerald-300/70 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400">
         You’re owed {formatMoney(totalGotten, currency)}
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="border-slate-200 text-slate-600">
+    <Badge variant="outline" className="border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-400">
       All settled 🎉
     </Badge>
   );
@@ -67,7 +76,11 @@ type GroupSummary = {
   totalSpentMinor: number;
   totalOwe: number;
   totalGotten: number;
-  status: "owed" | "owe" | "settled";
+  // pendingSent is the amount the user has sent but is not yet confirmed (minor units)
+  pendingSent: number;
+  // isPendingSettlement is true if the user owes money BUT has enough pending payments to cover it
+  isPendingSettlement: boolean;
+  status: "owed" | "owe" | "settled" | "pending_settlement";
 };
 
 export default function Summary({
@@ -108,6 +121,14 @@ export default function Summary({
         0
       );
 
+      // Calculate pending payments sent by current user
+      const pendingSent = settlements
+        .filter(s => s.payerId === fullUserId && s.status === 'pending')
+        .reduce((sum, s) => sum + toMinor(s.amount, currency), 0);
+
+      const effectiveOwe = Math.max(0, totalOwe - pendingSent);
+      const isPendingSettlement = totalOwe > 0 && effectiveOwe === 0;
+
       const totalSpentMajor = expenses.reduce(
         (sum, expense) => sum + expense.amount,
         0
@@ -117,8 +138,11 @@ export default function Summary({
         0
       );
 
-      const status: "owed" | "owe" | "settled" =
-        totalGotten > 0 ? "owed" : totalOwe > 0 ? "owe" : "settled";
+      let status: "owed" | "owe" | "settled" | "pending_settlement";
+      if (totalGotten > 0) status = "owed";
+      else if (isPendingSettlement) status = "pending_settlement";
+      else if (totalOwe > 0) status = "owe";
+      else status = "settled";
 
       return {
         group,
@@ -129,6 +153,8 @@ export default function Summary({
         totalSpentMinor,
         totalOwe,
         totalGotten,
+        pendingSent,
+        isPendingSettlement,
         status,
       };
     });
@@ -138,7 +164,8 @@ export default function Summary({
     const statusPriority: Record<GroupSummary["status"], number> = {
       owed: 0,
       owe: 1,
-      settled: 2,
+      pending_settlement: 2,
+      settled: 3,
     };
     return [...groupSummaries].sort((a, b) => {
       if (statusPriority[a.status] !== statusPriority[b.status]) {
@@ -161,8 +188,6 @@ export default function Summary({
   );
 
   useEffect(() => {
-    // Only depend on summaryIds (stable string) to avoid infinite loops
-    // sortedSummaries is already memoized and will be available in the closure
     setExpandedGroups((prev) => {
       const next: Record<string, boolean> = {};
       let changed = false;
@@ -170,6 +195,7 @@ export default function Summary({
         if (summary.group.id in prev) {
           next[summary.group.id] = prev[summary.group.id];
         } else {
+          // Expand if meaningful activity (owe, owed, or pending)
           next[summary.group.id] = summary.status !== "settled";
           changed = true;
         }
@@ -179,14 +205,13 @@ export default function Summary({
           changed = true;
         }
       }
-      // Only update if something actually changed
       if (!changed) {
         return prev;
       }
       return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [summaryIds]); // Only depend on summaryIds, sortedSummaries is stable via useMemo
+  }, [summaryIds]);
 
   const toggleGroupExpansion = (groupId: string) => {
     setExpandedGroups((prev) => ({
@@ -249,14 +274,16 @@ export default function Summary({
 
       <div className="space-y-4">
         {sortedSummaries.map((summary) => {
-          const { group, currency, totalSpentMajor, totalSpentMinor, totalOwe, totalGotten, settlements } = summary;
+          const { group, currency, totalSpentMajor, totalSpentMinor, totalOwe, totalGotten, settlements, isPendingSettlement } = summary;
           const expanded = expandedGroups[group.id] ?? false;
           const statusSummary =
             totalGotten > 0
               ? `Money owed to you: ${formatMoney(totalGotten, currency)}`
-              : totalOwe > 0
-                ? `You owe: ${formatMoney(totalOwe, currency)}`
-                : "Everything’s settled";
+              : isPendingSettlement
+                ? `Settlement pending approval`
+                : totalOwe > 0
+                  ? `You owe: ${formatMoney(totalOwe, currency)}`
+                  : "Everything’s settled";
 
           return (
             <Card
@@ -272,13 +299,14 @@ export default function Summary({
                   <p className="text-base font-semibold text-slate-900">{group.name}</p>
                 </div>
                 <div className="flex items-center gap-3">
+                  {/* Ping if there are incoming pending settlements for me */}
                   {settlements.some(s => s.status === 'pending' && s.payeeId === fullUserId) && (
                     <span className="flex h-3 w-3 relative">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
                     </span>
                   )}
-                  {statusBadge(totalOwe, totalGotten, currency)}
+                  {statusBadge(totalOwe, totalGotten, isPendingSettlement, currency)}
                   <ChevronDown
                     className={`h-5 w-5 text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`}
                   />
@@ -359,10 +387,19 @@ export default function Summary({
                       <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                         Your position
                       </p>
-                      {totalOwe > 0 ? (
+                      {totalOwe > 0 && !isPendingSettlement ? (
                         <p className="text-lg font-semibold text-amber-600">
                           You owe {formatMoney(totalOwe, currency)}
                         </p>
+                      ) : isPendingSettlement ? (
+                        <div className="flex flex-col">
+                          <p className="text-lg font-semibold text-indigo-600 dark:text-indigo-400">
+                            Settlement Pending
+                          </p>
+                          <p className="text-xs text-indigo-500/80 dark:text-indigo-400/80">
+                            Waiting for approval for {formatMoney(summary.pendingSent, currency)}
+                          </p>
+                        </div>
                       ) : totalGotten > 0 ? (
                         <p className="text-lg font-semibold text-emerald-600">
                           You’re owed {formatMoney(totalGotten, currency)}
@@ -370,15 +407,26 @@ export default function Summary({
                       ) : (
                         <p className="text-lg font-semibold text-slate-700">Settled up</p>
                       )}
-                      <p className="text-xs text-slate-500">
-                        Balances account for past settlements in this group.
-                      </p>
+
+                      {!isPendingSettlement && (
+                        <p className="text-xs text-slate-500">
+                          Balances account for past settlements in this group.
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-col gap-2">
                       <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                         Quick actions
                       </p>
-                      {totalOwe > 0 ? (
+                      {isPendingSettlement ? (
+                        <Button
+                          variant="outline"
+                          onClick={() => onSettleClick(group)}
+                          className="justify-start border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                        >
+                          View status
+                        </Button>
+                      ) : totalOwe > 0 ? (
                         <Button
                           onClick={() => onSettleClick(group)}
                           className="justify-start bg-slate-900 text-white hover:bg-slate-800"

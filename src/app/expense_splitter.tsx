@@ -540,13 +540,22 @@ export default function ExpenseSplitter({
     const groupSettlements = settlementsByGroup[targetGroup.id] || [];
     const settlement = groupSettlements.find(s => s.id === settlementId);
 
-    if (settlement && settlement.payeeId !== currentUserId) {
-      console.warn("Only the payee can reject/delete a settlement");
-      alert("Only the receiver of this payment can mark it as not received.");
-      return;
+    if (settlement) {
+      const isPayee = settlement.payeeId === currentUserId;
+      const isPayerAndPending = settlement.payerId === currentUserId && settlement.status === 'pending';
+
+      if (!isPayee && !isPayerAndPending) {
+        console.warn("Only the payee can reject, or the payer can cancel a pending settlement");
+        alert("You cannot delete this settlement.");
+        return;
+      }
     }
 
-    if (!confirm("Are you sure you want to mark this as NOT received? This will delete the settlement record.")) {
+    const message = (settlement && settlement.payerId === currentUserId)
+      ? "Are you sure you want to cancel this payment? This will delete the record."
+      : "Are you sure you want to mark this as NOT received? This will delete the settlement record.";
+
+    if (!confirm(message)) {
       return;
     }
 
